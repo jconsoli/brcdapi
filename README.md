@@ -11,3 +11,5 @@ The brcdbapi library is intended for programmers who will be scripting in Python
 * Debug mode that will pprint all transactions
 * Debug mode that recards and plays back GET requests
 * Single interface to the API
+
+A simple copy of this folder to you Python Library Lib folder is dequate. In Unix environments, remember to set the executable attribute
