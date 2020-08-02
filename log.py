@@ -32,16 +32,18 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.0     | 15 Jul 2020   | Initial Launch                                                                    |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.1     | 02 Aug 2020   | PEP8 Clean up                                                                     |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2019, 2020 Jack Consoli'
-__date__ = '15 Jul 2020'
+__date__ = '02 Aug 2020'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.0'
+__version__ = '3.0.1'
 
 import traceback
 import datetime
@@ -88,7 +90,7 @@ def log(msg, echo=False, force=False):
     """Writes a message to the log file
 
     :param msg: Message to be printed to the log file
-    :type msg: str
+    :type msg: str, list
     :param echo: If True, also echoes message to STDOUT. Default is False
     :type echo: bool
     :param force: If True, ignores is_prog_suppress_all(). Useful for only echoing exit codes.
@@ -98,24 +100,17 @@ def log(msg, echo=False, force=False):
     global log_obj
 
     log_obj.write('\n# Log date: ' + datetime.datetime.now().strftime('%Y-%m-%d time: %H:%M:%S') + '\n')
-    if isinstance(msg, list):
-        for buf in msg:
-            log_obj.write(buf + '\n')
-            if echo and (not is_prog_suppress_all() or force):
-                print(buf)
-    elif isinstance(msg, str):
-        log_obj.write(msg + '\n')
-        if echo and (not is_prog_suppress_all() or force):
-            print(msg)
-    else:
-        exception('Unknown message (msg) type passed, ' + str(type(msg)), True)
+    buf = '\n'.join(msg) if isinstance(msg, list) else msg
+    log_obj.write(buf)
+    if echo and (not is_prog_suppress_all() or force):
+        print(buf)
 
 
 def exception(msg, echo=False):
     """Prints the passed error message followed by the call stack returned from traceback
 
     :param msg: Message to be printed to the log file
-    :type msg: str
+    :type msg: str, list
     :param echo: If True, also echoes message to STDOUT
     :type echo: bool
     :return: None
@@ -123,10 +118,9 @@ def exception(msg, echo=False):
     global log_obj
 
     msg_list = ['Exception call with msg:']
-    msg_list.append(msg)
+    msg_list.extend(msg if isinstance(msg, list) else [msg])
     msg_list.append('Traceback:')
-    # I should really split on \n and add individual lines because log already adds a line break
-    msg_list.extend(traceback.format_stack())
+    msg_list.extend([buf.rstrip() for buf in traceback.format_stack()])  # Log adds a line feed
     log(msg_list, echo)
     log_obj.flush()
 
