@@ -96,25 +96,24 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.0     | 19 Jul 2020   | Initial Launch                                                                    |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.1     | 02 Aug 2020   | PEP8 Clean up                                                                     |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2019, 2020 Jack Consoli'
-__date__ = '19 Jul 2020'
+__date__ = '02 Aug 2020'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.0'
+__version__ = '3.0.1'
 
-import errno
-import time
 import http.client as httplib
 import base64
 import ssl
 import json
 import brcdapi.util as brcdapi_util
-import pprint  # Debug
 
 LOGIN_RESTCONF = "/rest/login"
 LOGOUT_RESTCONF = "/rest/logout"
@@ -143,18 +142,18 @@ def basic_api_parse(obj):
     return json_data
 
 
-def _get_connection(ip_addr, isHttps):
+def _get_connection(ip_addr, is_https):
 
-    if isHttps == "self":
+    if is_https == "self":
         return httplib.HTTPSConnection(ip_addr, context=ssl._create_unverified_context())
-    elif isHttps == "CA":
+    elif is_https == "CA":
         return httplib.HTTPSConnection(ip_addr)  # Don't I need the certificate here?
     else:
         return httplib.HTTPConnection(ip_addr)
 
 
-def _pyfos_logout(credential, ip_addr, isHttps):
-    conn = _get_connection(ip_addr, isHttps)
+def _pyfos_logout(credential, ip_addr, is_https):
+    conn = _get_connection(ip_addr, is_https)
     conn.request("POST", LOGOUT_RESTCONF, "", credential)
     resp = conn.getresponse()
     return basic_api_parse(resp.read())
