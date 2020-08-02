@@ -64,16 +64,18 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.0     | 19 Jul 2020   | Initial Launch                                                                    |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.1     | 02 Aug 2020   | PEP8 Clean up                                                                     |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2019, 2020 Jack Consoli'
-__date__ = '19 Jul 2020'
+__date__ = '02 Aug 2020'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.0'
+__version__ = '3.0.1'
 
 import http.client as httplib
 import json
@@ -92,7 +94,7 @@ _DEBUG = False
 _DEBUG_MODE = 0 # Only used when _DEBUG == True
                 # 0 - Perform all requests normally. Write all responses to a file
                 # 1 - Do not perform any I/O. Read all responses from file into response and fake a successful login
-_DEBUG_PREFIX = '200714_raw/'  # Can be any valid folder name. The folder is not created. It must already
+_DEBUG_PREFIX = '200802_raw_all/'  # Can be any valid folder name. The folder is not created. It must already
                     # exist. This is where all the json dumps of API requests are read/written.
 verbose_debug = False  # When True, prints data structures. Only useful for debugging. Can be set externally
 
@@ -106,13 +108,13 @@ _VF_ID = '?vf-id='
 def login(user_id, pw, ip_addr, https='none'):
     """Performs a login to the device using pyfos_auth.login
 
-    :param id: User ID
+    :param user_id: User ID
+    :type user_id: str
     :param pw: Password
-    :param ipaddr: IP address
-    :param https: If 'CA' or 'self', uses https to login. Otherwise, http.
-    :type id: str
     :type pw: str
-    :type ipaddr: str
+    :param ip_addr: IP address
+    :type ip_addr: str
+    :param https: If 'CA' or 'self', uses https to login. Otherwise, http.
     :type https: str
     :return: PyFOS session object
     :rtype: dict
@@ -157,12 +159,12 @@ def _http_connection(session):
     :rtype: dict
     """
     ip_addr = session.get("ip_addr")
-    isHttps = session.get("ishttps")
+    is_https = session.get("ishttps")
 
-    if isHttps == "self":
+    if is_https == "self":
         conn = httplib.HTTPSConnection(
                 ip_addr, timeout=_TIMEOUT, context=ssl._create_unverified_context())
-    elif isHttps == "CA":
+    elif is_https == "CA":
         conn = httplib.HTTPSConnection(ip_addr, timeout=_TIMEOUT)
     else:
         conn = httplib.HTTPConnection(ip_addr, timeout=_TIMEOUT)
@@ -185,12 +187,8 @@ def _api_request(session, uri, http_method, content):
     :rtype: dict
     """
     if verbose_debug:
-        buf = ['api_request() - Send:']
-        buf.append('Method: ' + http_method)
-        buf.append('URI: ' + uri)
-        buf.append('content:')
-        buf.append(pprint.pformat(content))
-        brcdapi_log.log('\n'.join(buf), True)
+        buf = ['api_request() - Send:', 'Method: ' + http_method, 'URI: ' + uri, 'content:', pprint.pformat(content)]
+        brcdapi_log.log(buf, True)
 
     # Set up the headers and JSON data
     header = session.get('credential')
@@ -211,9 +209,7 @@ def _api_request(session, uri, http_method, content):
     try:
         json_data = pyfos_auth.basic_api_parse(conn.getresponse())
         if verbose_debug:
-            buf = ['api_request() - Response:']
-            buf.append(pprint.pformat(json_data))
-            brcdapi_log.log('\n'.join(buf), True)
+            brcdapi_log.log(['api_request() - Response:', pprint.pformat(json_data)], True)
     except:
         buf = 'Time out processing ' + uri + '. Method: ' + http_method
         brcdapi_log.log(buf, True)
