@@ -66,16 +66,18 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.1     | 02 Aug 2020   | PEP8 Clean up                                                                     |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.2     | 22 Aug 2020   | Added verbose debug when debug mode is to read file                               |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2019, 2020 Jack Consoli'
-__date__ = '02 Aug 2020'
+__date__ = '22 Aug 2020'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.1'
+__version__ = '3.0.2'
 
 import http.client as httplib
 import json
@@ -91,7 +93,7 @@ _SVC_UNAVAIL_WAIT = 4  # Time, in seconds, to wait before retrying a request tha
 _FABRIC_BUSY_WAIT = 10  # Time, in seconds, to wait before retrying a request due to a fabric busy
 
 _DEBUG = False
-_DEBUG_MODE = 0 # Only used when _DEBUG == True
+_DEBUG_MODE = 1  # Only used when _DEBUG == True
                 # 0 - Perform all requests normally. Write all responses to a file
                 # 1 - Do not perform any I/O. Read all responses from file into response and fake a successful login
 _DEBUG_PREFIX = '200802_raw_all/'  # Can be any valid folder name. The folder is not created. It must already
@@ -388,6 +390,9 @@ def get_request(session, ruri, fid=None):
             f = open(file, "r")
             json_data = json.load(f)
             f.close
+            if verbose_debug:
+                brcdapi_log.log(['api_request() - Send:', 'Method: GET', 'URI: ' + _format_uri(ruri, fid)], True)
+                brcdapi_log.log(['api_request() - Response:', pprint.pformat(json_data)], True)
         except:
             brcdapi_log.log('Unable to open ' + file + '. All processing aborted', True)
             raise
