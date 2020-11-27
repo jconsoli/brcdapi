@@ -34,30 +34,38 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.1     | 02 Aug 2020   | PEP8 Clean up                                                                     |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.2     | 27 Nov 2020   | Changed exception() to print the traceback first followed by the passed message.  |
+    |           |               | Also added the ability to disable logging.                                        |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2019, 2020 Jack Consoli'
-__date__ = '02 Aug 2020'
+__date__ = '27 Nov 2020'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.1'
+__version__ = '3.0.2'
 
 import traceback
 import datetime
 import time
 
-# Get a file handle for logging. Note that the rest module may be opened by multiple modules so make sure there is only
-# one log file opened just once.
-try:
-    if log_obj.closed:
+_LOG_ENABLED = True  # You can't set this externally because you have to import this module to access this variable at
+    # which point, it's to late.
+
+# Get a file handle for logging. Note that this module is imported by multiple modules. The code below ensures that only
+# one log file is opened. Since log_obj is undefined for the first import, an exception is raised. This isn't follwing
+# good PEP 8 standards around the use of except but it's the only reasonable way I could think of to do this.
+if _LOG_ENABLED:
+    try:
+        if log_obj.closed:
+            log_obj = open('Log_' + str(time.time()).replace('.', '_') + '.txt', 'w')
+            log_obj.write('Previous log file closed. Opening new FOS Rest API Log\n')
+    except:
         log_obj = open('Log_' + str(time.time()).replace('.', '_') + '.txt', 'w')
-        log_obj.write('Previous log file closed. Opening new FOS Rest API Log\n')
-except:
-    log_obj = open('Log_' + str(time.time()).replace('.', '_') + '.txt', 'w')
-    log_obj.write('New FOS Rest API Log\n')
+        log_obj.write('New FOS Rest API Log\n')
 
 _local_suppress_all = False
 
@@ -82,7 +90,6 @@ def is_prog_suppress_all():
     :rtype: bool
     """
     global _local_suppress_all
-
     return _local_suppress_all
 
 
@@ -97,11 +104,12 @@ def log(msg, echo=False, force=False):
     :type force: bool
     :return: None
     """
-    global log_obj
-
-    log_obj.write('\n# Log date: ' + datetime.datetime.now().strftime('%Y-%m-%d time: %H:%M:%S') + '\n')
     buf = '\n'.join(msg) if isinstance(msg, list) else msg
-    log_obj.write(buf)
+    if _LOG_ENABLED:
+        global log_obj
+
+        log_obj.write('\n# Log date: ' + datetime.datetime.now().strftime('%Y-%m-%d time: %H:%M:%S') + '\n')
+        log_obj.write(buf)
     if echo and (not is_prog_suppress_all() or force):
         print(buf)
 
@@ -115,14 +123,13 @@ def exception(msg, echo=False):
     :type echo: bool
     :return: None
     """
-    global log_obj
-
-    msg_list = ['Exception call with msg:']
-    msg_list.extend(msg if isinstance(msg, list) else [msg])
-    msg_list.append('Traceback:')
+    msg_list = ['brcdapi library exception call. Traceback:']
     msg_list.extend([buf.rstrip() for buf in traceback.format_stack()])  # Log adds a line feed
+    msg_list.extend(msg if isinstance(msg, list) else [msg])
     log(msg_list, echo)
-    log_obj.flush()
+    if _LOG_ENABLED:
+        global log_obj
+        log_obj.flush()
 
 
 def close_log(msg, echo=False, force=False):
@@ -136,17 +143,15 @@ def close_log(msg, echo=False, force=False):
     :type force: bool
     :return: None
     """
-    global log_obj
-
     log(msg, echo, force)
-    log_obj.close()
+    if _LOG_ENABLED:
+        global log_obj
+        log_obj.close()
 
 
 def flush():
     """Flushes (writes) the contents of the log file cache to storage
     """
-    global log_obj
-
-    log_obj.flush()
-
-
+    if _LOG_ENABLED:
+        global log_obj
+        log_obj.flush()
