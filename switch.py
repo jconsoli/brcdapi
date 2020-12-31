@@ -73,15 +73,19 @@ Version Control::
     +===========+===============+===================================================================================+
     | 3.0.0     | 27 Nov 2020   | Initial Launch                                                                    |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.1     | 31 Dec 2020   | Only report number of ports to move in add_ports if there are ports to add.       |
+    |           |               | Try to delete the switch anyway, even if there is an error setting ports to the   |
+    |           |               | default.
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2020 Jack Consoli'
-__date__ = '27 Nov 2020'
+__date__ = '31 Dec 2020'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.0'
+__version__ = '3.0.1'
 
 import pprint
 import collections
@@ -95,7 +99,7 @@ MAX_PORTS_TO_MOVE = 32  # It takes about 10 sec + 500 msec per port to move per 
     # number of ports that can be moved in any single Rest request so as not to encounter an HTTP connection timeout.
 
 def switch_wwn(session, fid, echo=False):
-    """Create a logical switch with some basic configuration.
+    """Returns the switch WWN from the logical switch matching the specified FID.
 
     :param session: Session object returned from brcdapi.pyfos_auth.login()
     :type session: dict
@@ -245,11 +249,11 @@ def add_ports(session, to_fid, from_fid, i_ports=None, i_ge_ports=None, echo=Fal
     """
     ports = brcdapi_port.ports_to_list(i_ports)
     ge_ports = brcdapi_port.ports_to_list(i_ge_ports)
-    buf = 'Attempting to move ' + str(len(ports)) + ' ports and ' + str(len(ge_ports)) + ' GE ports from FID ' + \
-          str(from_fid) + ' to FID ' + str(to_fid)
-    brcdapi_log.log(buf, True)
     if len(ports) + len(ge_ports) == 0:
         return brcdapi_util.GOOD_STATUS_OBJ
+    buf = 'Attempting to move ' + str(len(ports)) + ' ports and ' + str(len(ge_ports)) + ' GE ports from FID ' + \
+          str(from_fid) + ' to FID ' + str(to_fid)
+    brcdapi_log.log(buf, echo)
 
     # Set all ports to the default configuration and disable before moving.
     obj = brcdapi_port.default_port_config(session, from_fid, ports + ge_ports)
@@ -342,6 +346,7 @@ def create_switch(session, fid, base, ficon, echo=False):
     # Disable the switch
     fibrechannel_switch(session, fid, {'is-enabled-state': False}, None, echo)
 
+
 def delete_switch(session, fid, echo=False):
     """Sets all ports to their default configuration, moves those ports to the default switch, and deletes the switch
 
@@ -363,7 +368,7 @@ def delete_switch(session, fid, echo=False):
         return pyfos_auth.create_error(brcdapi_util.HTTP_BAD_REQUEST, 'Chassis not VF enabled', '')
 
     default_fid = switch_list[0]['fabric-id']
-    brcdapi_log.log('brcdapi.switch.delete_switch(): Attempting to delete FID ', echo)
+    brcdapi_log.log('brcdapi.switch.delete_switch(): Attempting to delete FID ' + str(fid), echo)
     # Find this logical switch
     for i in range(0, len(switch_list)):
         if switch_list[i]['fabric-id'] == fid:
@@ -380,7 +385,7 @@ def delete_switch(session, fid, echo=False):
             obj = add_ports(session, default_fid, fid, port_l, ge_port_l, echo)
             if pyfos_auth.is_error(obj):
                 brcdapi_log.exception('Error moving ports from FID ' + str(fid) + ' to FID ' + str(default_fid), echo)
-                return obj
+                # return obj
 
             # Delete the switch
             obj =  brcdapi_rest.send_request(session,
