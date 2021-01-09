@@ -1,4 +1,4 @@
-# Copyright 2019, 2020 Jack Consoli.  All rights reserved.
+# Copyright 2019, 2020, 2021 Jack Consoli.  All rights reserved.
 #
 # NOT BROADCOM SUPPORTED
 #
@@ -98,16 +98,19 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.1     | 02 Aug 2020   | PEP8 Clean up                                                                     |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.2     | 09 Jan 2021   | Removed unused unused method, _pyfos_logout(). Use connection established at      |
+    |           |               | login time rather than create a new HTTP connection.                              |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2019, 2020 Jack Consoli'
-__date__ = '02 Aug 2020'
+__copyright__ = 'Copyright 2019, 2020, 2021 Jack Consoli'
+__date__ = '09 Jan 2021'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.1'
+__version__ = '3.0.2'
 
 import http.client as httplib
 import base64
@@ -131,32 +134,25 @@ def basic_api_parse(obj):
         # I could have checked for obj.status = 200 - < 300 and obj.reason = 'No Content', but this covers everything
         json_data = json.loads(obj.read())
     except:
-        json_data = {}
+        json_data = dict()
     try:
-        d = {}
+        d = dict()
         json_data.update({'_raw_data': d})
         d.update({'status': obj.status})
         d.update({'reason': obj.reason})
-    except:  # I think logout is the only request that does not return a status and reason
+    except:  # Some requiests do not return a status and reason when the request was completed successfully
         pass
     return json_data
 
 
-def _get_connection(ip_addr, is_https):
+def _get_connection(ip_addr, ca):
 
-    if is_https == "self":
+    if ca == 'self':
         return httplib.HTTPSConnection(ip_addr, context=ssl._create_unverified_context())
-    elif is_https == "CA":
-        return httplib.HTTPSConnection(ip_addr)  # Don't I need the certificate here?
-    else:
+    if ca =='none':
         return httplib.HTTPConnection(ip_addr)
-
-
-def _pyfos_logout(credential, ip_addr, is_https):
-    conn = _get_connection(ip_addr, is_https)
-    conn.request("POST", LOGOUT_RESTCONF, "", credential)
-    resp = conn.getresponse()
-    return basic_api_parse(resp.read())
+    # Assume it's a certificate
+    return httplib.HTTPSConnection(ip_addr, ca)  # Is this right? Need to test
 
 
 def create_error(status, reason, msg):
@@ -295,14 +291,14 @@ def login(user, password, ip_addr, is_https='none'):
     """
     # Get connectction token
     conn = _get_connection(ip_addr, is_https)
-    auth = user + ":" + password
+    auth = user + ':' + password
     auth_encoded = base64.b64encode(auth.encode())
-    credential = {"Authorization": "Basic " + auth_encoded.decode(), "User-Agent": "Rest-Conf"}
+    credential = {'Authorization': "Basic " + auth_encoded.decode(), 'User-Agent': 'Rest-Conf'}
     credential.update({'Accept': 'application/yang-data+json'})  # Default response is XML. This forces JSON
     credential.update({'Content-Type': 'application/yang-data+json'})  # Also needed for a JSON response
 
     try:
-        conn.request("POST", LOGIN_RESTCONF, "", credential)
+        conn.request('POST', LOGIN_RESTCONF, '', credential)
     except:
         # Usually, we get here if the IP address was inaccessible or HTTPS was used before a certifiate was generated
         obj = create_error(brcdapi_util.HTTP_NOT_FOUND, 'Not Found', '')
@@ -313,7 +309,7 @@ def login(user, password, ip_addr, is_https='none'):
     resp = conn.getresponse()
     json_data = basic_api_parse(resp)
     content = resp.getheader('content-type')
-    contentlist = content.split(";")
+    contentlist = content.split(';')
     if len(contentlist) == 2:
         json_data.update({'content-type': contentlist[0]})
         json_data.update({'content-version': contentlist[1]})
@@ -322,10 +318,11 @@ def login(user, password, ip_addr, is_https='none'):
         json_data.update({'content-version': None})
     credential.pop('Authorization')
     credential.update({'Authorization': resp.getheader('authorization')})
-    json_data.update({'credential': credential})
-    json_data.update({'ip_addr': ip_addr})
-    json_data.update({'ishttps': is_https})
-    json_data.update({'debug': False})
+    json_data.update(dict(conn=conn))
+    json_data.update(dict(credential=credential))
+    json_data.update(dict(ip_addr=ip_addr))
+    json_data.update(dict(ishttps=is_https))
+    json_data.update(dict(debug=False))
     return json_data
 
 
@@ -336,8 +333,8 @@ def logout(session):
     :type session: dict
     :rtype: None.
     """
-    conn = _get_connection(session.get('ip_addr'), session.get('ishttps'))
-    conn.request("POST", LOGOUT_RESTCONF, "", session.get('credential'))
+    conn = session.get('conn')
+    conn.request('POST', LOGOUT_RESTCONF, '', session.get('credential'))
     resp = conn.getresponse()
     obj = basic_api_parse(resp.read())
     return obj

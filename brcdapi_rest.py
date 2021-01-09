@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright 2019, 2020 Jack Consoli.  All rights reserved.
+# Copyright 2019, 2020, 2021 Jack Consoli.  All rights reserved.
 #
 # NOT BROADCOM SUPPORTED
 #
@@ -20,7 +20,7 @@ Methods in this module are used to establish, modify, send requests, and termina
 
     * Errors indicating zero length lists are converted to 0 length lists.
     * Errors for HA requests on fixed port switches are converted to 0 length lists.
-    * Throttling - no more than 30 requests in 30 seconds. Sleeps if necessary
+    * Service unavailable - sleep 4 seconds and retry request up to 5 times
     * Fabric busy - wait 10 seconds and retry request up to 5 times
     * Service unavailable - wait 30 seconds and retry request
     * Debug mode allows for off line work. Used with GET only
@@ -68,16 +68,18 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.2     | 22 Aug 2020   | Added verbose debug when debug mode is to read file                               |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.3     | 09 Jan 2021   | Updated comments and some PEP8 cleanup                                            |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2019, 2020 Jack Consoli'
-__date__ = '22 Aug 2020'
+__copyright__ = 'Copyright 2019, 2020, 2021 Jack Consoli'
+__date__ = '09 Jan 2021'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.2'
+__version__ = '3.0.3'
 
 import http.client as httplib
 import json
@@ -96,7 +98,7 @@ _DEBUG = False
 _DEBUG_MODE = 1  # Only used when _DEBUG == True
                 # 0 - Perform all requests normally. Write all responses to a file
                 # 1 - Do not perform any I/O. Read all responses from file into response and fake a successful login
-_DEBUG_PREFIX = '200802_raw_all/'  # Can be any valid folder name. The folder is not created. It must already
+_DEBUG_PREFIX = 'SQA_97_Raw_1_Sep_2020/'  # Can be any valid folder name. The folder is not created. It must already
                     # exist. This is where all the json dumps of API requests are read/written.
 verbose_debug = False  # When True, prints data structures. Only useful for debugging. Can be set externally
 
@@ -125,7 +127,7 @@ def login(user_id, pw, ip_addr, https='none'):
         return {'_debug_name': ip_addr.replace('.', '_'), 'debug': True}
     session = pyfos_auth.login(user_id, pw, ip_addr, https)
     if not pyfos_auth.is_error(session) and _DEBUG:
-        session.update({'_debug_name': ip_addr.replace('.', '_')})
+        session.update(dict(_debug_name=ip_addr.replace('.', '_')))
     return session
 
 
@@ -138,7 +140,7 @@ def logout(session):
     if not (_DEBUG and _DEBUG_MODE == 1):
         return pyfos_auth.logout(session)
     else:
-        return {}
+        return dict()
 
 
 def vfid_to_str(vfid):
@@ -196,7 +198,7 @@ def _api_request(session, uri, http_method, content):
     header = session.get('credential')
     header.update({'Accept': 'application/yang-data+json'})
     header.update({'Content-Type': 'application/yang-data+json'})
-    conn = _http_connection(session)
+    conn = session.get('conn')
 
     # Send the request and get the response
     json_data = json.dumps(content) if content is not None and len(content) > 0 else None
@@ -206,7 +208,7 @@ def _api_request(session, uri, http_method, content):
         obj = pyfos_auth.create_error(brcdapi_util.HTTP_NOT_FOUND,
                                       'Not Found', 'Typical of switch going offline or pre-FOS 8.2.1c')
         if 'ip_addr' in session:
-            obj.update({'ip_addr': session.get('ip_addr')})
+            obj.update(dict(ip_addr=session.get('ip_addr')))
         return obj
     try:
         json_data = pyfos_auth.basic_api_parse(conn.getresponse())
@@ -237,20 +239,20 @@ def _api_request(session, uri, http_method, content):
         try:
             if http_method == 'GET' and json_data['_raw_data']['status'] == brcdapi_util.HTTP_NOT_FOUND and \
                     json_data['_raw_data']['reason'] == 'Not Found':
-                ret_obj = {cmd: []}  # It's really just an empty list
+                ret_obj = dict(cmd=list())  # It's really just an empty list
             elif http_method == 'GET' and json_data['_raw_data']['status'] == brcdapi_util.HTTP_BAD_REQUEST and \
                     msg == 'No entries in the FDMI database':
-                ret_obj = {cmd: []}  # It's really just an empty list
+                ret_obj = dict(cmd=list())  # It's really just an empty list
             elif http_method == 'GET' and json_data['_raw_data']['status'] == brcdapi_util.HTTP_BAD_REQUEST and \
                      json_data['_raw_data']['reason'] == 'Bad Request' and 'Not supported on this platform' in msg:
-                ret_obj = {cmd: []}  # It's really just an empty list
+                ret_obj = dict(cmd=list())  # It's really just an empty list
             elif http_method == 'PATCH' and json_data['_raw_data']['status'] == brcdapi_util.HTTP_BAD_REQUEST and \
                     json_data['_raw_data']['reason'] == 'Bad Request' and \
                     ('No Change in Configuration' in msg or 'Same configuration' in msg):
                 # Sometimes FOS 8.2.1 returns no change as this error and sometimes it doesn't. Expected fix for no
                 # change with PATCH is to always return good status (204). Note that according to RFC 5789, no change is
                 # not considered an error.
-                ret_obj = {cmd: []}
+                ret_obj = dict(cmd=list())
             else:
                 ret_obj = json_data
         except:
@@ -266,7 +268,7 @@ def _api_request(session, uri, http_method, content):
             ret_obj = pyfos_auth.create_error(status, reason, msg)
     elif 'Response' in json_data:
         obj = json_data.get('Response')
-        ret_obj = obj if bool(obj) else {cmd: []}
+        ret_obj = obj if bool(obj) else {cmd: list()}
     else:
         raw_data = json_data.get('_raw_data')
         if raw_data is not None:
@@ -278,7 +280,7 @@ def _api_request(session, uri, http_method, content):
         if status < 200 or status >= 300:
             ret_obj = pyfos_auth.create_error(status, reason, '')
         else:
-            ret_obj = {}
+            ret_obj = dict()
 
     return ret_obj
 
@@ -320,7 +322,7 @@ def _format_uri(kpi, fid):
         remaining_l = l[2:]
     else:
         lookup_kpi = kpi
-        remaining_l = []
+        remaining_l = list()
     try:
         buf = brcdapi_util.uri_map[lookup_kpi]['uri']
         if len(remaining_l) > 0:
