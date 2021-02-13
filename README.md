@@ -13,3 +13,9 @@ The brcdbapi library is intended for programmers who will be scripting in Python
 * Single interface to the API
 
 A simple copy of this folder to you Python Library Lib folder is dequate. In Unix environments, remember to set the executable attribute
+
+Updates
+
+13 Feb 2021
+
+Primarily a clean up release. Some minor bug fixes and removed shebang lines from library methods.
