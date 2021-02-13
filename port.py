@@ -1,5 +1,4 @@
-#!/usr/bin/python
-# Copyright 2020 Jack Consoli.  All rights reserved.
+# Copyright 2020, 2021 Jack Consoli.  All rights reserved.
 #
 # NOT BROADCOM SUPPORTED
 #
@@ -41,15 +40,17 @@ Version Control::
     +===========+===============+===================================================================================+
     | 3.0.0     | 27 Nov 2020   | Initial Launch                                                                    |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.1     | 13 Feb 2021   | Added disable_port()                                                              |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2020 Jack Consoli'
-__date__ = '27 Nov 2020'
+__copyright__ = 'Copyright 2020, 2021 Jack Consoli'
+__date__ = '13 Feb 2021'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.0'
+__version__ = '3.0.1'
 
 import pprint
 import collections
@@ -206,8 +207,8 @@ def default_port_config(session, fid, i_ports):
         return brcdapi_util.GOOD_STATUS_OBJ
 
 
-def enable_port(session, fid, state, i_ports, echo=False):
-    """Enables or disables a port or list of ports.
+def port_enable_disable(session, fid, state, i_ports, echo=False):
+    """Enables a port or list of ports.
 
     :param session: Session object returned from brcdapi.pyfos_auth.login()
     :type session: dict
@@ -232,3 +233,33 @@ def enable_port(session, fid, state, i_ports, echo=False):
                                      'PATCH',
                                      {'fibrechannel': [{'name': p, 'is-enabled-state': state} for p in ports]},
                                      fid)
+
+
+def enable_port(session, fid, i_ports, echo=False):
+    """Enables a port or list of ports.
+
+    :param session: Session object returned from brcdapi.pyfos_auth.login()
+    :type session: dict
+    :param fid: Logical FID number for switch with ports. Use None if switch is not VF enabled.
+    :type fid: int
+    :param i_ports: List of ports to enable or disable
+    :type i_ports: tuple, list
+    :return: The object returned from the API. If ports is an empty list, a made up good status is returned.
+    :rtype: dict
+    """
+    return port_enable_disable(session, fid, True, i_ports, echo)
+
+
+def disable_port(session, fid, i_ports, echo=False):
+    """Disables a port or list of ports.
+
+    :param session: Session object returned from brcdapi.pyfos_auth.login()
+    :type session: dict
+    :param fid: Logical FID number for switch with ports. Use None if switch is not VF enabled.
+    :type fid: int
+    :param i_ports: List of ports to enable or disable
+    :type i_ports: tuple, list
+    :return: The object returned from the API. If ports is an empty list, a made up good status is returned.
+    :rtype: dict
+    """
+    return port_enable_disable(session, fid, False, i_ports, echo)
