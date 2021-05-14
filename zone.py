@@ -31,25 +31,18 @@
 
 **Important Notes**
 
-    I could not figure out how to add or remove members of a zone without replacing the entire zone. When using the CLI,
-    it's common to create a zone and then immediately add members. When using the API, this is foolish because it's
-    easier to just add all the members in a list at creation time. For customers with CLI scripts taking automation
-    implementation one step at a time, they may have created a script that simply converts CLI to API requests. In fact,
-    I did the same thing. I consider this an interim step in migrating to an automated zoning solution so I was not
-    concerned with effeciency.
-
-    In typical operations environments, it's unusual to modify a zone after the initial creation and adding of members
-    so I didn't spend much time on it. "Unusual" doesn't mean never so there is a method, modify_zone(), that reads the
-    current zone information and adds/removes members and then rebuilds the zone. This is a departure from all other
+    The members of a zone cannot be modified. To effect modification of a zone, modify_zone() builds a local copy of the
+    zone, makes the requested changes to the local copy, and then replaces the zone. This is a departure from all other
     methods herein in that:
 
     * There is no intellegence in any other method. They simply build the request content.
     * All other methods modify the object they are working on, they do not replace it.
 
-    Since aliases are usually simple and rarely changed, I didn't bother working out how to add or remove alias members.
-    If you need to modify an alias using these libraries, the only thing you can do is delete it and re-create it.
+    The members of an aliasj cannot be modified either. Since modifying an alias is unusual, I didn't bother writting a
+    method equivelent to modify_zone(). For anyone who needs such a method, the same approach would need to be taken. If
+    you need to modify an alias using these libraries, the only thing you can do is delete it and re-create it.
 
-    Zone configurations are frequently changed so methods to add and remove zone configuration members are included.
+    The members of a zone configurations can be modified via the API.
 
 Version Control::
 
@@ -63,15 +56,17 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.1     | 13 Feb 2021   | Removed the shebang line                                                          |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.2     | 14 May 2021   | Fixed some mutable list issues in modify_zone()                                   |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2020, 2021 Jack Consoli'
-__date__ = '13 Feb 2021'
+__date__ = '14 May 2021'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.1'
+__version__ = '3.0.2'
 
 import brcdapi.brcdapi_rest as brcdapi_rest
 import brcdapi.pyfos_auth as pyfos_auth
@@ -122,7 +117,7 @@ def create_aliases(session, fid, alias_list, echo=False):
     :return: brcdapi_rest status object
     :rtype: dict
     """
-    build_alias_list = []
+    build_alias_list = list()
     for alias_obj in alias_list:
         build_alias_list.append({'alias-name': alias_obj.get('name'),
                                  'member-entry': {'alias-entry-name': alias_obj.get('members')}})
@@ -164,9 +159,9 @@ def create_zones(session, fid, zone_list, echo=False):
     :rtype: dict
     """
     # Create the zones
-    build_zone_list = []
+    build_zone_list = list()
     for zone_obj in zone_list:
-        d = {}
+        d = dict()
         members = zone_obj.get('members')
         if isinstance(members, list):
             d.update({'entry-name': members})
@@ -202,7 +197,7 @@ def del_zones(session, fid, zones, echo=False):
     return obj
 
 
-def modify_zone(session, fid, zone, add_members, del_members, add_pmembers=None, del_pmembers=None, echo=False):
+def modify_zone(session, fid, zone, add_members, del_members, in_add_pmembers=None, in_del_pmembers=None, echo=False):
     """Adds and removes members from a zone.
 
     :param session: Session object returned from brcdapi.pyfos_auth.login()
@@ -224,11 +219,8 @@ def modify_zone(session, fid, zone, add_members, del_members, add_pmembers=None,
     :return: brcdapi_rest status object
     :rtype: dict
     """
-    # Something about mutable defaults in Python I learned the hard way
-    if add_pmembers is None:
-        add_pmembers = []
-    if del_pmembers is None:
-        del_pmembers = []
+    add_pmembers = list() if in_add_pmembers is None else in_add_pmembers
+    del_pmembers = list() if in_del_pmembers is None else in_del_pmembers
 
     # This method reads the zone to change, makes the modifications in a local object, and PATCHes the change. I'm
     # assuming the type of zone could be changed but this method is just changing the membership. See "Important Notes"
@@ -248,13 +240,13 @@ def modify_zone(session, fid, zone, add_members, del_members, add_pmembers=None,
                                        'Missing leaf "zone" in returned object for ' + zone)
     me = d.get('member-entry')
     if me is None:
-        me = {}  # I'm not sure what FOS returns if all the members were deleted so this is just to be safe
+        me = dict()  # I'm not sure what FOS returns if all the members were deleted so this is just to be safe
         d.update({'member-entry': me})
     for k, v in control.items():
         ml = me.get(k)
         if len(v.get('add_mem')) + len(v.get('del_mem')) > 0:
             if ml is None:
-                ml = []  # Just a safety net. Similar to 'member-entry' above.
+                ml = list()  # Just a safety net. Similar to 'member-entry' above.
                 me.update({k: ml})  # If there are principle members to a non-peer zone, FOS returns an error
             for mem in v.get('add_mem'):
                 ml.append(mem)
