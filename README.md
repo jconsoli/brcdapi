@@ -1,5 +1,11 @@
 # brcdapi
 
+**Updates: 7 Aug 2021
+
+* util.py - Clean up mask_ip_addr()
+
+**Description**
+
 The brcdbapi library is a driver for the FOS RESTConf API. It is intended for programmers who will be scripting in Python to interface directly to the RESTConf API in FOS in support of SAN automation applications. Since JSON is used, FOS must be at v8.2.1c or higher.
 
 * Performs low level error checking and re-transmit of requests when applicable
