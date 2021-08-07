@@ -46,16 +46,18 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.2     | 13 Feb 2021   | Removed the shebang line                                                          |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.3     | 07 Aug 2021   | Clean up mask_ip_addr()                                                           |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2019, 2020, 2021 Jack Consoli'
-__date__ = '13 Feb 2021'
+__date__ = '07 Aug 2021'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.2'
+__version__ = '3.0.3'
 
 # Common HTTP error codes and reason messages
 HTTP_OK = 200
@@ -98,7 +100,7 @@ SESSION_OBJ = NULL_OBJ + 1
 CHASSIS_OBJ = SESSION_OBJ + 1  # URI is associated with a physical chassis
 CHASSIS_SWITCH_OBJ = CHASSIS_OBJ + 1   # URI is associated with a physical chassis containing switch objects
 SWITCH_OBJ = CHASSIS_SWITCH_OBJ + 1  # URI is associated with a logical switch
-SWITCH_PORT_OBJ = SWITCH_OBJ + 1  # URI is associated with a logical switch contianing port objects
+SWITCH_PORT_OBJ = SWITCH_OBJ + 1  # URI is associated with a logical switch containing port objects
 FABRIC_OBJ = SWITCH_PORT_OBJ + 1  # URI is associated with a fabric
 FABRIC_SWITCH_OBJ = FABRIC_OBJ + 1  # URI is associated with a fabric containing switch objects
 FABRIC_ZONE_OBJ = FABRIC_SWITCH_OBJ + 1  # URI is associated with a fabric containing zoning objects
@@ -1217,7 +1219,7 @@ def mask_ip_addr(addr, keep_last=True):
 
     :param addr: IP address
     :type addr: str
-    :param keep_last: If true, preserves the last octet. If false, all octets with xxx
+    :param keep_last: If true, preserves the last octet. If false, replace all octets with xxx
     :type keep_last: bool
     :return: Masked IP
     :rtype: str
@@ -1227,8 +1229,5 @@ def mask_ip_addr(addr, keep_last=True):
         tl = addr.split('.')
         for i in range(0, len(tl) - 1):
             tip += 'xxx.'
-        if keep_last:
-            tip += tl[len(tl) - 1]
-        else:
-            tip += 'xxx'
+        tip += tl[len(tl) - 1] if keep_last else 'xxx'
     return tip
