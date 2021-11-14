@@ -42,21 +42,23 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.1     | 13 Feb 2021   | Added disable_port()                                                              |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.2     | 14 Nov 2021   | Deprecated pyfos_auth                                                             |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2020, 2021 Jack Consoli'
-__date__ = '13 Feb 2021'
+__date__ = '14 Nov 2021'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.1'
+__version__ = '3.0.2'
 
 import pprint
 import collections
 import brcdapi.util as brcdapi_util
 import brcdapi.brcdapi_rest as brcdapi_rest
-import brcdapi.pyfos_auth as pyfos_auth
+import brcdapi.fos_auth as brcdapi_auth
 import brcdapi.log as brcdapi_log
 
 def ports_to_list(i_ports):
@@ -76,7 +78,7 @@ def ports_to_list(i_ports):
 def clear_stats(session, fid, i_ports, i_ge_ports):
     """Clear all statistical counters associated with a port or list of ports
 
-    :param session: Session object returned from brcdapi.pyfos_auth.login()
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
     :param fid: Logical FID number for switch with ports. Use None if switch is not VF enabled.
     :type fid: int
@@ -138,7 +140,7 @@ default_port_config_d['congestion-signal-enabled'] = True  # Gen7 FPIN feature
 def default_port_config(session, fid, i_ports):
     """Disables and sets a list of FC ports to their factory default state
 
-    :param session: Session object returned from brcdapi.pyfos_auth.login()
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
     :param fid: Logical FID number for switch with ports. Use None if switch is not VF enabled.
     :type fid: int
@@ -159,7 +161,7 @@ def default_port_config(session, fid, i_ports):
 
     # Read in the port configurations
     obj = brcdapi_rest.get_request(session, 'brocade-interface/fibrechannel', fid)
-    if pyfos_auth.is_error(obj):
+    if brcdapi_auth.is_error(obj):
         brcdapi_log.log('Failed to read brocade-interface/fibrechannel for fid ' + str(fid), True)
         return obj
     # Put all the ports in a dictionary for easy lookup
@@ -210,7 +212,7 @@ def default_port_config(session, fid, i_ports):
 def port_enable_disable(session, fid, state, i_ports, echo=False):
     """Enables a port or list of ports.
 
-    :param session: Session object returned from brcdapi.pyfos_auth.login()
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
     :param fid: Logical FID number for switch with ports. Use None if switch is not VF enabled.
     :type fid: int
@@ -238,7 +240,7 @@ def port_enable_disable(session, fid, state, i_ports, echo=False):
 def enable_port(session, fid, i_ports, echo=False):
     """Enables a port or list of ports.
 
-    :param session: Session object returned from brcdapi.pyfos_auth.login()
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
     :param fid: Logical FID number for switch with ports. Use None if switch is not VF enabled.
     :type fid: int
@@ -253,7 +255,7 @@ def enable_port(session, fid, i_ports, echo=False):
 def disable_port(session, fid, i_ports, echo=False):
     """Disables a port or list of ports.
 
-    :param session: Session object returned from brcdapi.pyfos_auth.login()
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
     :param fid: Logical FID number for switch with ports. Use None if switch is not VF enabled.
     :type fid: int

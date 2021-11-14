@@ -32,7 +32,7 @@ Primary Methods::
     +-----------------------------+----------------------------------------------------------------------------------+
     | Method                      | Description                                                                      |
     +=============================+==================================================================================+
-    | login()                     | Adds a wrapper around brcdapi.pyfos_auth.login()                                 |
+    | login()                     | Adds a wrapper around brcdapi.brcdapi_auth.login()                                 |
     +-----------------------------+----------------------------------------------------------------------------------+
     | logout()                    | Adds a wrapper around brcdapi.pyfo_auth.logout()                                 |
     +-----------------------------+----------------------------------------------------------------------------------+
@@ -71,23 +71,26 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.4     | 13 Feb 2021   | Removed the shebang line                                                          |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.5     | 14 Nov 2021   | Deprecated pyfos_auth. Added set_debug()                                          |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2019, 2020, 2021 Jack Consoli'
-__date__ = '13 Feb 2021'
+__date__ = '14 Nov 2021'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.4'
+__version__ = '3.0.5'
 
 import http.client as httplib
 import json
 import ssl
 import time
 import pprint
-import brcdapi.pyfos_auth as pyfos_auth
+import os
+import brcdapi.fos_auth as brcdapi_auth
 import brcdapi.log as brcdapi_log
 import brcdapi.util as brcdapi_util
 
@@ -111,7 +114,7 @@ _VF_ID = '?vf-id='
 
 
 def login(user_id, pw, ip_addr, https='none'):
-    """Performs a login to the device using pyfos_auth.login
+    """Performs a login to the device using brcdapi_auth.login
 
     :param user_id: User ID
     :type user_id: str
@@ -125,23 +128,20 @@ def login(user_id, pw, ip_addr, https='none'):
     :rtype: dict
     """
     if _DEBUG and _DEBUG_MODE == 1:
-        return {'_debug_name': ip_addr.replace('.', '_'), 'debug': True}
-    session = pyfos_auth.login(user_id, pw, ip_addr, https)
-    if not pyfos_auth.is_error(session) and _DEBUG:
+        return dict(_debug_name=ip_addr.replace('.', '_'), debug=True)
+    session = brcdapi_auth.login(user_id, pw, ip_addr, https)
+    if not brcdapi_auth.is_error(session) and _DEBUG:
         session.update(dict(_debug_name=ip_addr.replace('.', '_')))
     return session
 
 
 def logout(session):
-    """Logout of a Rest API session using pyfos_auth.logout
+    """Logout of a Rest API session using brcdapi_auth.logout
 
     :param session: PyFOS session object
     :type session: dict
     """
-    if not (_DEBUG and _DEBUG_MODE == 1):
-        return pyfos_auth.logout(session)
-    else:
-        return dict()
+    return brcdapi_auth.logout(session) if not (_DEBUG and _DEBUG_MODE == 1) else dict()
 
 
 def vfid_to_str(vfid):
@@ -188,7 +188,7 @@ def _api_request(session, uri, http_method, content):
     :type http_method: str
     :param content: The content, in Python dict, to be converted to JSON and sent to switch.
     :type content: dict
-    :return: Response and status in pyfos_auth.is_error() and pyfos_auth.formatted_error_msg() friendly format
+    :return: Response and status in brcdapi_auth.is_error() and brcdapi_auth.formatted_error_msg() friendly format
     :rtype: dict
     """
     if verbose_debug:
@@ -205,37 +205,37 @@ def _api_request(session, uri, http_method, content):
     json_data = json.dumps(content) if content is not None and len(content) > 0 else None
     try:
         conn.request(http_method, uri, json_data, header)
-    except:
-        obj = pyfos_auth.create_error(brcdapi_util.HTTP_NOT_FOUND,
+    except:  # Bare except because I'm not debugging or other libraries. or FOS behavior
+        obj = brcdapi_auth.create_error(brcdapi_util.HTTP_NOT_FOUND,
                                       'Not Found', 'Typical of switch going offline or pre-FOS 8.2.1c')
         if 'ip_addr' in session:
             obj.update(dict(ip_addr=session.get('ip_addr')))
         return obj
     try:
-        json_data = pyfos_auth.basic_api_parse(conn.getresponse())
+        json_data = brcdapi_auth.basic_api_parse(conn.getresponse())
         if verbose_debug:
             brcdapi_log.log(['api_request() - Response:', pprint.pformat(json_data)], True)
-    except:
+    except:  # Bare except because I'm not debugging or other libraries. or FOS behavior
         buf = 'Time out processing ' + uri + '. Method: ' + http_method
         brcdapi_log.log(buf, True)
-        obj = pyfos_auth.create_error(brcdapi_util.HTTP_REQUEST_TIMEOUT, buf, '')
+        obj = brcdapi_auth.create_error(brcdapi_util.HTTP_REQUEST_TIMEOUT, buf, '')
         return obj
 
 
     # Do some basic parsing of the response
     tl = uri.split('?')[0].split('/')
     cmd = tl[len(tl) - 1]
-    if pyfos_auth.is_error(json_data):
+    if brcdapi_auth.is_error(json_data):
         try:
             msg = json_data['errors']['error']['error-message']
-        except:
+        except:  # Bare except because I'm not debugging or other libraries. or FOS behavior
             try:
                 # The purpose of capturing the message is to support the code below that works around a defect in FOS
                 # whereby empty lists or no change PATCH requests are returned as errors. In the case of multiple
                 # errors, I'm assuming the first error is the same for all errors. For any code I wrote, that will be
                 # true. Since I know this will be fixed in a future version of FOS, I took the easy way out.
                 msg = json_data['errors']['error'][0]['error-message']
-            except:
+            except:  # Bare except because I'm not debugging or other libraries. or FOS behavior
                 msg = ''
         try:
             if http_method == 'GET' and json_data['_raw_data']['status'] == brcdapi_util.HTTP_NOT_FOUND and \
@@ -259,14 +259,14 @@ def _api_request(session, uri, http_method, content):
         except:
             try:
                 status = json_data['_raw_data']['status']
-            except:
+            except:  # Bare except because I'm not debugging or other libraries. or FOS behavior
                 status = 0
                 msg = 'No status provided.'
             try:
                 reason = json_data['_raw_data']['reason']
-            except:
+            except:  # Bare except because I'm not debugging or other libraries. or FOS behavior
                 reason = 'No reason provided'
-            ret_obj = pyfos_auth.create_error(status, reason, msg)
+            ret_obj = brcdapi_auth.create_error(status, reason, msg)
     elif 'Response' in json_data:
         obj = json_data.get('Response')
         ret_obj = obj if bool(obj) else {cmd: list()}
@@ -279,7 +279,7 @@ def _api_request(session, uri, http_method, content):
             status = brcdapi_util.HTTP_BAD_REQUEST
             reason = 'Invalid response from the API'
         if status < 200 or status >= 300:
-            ret_obj = pyfos_auth.create_error(status, reason, '')
+            ret_obj = brcdapi_auth.create_error(status, reason, '')
         else:
             ret_obj = dict()
 
@@ -296,12 +296,12 @@ def _retry(obj):
     :return delay: Time, in seconds, to wait for retrying the request
     :rtype delay: int
     """
-    status = pyfos_auth.obj_status(obj)
-    reason = pyfos_auth.obj_reason(obj) if isinstance(pyfos_auth.obj_reason(obj), str) else ''
+    status = brcdapi_auth.obj_status(obj)
+    reason = brcdapi_auth.obj_reason(obj) if isinstance(brcdapi_auth.obj_reason(obj), str) else ''
     if isinstance(status, int) and status == 503 and isinstance(reason, str) and 'Service Unavailable' in reason:
         brcdapi_log.log('FOS API services unavailable. Will retry in ' + str(_SVC_UNAVAIL_WAIT) + ' seconds.', True)
         return True, _SVC_UNAVAIL_WAIT
-    if status == brcdapi_util.HTTP_BAD_REQUEST and 'The Fabric is busy' in pyfos_auth.formatted_error_msg(obj):
+    if status == brcdapi_util.HTTP_BAD_REQUEST and 'The Fabric is busy' in brcdapi_auth.formatted_error_msg(obj):
         brcdapi_log.log('Fabric is busy. Will retry in ' + str(_FABRIC_BUSY_WAIT) + ' seconds.')
         return True, _FABRIC_BUSY_WAIT
     return False, 0
@@ -331,7 +331,7 @@ def _format_uri(kpi, fid):
         if brcdapi_util.uri_map[lookup_kpi]['fid']:
             buf += vfid_to_str(fid)
         return buf
-    except:
+    except:  # Bare except because I'm not debugging or other libraries. or FOS behavior
         buf = '/rest/running/' + kpi + vfid_to_str(fid)
         brcdapi_log.log('ERROR: Unknown KPI: ' + lookup_kpi + '. Using best guess: ' + buf, True)
         brcdapi_log.flush()
@@ -348,7 +348,7 @@ def api_request(session, uri, http_method, content):
     :param http_method: Method for HTTP connect.
     :param content: The content, in Python dict, to be converted to JSON and sent to switch.
     :type content: dict
-    :return: Response and status in pyfos_auth.is_error() and pyfos_auth.formatted_error_msg() friendly format
+    :return: Response and status in brcdapi_auth.is_error() and brcdapi_auth.formatted_error_msg() friendly format
     :rtype: dict
     """
     global _MAX_RETRIES
@@ -356,7 +356,7 @@ def api_request(session, uri, http_method, content):
     if uri is None:  # An error occurred in _format_uri()
         buf = 'Missing URI'
         brcdapi_log.exception(buf, True)
-        return pyfos_auth.create_error(brcdapi_util.HTTP_BAD_REQUEST, 'Missing URI', buf)
+        return brcdapi_auth.create_error(brcdapi_util.HTTP_BAD_REQUEST, 'Missing URI', buf)
     obj = _api_request(session, uri, http_method, content)
     retry_count = _MAX_RETRIES
     retry_flag, wait_time = _retry(obj)
@@ -377,7 +377,7 @@ def get_request(session, ruri, fid=None):
     :type ruri: str
     :param fid: Fabric ID
     :type fid: int, None
-    :return: Response and status in pyfos_auth.is_error() and pyfos_auth.formatted_error_msg() friendly format
+    :return: Response and status in brcdapi_auth.is_error() and brcdapi_auth.formatted_error_msg() friendly format
     :rtype: dict
     """
     if _DEBUG:
@@ -396,7 +396,7 @@ def get_request(session, ruri, fid=None):
             if verbose_debug:
                 brcdapi_log.log(['api_request() - Send:', 'Method: GET', 'URI: ' + _format_uri(ruri, fid)], True)
                 brcdapi_log.log(['api_request() - Response:', pprint.pformat(json_data)], True)
-        except:
+        except:  # Bare except because I'm not debugging or other libraries. or FOS behavior
             brcdapi_log.log('Unable to open ' + file + '. All processing aborted', True)
             raise
     else:
@@ -406,12 +406,8 @@ def get_request(session, ruri, fid=None):
             with open(file, 'w') as f:
                 f.write(json.dumps(json_data))
             f.close()
-        except:
-            buf = '\nError writting to ' + file + '. This usually happens when _DEBUG is True '\
-                  'and a folder is specified in the file name that doesn\'t exist'
-            buf += ' but the folder does not exist.\n'
-            brcdapi_log.log(buf, True)
-            raise
+        except FileNotFoundError:
+            brcdapi_log.log('\nThe folder for ' + file + ' does not exist.', True)
 
     return json_data
 
@@ -428,7 +424,49 @@ def send_request(session, ruri, http_method, content, fid=None):
     :type content: dict
     :param fid: Fabric ID
     :type fid: int, None
-    :return: Response and status in is_error() and pyfos_auth.formatted_error_msg() friendly format
+    :return: Response and status in is_error() and brcdapi_auth.formatted_error_msg() friendly format
     :rtype: dict
     """
     return api_request(session, _format_uri(ruri, fid), http_method, content)
+
+
+def set_debug(debug, debug_mode=None, debug_folder=None):
+    """Programmatically set _DEBUG, _DEBUG_MODE, _DEBUG_PREFIX
+
+    :param debug: Set _DEBUG. If True, use debug_mode. If False, debug_mode and debug_folder are ignored.
+    :type debug: bool
+    :param debug_mode: If debug is True. 0: Process requests normally and write to debug_folder. 1: Do not perform any \
+        requests. Read all requests from data stored when debug_mode was 0 and debug True.
+    :type debug_mode: int, None
+    :param debug_folder: Folder name where all the json dumps of API requests are read/written. If the folder does not \
+        exist it is created with 777 access (that means all access rights).
+    :type debug_folder: str, None
+    :return: Status. If true, debug mode was successfully set.
+    :rtype: bool
+    """
+    global _DEBUG, _DEBUG_MODE, _DEBUG_PREFIX
+
+    _DEBUG = debug
+    if debug:
+        if isinstance(debug_mode, int) and debug_mode >= 0 and debug_mode <= 1:
+            _DEBUG_MODE = debug_mode
+            x = len(debug_folder) if isinstance(debug_folder, str) else 0
+            if x > 0:
+                _DEBUG_PREFIX = debug_folder[0:x-1] if debug_folder[x-1] == '/' or debug_folder[x-1] == '\\' \
+                    else debug_folder
+                try:
+                    os.mkdir(_DEBUG_PREFIX)
+                except FileExistsError:
+                    pass
+                _DEBUG_PREFIX += '/'
+            else:
+                buf = 'Invalid debug_folder type. debug_folder type must be str. Type is: ' + str(type(debug_folder))
+                return False
+        else:
+            buf = 'Invalid debug_mode. debug_mode must be an integer of value 0 or 1. debug_mode type: ' + \
+                  str(type(debug_mode)) + ', value: ' + str(debug_mode)
+            brcdapi_log.exception(buf, True)
+            return False
+
+    return True
+

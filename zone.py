@@ -58,18 +58,20 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.2     | 14 May 2021   | Fixed some mutable list issues in modify_zone()                                   |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.3     | 14 Nov 2021   | Deprecated pyfos_auth                                                             |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2020, 2021 Jack Consoli'
-__date__ = '14 May 2021'
+__date__ = '14 Nov 2021'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.2'
+__version__ = '3.0.3'
 
 import brcdapi.brcdapi_rest as brcdapi_rest
-import brcdapi.pyfos_auth as pyfos_auth
+import brcdapi.fos_auth as brcdapi_auth
 import brcdapi.log as brcdapi_log
 import brcdapi.util as brcdapi_util
 from pprint import pprint  # Debug
@@ -87,9 +89,9 @@ def _is_error(obj, msg, echo):
     :return: Version
     :rtype: str
     """
-    if pyfos_auth.is_error(obj):
+    if brcdapi_auth.is_error(obj):
         brcdapi_log.log(msg, echo)
-        brcdapi_log.exception(pyfos_auth.formatted_error_msg(obj), echo)
+        brcdapi_log.exception(brcdapi_auth.formatted_error_msg(obj), echo)
         return True
     return False
 
@@ -106,7 +108,7 @@ def create_aliases(session, fid, alias_list, echo=False):
         {'name': 'Target_0', 'members': ['50:0c:00:11:0d:bb:42:00']},
         {'name': 'Target_1', 'members': ['50:0c:00:11:0d:bb:42:01']},
     ]
-    :param session: Session object returned from brcdapi.pyfos_auth.login()
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
     :param fid: Logical FID number
     :type fid: int
@@ -147,7 +149,7 @@ def create_zones(session, fid, zone_list, echo=False):
         {'name': 'T0_S0', 'type': 0, 'members': ['Target_0', 'Server_0']},
         {'name': 'T0_S1', 'type': 1, 'pmembers': ['Target_0'], 'members': ['Server_1', 'Server_2]},
     ]
-    :param session: Session object returned from brcdapi.pyfos_auth.login()
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
     :param fid: Logical FID number
     :type fid: int
@@ -179,7 +181,7 @@ def create_zones(session, fid, zone_list, echo=False):
 def del_zones(session, fid, zones, echo=False):
     """Deletes zones.
 
-    :param session: Session object returned from brcdapi.pyfos_auth.login()
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
     :param fid: Logical FID number
     :type fid: int
@@ -200,7 +202,7 @@ def del_zones(session, fid, zones, echo=False):
 def modify_zone(session, fid, zone, add_members, del_members, in_add_pmembers=None, in_del_pmembers=None, echo=False):
     """Adds and removes members from a zone.
 
-    :param session: Session object returned from brcdapi.pyfos_auth.login()
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
     :param fid: Logical FID number
     :type fid: int
@@ -236,7 +238,7 @@ def modify_zone(session, fid, zone, add_members, del_members, in_add_pmembers=No
     # Modify the zone
     d = obj.get('zone')
     if d is None:
-        return pyfos_auth.create_error(brcdapi_util.HTTP_BAD_REQUEST, brcdapi_util.HTTP_REASON_MAL_FORMED_OBJ,
+        return brcdapi_auth.create_error(brcdapi_util.HTTP_BAD_REQUEST, brcdapi_util.HTTP_REASON_MAL_FORMED_OBJ,
                                        'Missing leaf "zone" in returned object for ' + zone)
     me = d.get('member-entry')
     if me is None:
@@ -251,10 +253,10 @@ def modify_zone(session, fid, zone, add_members, del_members, in_add_pmembers=No
             for mem in v.get('add_mem'):
                 ml.append(mem)
             for mem in v.get('del_mem'):
-                try:
+                if mem in ml:
                     ml.remove(mem)
-                except:
-                    pyfos_auth.create_error(brcdapi_util.HTTP_BAD_REQUEST, 'Delete error',
+                else:
+                    brcdapi_auth.create_error(brcdapi_util.HTTP_BAD_REQUEST, 'Delete error',
                                             'Member ' + mem + ' does not exist')
 
     content = {'defined-configuration': obj}
@@ -271,7 +273,7 @@ def modify_zone(session, fid, zone, add_members, del_members, in_add_pmembers=No
 def create_zonecfg(session, fid, zonecfg_name, zone_list, echo=False):
     """Add a zone configuration.
 
-    :param session: Session object returned from brcdapi.pyfos_auth.login()
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
     :param fid: Logical FID number
     :type fid: int
@@ -305,7 +307,7 @@ def create_zonecfg(session, fid, zonecfg_name, zone_list, echo=False):
 def del_zonecfg(session, fid, zonecfg_name, echo=False):
     """Deletes a zone configuration
 
-    :param session: Session object returned from brcdapi.pyfos_auth.login()
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
     :param fid: Logical FID number
     :type fid: int
@@ -330,7 +332,7 @@ def del_zonecfg(session, fid, zonecfg_name, echo=False):
 def enable_zonecfg(session, check_sum, fid, zonecfg_name, echo=False):
     """Enables a zone configuration.
 
-    :param session: Session object returned from brcdapi.pyfos_auth.login()
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
     :param check_sum: Zoning database checksum
     :type check_sum: int
@@ -358,7 +360,7 @@ def enable_zonecfg(session, check_sum, fid, zonecfg_name, echo=False):
 def disable_zonecfg(session, check_sum, fid, zonecfg_name, echo=False):
     """Enables a zone configuration.
 
-    :param session: Session object returned from brcdapi.pyfos_auth.login()
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
     :param check_sum: Zoning database checksum
     :type check_sum: int
@@ -388,7 +390,6 @@ def _zonecfg_modify(session, fid, zonecfg_name, zone_list, method, echo=False):
     :param method:  'DELETE' for remove or 'POST' to add members
     :type method: str
     """
-    # Test
     content = {
         'defined-configuration': {
             'cfg': [
@@ -409,7 +410,7 @@ def _zonecfg_modify(session, fid, zonecfg_name, zone_list, method, echo=False):
 def zonecfg_add(session, fid, zonecfg_name, zone_list, echo=False):
     """Adds members to a zone configuration.
 
-    :param session: Session object returned from brcdapi.pyfos_auth.login()
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
     :param fid: Logical FID number
     :type fid: int
@@ -428,7 +429,7 @@ def zonecfg_add(session, fid, zonecfg_name, zone_list, echo=False):
 def zonecfg_remove(session, fid, zonecfg_name, zone_list, echo=False):
     """Removes members from a zone configuration.
 
-    :param session: Session object returned from brcdapi.pyfos_auth.login()
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
     :param fid: Logical FID number
     :type fid: int
@@ -452,7 +453,7 @@ def zonecfg_remove(session, fid, zonecfg_name, zone_list, echo=False):
 def checksum(session, fid, echo=False):
     """Gets a zoning transaction checksum
 
-    :param session: Session object returned from brcdapi.pyfos_auth.login()
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
     :param fid: Logical FID number for the fabric of interest
     :type fid: int
@@ -469,10 +470,10 @@ def checksum(session, fid, echo=False):
         return None, obj
     try:
         return obj.get('effective-configuration').get('checksum'), obj
-    except:
+    except TypeError:
         brcdapi_log.log('Failed to get checksum', echo)
         brcdapi_log.exception(pprint.pformat(obj, indent=4), echo)
-        return None, pyfos_auth.create_error(brcdapi_util.HTTP_INT_SERVER_ERROR,
+        return None, brcdapi_auth.create_error(brcdapi_util.HTTP_INT_SERVER_ERROR,
                                              brcdapi_util.HTTP_REASON_UNEXPECTED_RESP,
                                              'Missing effective-configuration/checksum')
 
@@ -480,7 +481,7 @@ def checksum(session, fid, echo=False):
 def abort(session, fid, echo=False):
     """Aborts a zoning transaction
 
-    :param session: Session object returned from brcdapi.pyfos_auth.login()
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
     :param fid: Logical FID number for the fabric of interest
     :type fid: int
@@ -499,7 +500,7 @@ def abort(session, fid, echo=False):
 def save(session, fid, check_sum, echo=False):
     """Saves the contents of the zoning transaction buffer
 
-    :param session: Session object returned from brcdapi.pyfos_auth.login()
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
     :param fid: Logical FID number for the fabric of interest
     :type fid: int
@@ -523,7 +524,7 @@ def save(session, fid, check_sum, echo=False):
 def default_zone(session, fid, access, echo=False):
     """Sets the default zone access method. Also saves pending changes
 
-    :param session: Session object returned from brcdapi.pyfos_auth.login()
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
     :param fid: Logical FID number
     :type fid: int
@@ -547,7 +548,7 @@ def default_zone(session, fid, access, echo=False):
 def clear_zone(session, fid, echo=False):
     """Clears the zone database
 
-    :param session: Session object returned from brcdapi.pyfos_auth.login()
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
     :param fid: Logical FID number
     :type fid: int
