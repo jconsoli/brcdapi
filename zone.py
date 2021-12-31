@@ -35,11 +35,11 @@
     zone, makes the requested changes to the local copy, and then replaces the zone. This is a departure from all other
     methods herein in that:
 
-    * There is no intellegence in any other method. They simply build the request content.
+    * There is no intelligence in any other method. They simply build the request content.
     * All other methods modify the object they are working on, they do not replace it.
 
-    The members of an aliasj cannot be modified either. Since modifying an alias is unusual, I didn't bother writting a
-    method equivelent to modify_zone(). For anyone who needs such a method, the same approach would need to be taken. If
+    The members of an alias cannot be modified either. Since modifying an alias is unusual, I didn't bother writing a
+    method equivalent to modify_zone(). For anyone who needs such a method, the same approach would need to be taken. If
     you need to modify an alias using these libraries, the only thing you can do is delete it and re-create it.
 
     The members of a zone configurations can be modified via the API.
@@ -60,15 +60,17 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.3     | 14 Nov 2021   | Deprecated pyfos_auth                                                             |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.4     |31 Dec 2021    | Improved error messages and comments. No functional changes                       |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2020, 2021 Jack Consoli'
-__date__ = '14 Nov 2021'
+__date__ = '31 Dec 2021'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.3'
+__version__ = '3.0.4'
 
 import brcdapi.brcdapi_rest as brcdapi_rest
 import brcdapi.fos_auth as brcdapi_auth
@@ -212,10 +214,10 @@ def modify_zone(session, fid, zone, add_members, del_members, in_add_pmembers=No
     :type add_members: list
     :param del_members: Members to delete from the zone
     :type del_members: list
-    :param add_pmembers: Principal members to add to zone. Only relevant for peer zones
-    :type add_pmembers: list
-    :param del_pmembers: Principal members to delete from a zone. Only relevant for peer zones
-    :type del_pmembers: list
+    :param in_add_pmembers: Principal members to add to zone. Only relevant for peer zones
+    :type in_add_pmembers: list
+    :param in_del_pmembers: Principal members to delete from a zone. Only relevant for peer zones
+    :type in_del_pmembers: list
     :param echo: If True, echoes any error messages to STD_OUT
     :type echo: bool
     :return: brcdapi_rest status object
@@ -224,7 +226,7 @@ def modify_zone(session, fid, zone, add_members, del_members, in_add_pmembers=No
     add_pmembers = list() if in_add_pmembers is None else in_add_pmembers
     del_pmembers = list() if in_del_pmembers is None else in_del_pmembers
 
-    # This method reads the zone to change, makes the modifications in a local object, and PATCHes the change. I'm
+    # This method reads the zone to change, makes the modifications in a local object, and PATCH the change. I'm
     # assuming the type of zone could be changed but this method is just changing the membership. See "Important Notes"
     control = {
         'principal-entry-name': {'add_mem': add_pmembers, 'del_mem': del_pmembers},
@@ -239,7 +241,7 @@ def modify_zone(session, fid, zone, add_members, del_members, in_add_pmembers=No
     d = obj.get('zone')
     if d is None:
         return brcdapi_auth.create_error(brcdapi_util.HTTP_BAD_REQUEST, brcdapi_util.HTTP_REASON_MAL_FORMED_OBJ,
-                                       'Missing leaf "zone" in returned object for ' + zone)
+                                         'Missing leaf "zone" in returned object for ' + zone)
     me = d.get('member-entry')
     if me is None:
         me = dict()  # I'm not sure what FOS returns if all the members were deleted so this is just to be safe
@@ -256,8 +258,9 @@ def modify_zone(session, fid, zone, add_members, del_members, in_add_pmembers=No
                 if mem in ml:
                     ml.remove(mem)
                 else:
-                    brcdapi_auth.create_error(brcdapi_util.HTTP_BAD_REQUEST, 'Delete error',
-                                            'Member ' + mem + ' does not exist')
+                    brcdapi_auth.create_error(brcdapi_util.HTTP_BAD_REQUEST,
+                                              'Delete error',
+                                              'Member ' + mem + ' does not exist')
 
     content = {'defined-configuration': obj}
     obj = brcdapi_rest.send_request(session, 'brocade-zone/defined-configuration', 'PATCH', content, fid)
@@ -267,7 +270,7 @@ def modify_zone(session, fid, zone, add_members, del_members, in_add_pmembers=No
 
 ###################################################################
 #
-#                    Zone Configuation Methods
+#                    Zone Configuration Methods
 #
 ###################################################################
 def create_zonecfg(session, fid, zonecfg_name, zone_list, echo=False):
@@ -474,8 +477,8 @@ def checksum(session, fid, echo=False):
         brcdapi_log.log('Failed to get checksum', echo)
         brcdapi_log.exception(pprint.pformat(obj, indent=4), echo)
         return None, brcdapi_auth.create_error(brcdapi_util.HTTP_INT_SERVER_ERROR,
-                                             brcdapi_util.HTTP_REASON_UNEXPECTED_RESP,
-                                             'Missing effective-configuration/checksum')
+                                               brcdapi_util.HTTP_REASON_UNEXPECTED_RESP,
+                                               'Missing effective-configuration/checksum')
 
 
 def abort(session, fid, echo=False):

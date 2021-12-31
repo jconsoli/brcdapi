@@ -1,4 +1,4 @@
-# Copyright 2019, 2020, 2021 Jack Consoli.  All rights reserved.
+# Copyright 2020, 2021 Jack Consoli.  All rights reserved.
 #
 # NOT BROADCOM SUPPORTED
 #
@@ -17,7 +17,7 @@
 
 Automatically creates a log as soon as it is imported with a time stamp in the log file name if not already open.
 Although the Python libraries automatically close all open file handles upon exit, there is a close_log() method to
-flush and close the file. This is not only useful for tradditional programmers who want a greater degree of program
+flush and close the file. This is not only useful for traditional programmers who want a greater degree of program
 control, but useful in conjunction with control programs such as Ansible whereby printing to STD_OUT needs to be
 suppressed for all log messages except the final completion message.
 
@@ -26,41 +26,32 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | Version   | Last Edit     | Description                                                                       |
     +===========+===============+===================================================================================+
-    | 1.x.x     | 03 Jul 2019   | Experimental                                                                      |
-    | 2.x.x     |               |                                                                                   |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.0     | 15 Jul 2020   | Initial Launch                                                                    |
     +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.1     | 02 Aug 2020   | PEP8 Clean up                                                                     |
+    | 3.0.1-5   | 17 Apr 2021   | Miscellaneous bug fixes and removed automatic log creation.                       |
     +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.2     | 27 Nov 2020   | Changed exception() to print the traceback first followed by the passed message.  |
-    |           |               | Also added the ability to disable logging.                                        |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.3     | 09 Jan 2021   | Log file is no longer automatically created. Added open_log()                     |
-    |           |               | Permitted a call to close_log() without any parameters.                           |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.4     | 13 Feb 2021   | Removed the shebang line                                                          |
+    | 3.0.6     | 31 Dec 2021   | Improved comments. No functional changes.                                         |
     +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2019, 2020, 2021 Jack Consoli'
-__date__ = '13 Feb 2021'
+__copyright__ = 'Copyright 2020, 2021 Jack Consoli'
+__date__ = '31 Dec 2021'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.4'
+__version__ = '3.0.6'
 
 import traceback
 import datetime
-import time
 
 _local_suppress_all = False
 _log_obj = None  # Log file handle
 
+
 def set_suppress_all():
-    """Supress all output except forced output. Useful with a playbook when only exit status is desired
+    """Suppress all output except forced output. Useful with a playbook when only exit status is desired
     """
     global _local_suppress_all
     _local_suppress_all = True
@@ -158,7 +149,7 @@ def open_log(folder=None):
 
     # Figure out what the log file name is
     file_name = '' if folder is None else folder + '/'
-    file_name += 'Log_' + datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S') + '.txt'
+    file_name += 'Log_' + datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S_%f') + '.txt'
 
     # Get a handle for the log file. If the log file is already open, close it
     if _log_obj is not None:

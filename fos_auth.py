@@ -93,22 +93,25 @@ Version Control::
     +===========+===============+===================================================================================+
     | 1.0.0     | 14 Nov 2021   | Initial Launch                                                                    |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 1.0.1     | 31 Dec 2021   | Improved comments only. No functional changes                                     |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2021 Jack Consoli'
-__date__ = '14 Nov 2021'
+__date__ = '31 Dec 2021'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.0'
+__version__ = '1.0.1'
 
 import http.client as httplib
 import base64
 import ssl
 import json
 import brcdapi.util as brcdapi_util
+import brcdapi.log as brcdapi_log
 
 _LOGIN_RESTCONF = '/rest/login'
 _LOGOUT_RESTCONF = '/rest/logout'
@@ -119,21 +122,31 @@ def basic_api_parse(obj):
     """Performs a read and basic parse of the conn.getresponse()
 
     :param obj: Response from conn.getresponse()
-    :type obj: dict
+    :type obj: HTTPResponse
     :return: Standard object used in all brcdapi and brcddb libraries
     :rtype: dict
     """
+    json_data = dict()
     try:
-        json_data = json.loads(obj.read())
-    except:  # Bare except because I'm not debugging or other libraries. or FOS behavior
-        json_data = dict()
-    try:
-        json_data.update(dict(
-            _raw_data=dict(
-                status=obj.status,
-                reason=obj.reason)))
-    except:  # Bare except because I'm not debugging or other libraries. or FOS behavior
-        pass  # Some requiests do not return a status and reason when the request was completed successfully
+        http_response = obj.read()
+        if isinstance(http_response, bytes) and len(http_response) > 0:
+            try:
+                json_data = json.loads(http_response)
+            except BaseException as e:
+                brcdapi_log.exception(['Invalid data returned from FOS. Error code:', str(e)], True)
+                json_data = dict()
+        try:
+            json_data.update(dict(
+                _raw_data=dict(
+                    status=obj.status,
+                    reason=obj.reason)))
+        except AttributeError:
+            pass  # I think logout is the only time I get here. Logout returns type bytes.
+        except BaseException as e:
+            brcdapi_log.exception(['Invalid data returned from FOS. Error code:', str(e)], True)
+            pass  # Some requests do not return a status and reason when the request was completed successfully
+    except AttributeError:
+        pass  # I think logout is the only time I get here. Logout returns type bytes.
     return json_data
 
 
@@ -141,7 +154,7 @@ def _get_connection(ip_addr, ca):
 
     if ca == 'self':
         return httplib.HTTPSConnection(ip_addr, context=ssl._create_unverified_context())
-    if ca =='none':
+    if ca == 'none':
         return httplib.HTTPConnection(ip_addr)
     # Assume it's a certificate
     return httplib.HTTPSConnection(ip_addr, ca)  # Is this right? Need to test
@@ -240,7 +253,8 @@ def obj_error_detail(obj):
             i += 1
             buf += '\n'
         return buf
-    except:  # Bare except because I'm not debugging or other libraries. or FOS behavior
+    except BaseException as e:
+        brcdapi_log.exception(['Invalid data returned from FOS. Error code:', str(e)])
         return ''  # A formatted error message isn't always present so this may happen
 
 
@@ -269,7 +283,7 @@ def login(user, password, ip_addr, is_https='none'):
     :return: Session object as described in the method description
     :rtype: dict
     """
-    # Get connectction token
+    # Get connection token
     conn = _get_connection(ip_addr, is_https)
     auth = user + ':' + password
     auth_encoded = base64.b64encode(auth.encode())
@@ -282,9 +296,13 @@ def login(user, password, ip_addr, is_https='none'):
 
     try:
         conn.request('POST', _LOGIN_RESTCONF, '', credential)
-    except:# Bare except because IDK what goes on inside the conn library
-        # Usually, we get here if the IP address was inaccessible or HTTPS was used before a certificate was generated
+    except TimeoutError:
         obj = create_error(brcdapi_util.HTTP_NOT_FOUND, 'Not Found', '')
+        obj.update(dict(ip_addr=ip_addr))
+        return obj
+    except BaseException as e:
+        brcdapi_log.exception(['', 'Unknown exception: ', str(e)], True)
+        obj = create_error(brcdapi_util.HTTP_NOT_FOUND, 'Not Found', str(e))
         obj.update(dict(ip_addr=ip_addr))
         return obj
 
@@ -292,10 +310,10 @@ def login(user, password, ip_addr, is_https='none'):
     resp = conn.getresponse()
     json_data = basic_api_parse(resp)
     content = resp.getheader('content-type')
-    contentlist = content.split(';')
-    if len(contentlist) == 2:
-        json_data.update({'content-type': contentlist[0]})
-        json_data.update({'content-version': contentlist[1]})
+    content_l = content.split(';')
+    if len(content_l) == 2:
+        json_data.update({'content-type': content_l[0]})
+        json_data.update({'content-version': content_l[1]})
     else:
         json_data.update({'content-type': content})
         json_data.update({'content-version': None})

@@ -15,9 +15,9 @@
 """
 :mod:`port.py` - Methods to configure ports.
 
-    A collection of methods to perform common port functions. For example on how to use these functions, see
-    api_examples/port_config.py. While most of the API requests are pretty straight forward and don't need a driver,
-    there are a few things that need special attention and therefore have a library method:
+    A collection of methods to perform common port functions. For examples on how to use these functions, see
+    brocade-rest-api-examples/port_config.py. While most of the API requests are pretty straight forward and don't need,
+    a driver there are a few things that need special attention and therefore have a library method:
 
     +-----------------------+---------------------------------------------------------------------------------------+
     | Method                | Description                                                                           |
@@ -30,7 +30,7 @@
     +-----------------------+---------------------------------------------------------------------------------------+
     | default_port_config   | Disables and sets a list of FC ports to their factory default state.                  |
     +-----------------------+---------------------------------------------------------------------------------------+
-    | enable_port           | Enables or disables a port or list of ports.                                          |                                                                   |
+    | enable_port           | Enables or disables a port or list of ports.                                          |
     +-----------------------+---------------------------------------------------------------------------------------+
 
 Version Control::
@@ -44,22 +44,24 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.2     | 14 Nov 2021   | Deprecated pyfos_auth                                                             |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.3     | 31 Dec 2021   | Improved comments only. No functional changes                                     |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2020, 2021 Jack Consoli'
-__date__ = '14 Nov 2021'
+__date__ = '31 Dec 2021'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.2'
+__version__ = '3.0.3'
 
-import pprint
 import collections
 import brcdapi.util as brcdapi_util
 import brcdapi.brcdapi_rest as brcdapi_rest
 import brcdapi.fos_auth as brcdapi_auth
 import brcdapi.log as brcdapi_log
+
 
 def ports_to_list(i_ports):
     """Converts ports to a list of ports. Many sources for ports return None, a single port, or just the port (no slot
@@ -68,7 +70,7 @@ def ports_to_list(i_ports):
     :param i_ports: Ports to be moved to the switch specified by to_fid
     :type i_ports: int, str, list, tuple
     :return: List of ports in s/p notation. If i_ports is None, an empty list is returned
-    :rtype: dict
+    :rtype: list
     """
     temp_l = list() if i_ports is None else [str(i_ports)] if isinstance(i_ports, (int, str)) else \
         [str(p) for p in i_ports]
@@ -127,8 +129,8 @@ default_port_config_d['npiv-pp-limit'] = 126  # 126 logins
 default_port_config_d['ex-port-enabled'] = 0  # Not configured as an EX-Port
 default_port_config_d['fec-enabled'] = 1  # FEC is enabled
 default_port_config_d['port-autodisable-enabled'] = 0  # Disabled
-# default_port_config_d['rate-limit-enabled'] = 0 Depricated
-# default_port_config_d['non-dfe-enabled'] = 0 Depricated
+# default_port_config_d['rate-limit-enabled'] = 0 Deprecated
+# default_port_config_d['non-dfe-enabled'] = 0 Deprecated
 default_port_config_d['trunk-port-enabled'] = 1  # Enabled
 default_port_config_d['pod-license-state'] = 'released'  # The port is not reserved under a POD license
 default_port_config_d['disable-reason'] = 'None'
@@ -145,7 +147,7 @@ def default_port_config(session, fid, i_ports):
     :param fid: Logical FID number for switch with ports. Use None if switch is not VF enabled.
     :type fid: int
     :param i_ports: List of ports in the API format of s/p. For a fixed port switch for example, port 12 is '0/12'
-    :type i_ports: tuple, list
+    :type i_ports: tuple, list, str, int
     :return: The object returned from the API. If ports is an empty list, a made up good status is returned.
     :rtype: dict
     """
@@ -219,7 +221,9 @@ def port_enable_disable(session, fid, state, i_ports, echo=False):
     :param state: True - enable ports. False - disable ports
     :type state: bool
     :param i_ports: List of ports to enable or disable
-    :type i_ports: tuple, list
+    :type i_ports: tuple, list, str
+    :param echo: If True, print activity to STD OUT
+    :type echo: bool
     :return: The object returned from the API. If ports is an empty list, a made up good status is returned.
     :rtype: dict
     """
@@ -245,7 +249,9 @@ def enable_port(session, fid, i_ports, echo=False):
     :param fid: Logical FID number for switch with ports. Use None if switch is not VF enabled.
     :type fid: int
     :param i_ports: List of ports to enable or disable
-    :type i_ports: tuple, list
+    :type i_ports: tuple, list, str, in
+    :param echo: If True, print activity to STD OUT
+    :type echo: bool
     :return: The object returned from the API. If ports is an empty list, a made up good status is returned.
     :rtype: dict
     """
@@ -260,7 +266,9 @@ def disable_port(session, fid, i_ports, echo=False):
     :param fid: Logical FID number for switch with ports. Use None if switch is not VF enabled.
     :type fid: int
     :param i_ports: List of ports to enable or disable
-    :type i_ports: tuple, list
+    :type i_ports: tuple, list, str, in
+    :param echo: If True, print activity to STD OUT
+    :type echo: bool
     :return: The object returned from the API. If ports is an empty list, a made up good status is returned.
     :rtype: dict
     """

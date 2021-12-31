@@ -26,7 +26,7 @@ Description::
     In FOS 8.2.1c, module-version was introduced but as of this writting, still contained scant information about each
     module. The table uri_map is a hard coded table to serve applications and other libraries that need to know how to
     build a full URI and define the behavior of each exposed in the API. The hope is that some day, this information
-    will be available through the API allowing uri_map to be built dynmaically.
+    will be available through the API allowing uri_map to be built dynamically.
 
     **WARNING**
 
@@ -48,16 +48,18 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.3     | 07 Aug 2021   | Clean up mask_ip_addr()                                                           |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.4     | 31 Dec 2021   | Added new branches and leaves for FOS 9.1                                         |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2019, 2020, 2021 Jack Consoli'
-__date__ = '07 Aug 2021'
+__date__ = '31 Dec 2021'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.3'
+__version__ = '3.0.4'
 
 # Common HTTP error codes and reason messages
 HTTP_OK = 200
@@ -86,7 +88,7 @@ _cli_to_api_convert = dict(
     fence='port-fence',
     snmp='snmp-trap',
     unquar='un-quarantine',
-    decom='decomission',
+    decom='decommission',
     toggle='port-toggle',
     email='e-mail',
     uninstall_vtap='vtap-uninstall',
@@ -942,9 +944,9 @@ uri_map = {
     },
     'brocade-supportlink': {
         'uri': '/rest/operations/supportlink',
-        'area': NULL_OBJ,
-        'fid': True,
-        'methods': (),
+        'area': CHASSIS_OBJ,
+        'fid': False,
+        'methods': ('GET',),  # Only the sub-leaves can be acted on
     },
     'brocade-supportlink/supportlink-profile': {
         'uri': '/rest/operations/supportlink/supportlink-profile',

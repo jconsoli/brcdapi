@@ -17,7 +17,7 @@
 
 **WARNING**
 
-This module was written as an expediant to send "portaddress --bind" commands to FOS for the switch_config.py
+This module was written as an expedient to send "portaddress --bind" commands to FOS for the switch_config.py
 application found at https://github.com/jconsoli/applications. It does a simple login and sends commands. It doesn't
 do anything with prompts and doesn't perform any error checking.
 
@@ -34,21 +34,23 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.1     | 13 Feb 2021   | Removed the shebang line                                                          |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.2     | 31 Dec 2021   | Improved comments. No functional changes.                                         |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2020, 2021 Jack Consoli'
-__date__ = '13 Feb 2021'
+__date__ = '31 Dec 2021'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.1'
+__version__ = '3.0.2'
 
 import paramiko
 
 
-def login(ip, user_id, pw, timeout=15):
+def login(ip_addr, user_id, pw, timeout=15):
     """Performs an SSH and FOS login
 
     :param user_id: User ID
@@ -68,9 +70,9 @@ def login(ip, user_id, pw, timeout=15):
     ssh.load_system_host_keys()
     ssh.set_missing_host_key_policy(paramiko.client.WarningPolicy())
     try:
-        ssh.connect(ip, username=user_id, password=pw, timeout=timeout)
-    except:
-        return ['Invalid name or password.'], ssh
+        ssh.connect(ip_addr, username=user_id, password=pw, timeout=timeout)
+    except BaseException as e:
+        return ['Invalid name or password.', 'Error is: ' + str(e)], ssh
     shell = ssh.invoke_shell()
     shell.settimeout(timeout)
 

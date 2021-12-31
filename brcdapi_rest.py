@@ -73,16 +73,18 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.5     | 14 Nov 2021   | Deprecated pyfos_auth. Added set_debug()                                          |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.6     |31 Dec 2021    | Improved error messages and comments. No functional changes                       |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2019, 2020, 2021 Jack Consoli'
-__date__ = '14 Nov 2021'
+__date__ = '31 Dec 2021'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.5'
+__version__ = '3.0.6'
 
 import http.client as httplib
 import json
@@ -99,11 +101,12 @@ _SVC_UNAVAIL_WAIT = 4  # Time, in seconds, to wait before retrying a request tha
 _FABRIC_BUSY_WAIT = 10  # Time, in seconds, to wait before retrying a request due to a fabric busy
 
 _DEBUG = False
-_DEBUG_MODE = 1  # Only used when _DEBUG == True
-                # 0 - Perform all requests normally. Write all responses to a file
-                # 1 - Do not perform any I/O. Read all responses from file into response and fake a successful login
-_DEBUG_PREFIX = 'SQA_97_Raw_1_Sep_2020/'  # Can be any valid folder name. The folder is not created. It must already
-                    # exist. This is where all the json dumps of API requests are read/written.
+# _DEBUG_MODE is only used when _DEBUG == True as follows:
+# 0 - Perform all requests normally. Write all responses to a file
+# 1 - Do not perform any I/O. Read all responses from file into response and fake a successful login
+_DEBUG_MODE = 1
+# _DEBUG_PREFIX is only used when _DEBUG == True. Folder where all the json dumps of API requests are read/written.
+_DEBUG_PREFIX = 'test/raw_21_july_2021/'
 verbose_debug = False  # When True, prints data structures. Only useful for debugging. Can be set externally
 
 # Programmer's Tip: If there is significant activity on the switch from other sources (AMP, BNA, SANNav, ...) it may
@@ -205,9 +208,9 @@ def _api_request(session, uri, http_method, content):
     json_data = json.dumps(content) if content is not None and len(content) > 0 else None
     try:
         conn.request(http_method, uri, json_data, header)
-    except:  # Bare except because I'm not debugging or other libraries. or FOS behavior
+    except BaseException as e:
         obj = brcdapi_auth.create_error(brcdapi_util.HTTP_NOT_FOUND,
-                                      'Not Found', 'Typical of switch going offline or pre-FOS 8.2.1c')
+                                        'Not Found', ['Typical of switch going offline or pre-FOS 8.2.1c', str(e)])
         if 'ip_addr' in session:
             obj.update(dict(ip_addr=session.get('ip_addr')))
         return obj
@@ -215,12 +218,13 @@ def _api_request(session, uri, http_method, content):
         json_data = brcdapi_auth.basic_api_parse(conn.getresponse())
         if verbose_debug:
             brcdapi_log.log(['api_request() - Response:', pprint.pformat(json_data)], True)
-    except:  # Bare except because I'm not debugging or other libraries. or FOS behavior
+    except TimeoutError:
         buf = 'Time out processing ' + uri + '. Method: ' + http_method
         brcdapi_log.log(buf, True)
         obj = brcdapi_auth.create_error(brcdapi_util.HTTP_REQUEST_TIMEOUT, buf, '')
         return obj
-
+    except BaseException as e:
+        brcdapi_log.exception('Unexpected error, ' + str(e), True)
 
     # Do some basic parsing of the response
     tl = uri.split('?')[0].split('/')
@@ -228,14 +232,16 @@ def _api_request(session, uri, http_method, content):
     if brcdapi_auth.is_error(json_data):
         try:
             msg = json_data['errors']['error']['error-message']
-        except:  # Bare except because I'm not debugging or other libraries. or FOS behavior
+        except BaseException as e:
+            first_e = str(e)
             try:
                 # The purpose of capturing the message is to support the code below that works around a defect in FOS
                 # whereby empty lists or no change PATCH requests are returned as errors. In the case of multiple
                 # errors, I'm assuming the first error is the same for all errors. For any code I wrote, that will be
                 # true. Since I know this will be fixed in a future version of FOS, I took the easy way out.
                 msg = json_data['errors']['error'][0]['error-message']
-            except:  # Bare except because I'm not debugging or other libraries. or FOS behavior
+            except BaseException as e:
+                brcdapi_log.exception(['Invalid data returned from FOS:', first_e, str(e)])
                 msg = ''
         try:
             if http_method == 'GET' and json_data['_raw_data']['status'] == brcdapi_util.HTTP_NOT_FOUND and \
@@ -245,7 +251,7 @@ def _api_request(session, uri, http_method, content):
                     msg == 'No entries in the FDMI database':
                 ret_obj = dict(cmd=list())  # It's really just an empty list
             elif http_method == 'GET' and json_data['_raw_data']['status'] == brcdapi_util.HTTP_BAD_REQUEST and \
-                     json_data['_raw_data']['reason'] == 'Bad Request' and 'Not supported on this platform' in msg:
+                    json_data['_raw_data']['reason'] == 'Bad Request' and 'Not supported on this platform' in msg:
                 ret_obj = dict(cmd=list())  # It's really just an empty list
             elif http_method == 'PATCH' and json_data['_raw_data']['status'] == brcdapi_util.HTTP_BAD_REQUEST and \
                     json_data['_raw_data']['reason'] == 'Bad Request' and \
@@ -256,15 +262,15 @@ def _api_request(session, uri, http_method, content):
                 ret_obj = dict(cmd=list())
             else:
                 ret_obj = json_data
-        except:
+        except (TypeError, KeyError):
             try:
                 status = json_data['_raw_data']['status']
-            except:  # Bare except because I'm not debugging or other libraries. or FOS behavior
+            except (TypeError, KeyError):
                 status = 0
                 msg = 'No status provided.'
             try:
                 reason = json_data['_raw_data']['reason']
-            except:  # Bare except because I'm not debugging or other libraries. or FOS behavior
+            except (TypeError, KeyError):
                 reason = 'No reason provided'
             ret_obj = brcdapi_auth.create_error(status, reason, msg)
     elif 'Response' in json_data:
@@ -331,9 +337,10 @@ def _format_uri(kpi, fid):
         if brcdapi_util.uri_map[lookup_kpi]['fid']:
             buf += vfid_to_str(fid)
         return buf
-    except:  # Bare except because I'm not debugging or other libraries. or FOS behavior
+    except BaseException as e:
         buf = '/rest/running/' + kpi + vfid_to_str(fid)
-        brcdapi_log.log('ERROR: Unknown KPI: ' + lookup_kpi + '. Using best guess: ' + buf, True)
+        ml = ['ERROR: Unknown KPI: ' + lookup_kpi, '. Using best guess: ' + buf, 'Exception: ' + str(e)]
+        brcdapi_log.log(ml, True)
         brcdapi_log.flush()
         return buf
 
@@ -392,15 +399,17 @@ def get_request(session, ruri, fid=None):
         try:
             f = open(file, "r")
             json_data = json.load(f)
-            f.close
+            f.close()
             if verbose_debug:
                 brcdapi_log.log(['api_request() - Send:', 'Method: GET', 'URI: ' + _format_uri(ruri, fid)], True)
                 brcdapi_log.log(['api_request() - Response:', pprint.pformat(json_data)], True)
-        except:  # Bare except because I'm not debugging or other libraries. or FOS behavior
-            brcdapi_log.log('Unable to open ' + file + '. All processing aborted', True)
+        except FileNotFoundError:
+            brcdapi_log.log('File ' + file + ' not found.', True)
+        except BaseException as e:
+            brcdapi_log.log('Unknown error, ' + str(e) + ' encountered opening ' + file, True)
             raise
     else:
-        json_data = api_request(session, _format_uri(ruri, fid), 'GET', '')
+        json_data = api_request(session, _format_uri(ruri, fid), 'GET', dict())
     if _DEBUG and _DEBUG_MODE == 0:
         try:
             with open(file, 'w') as f:
@@ -448,7 +457,7 @@ def set_debug(debug, debug_mode=None, debug_folder=None):
 
     _DEBUG = debug
     if debug:
-        if isinstance(debug_mode, int) and debug_mode >= 0 and debug_mode <= 1:
+        if isinstance(debug_mode, int) and 0 <= debug_mode <= 1:
             _DEBUG_MODE = debug_mode
             x = len(debug_folder) if isinstance(debug_folder, str) else 0
             if x > 0:
@@ -461,6 +470,7 @@ def set_debug(debug, debug_mode=None, debug_folder=None):
                 _DEBUG_PREFIX += '/'
             else:
                 buf = 'Invalid debug_folder type. debug_folder type must be str. Type is: ' + str(type(debug_folder))
+                brcdapi_log.exception(buf, True)
                 return False
         else:
             buf = 'Invalid debug_mode. debug_mode must be an integer of value 0 or 1. debug_mode type: ' + \
@@ -469,4 +479,3 @@ def set_debug(debug, debug_mode=None, debug_folder=None):
             return False
 
     return True
-
