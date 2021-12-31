@@ -9,6 +9,11 @@
 * Deprecated pyfos_auth - previously only used in name only.
 * Added method, setup_debug(), to brcdapi_rest.py to modify debug varriables programatically
 
+**Updated 31 Dec 2021**
+
+* Several comments and user messaging improved
+* Replaced all bare exception clauses with explicit exceptions
+
 **Description**
 
 The brcdbapi library is a driver for the FOS RESTConf API. It is intended for programmers who will be scripting in Python to interface directly to the RESTConf API in FOS in support of SAN automation applications. Since JSON is used, FOS must be at v8.2.1c or higher.
