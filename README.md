@@ -1,6 +1,6 @@
 # brcdapi
 
-**Updates: 7 Aug 2021
+**Updates: 7 Aug 2021**
 
 * util.py - Clean up mask_ip_addr()
 
@@ -13,6 +13,11 @@
 
 * Several comments and user messaging improved
 * Replaced all bare exception clauses with explicit exceptions
+
+**Updated 28 Apr 2022**
+
+* Added support for new URIs in FOS 9.1
+* Moved some generic libraries from brcddb here
 
 **Description**
 
