@@ -1,4 +1,4 @@
-# Copyright 2020, 2021 Jack Consoli.  All rights reserved.
+# Copyright 2020, 2021, 2022 Jack Consoli.  All rights reserved.
 #
 # NOT BROADCOM SUPPORTED
 #
@@ -60,17 +60,19 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.3     | 14 Nov 2021   | Deprecated pyfos_auth                                                             |
     +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.4     |31 Dec 2021    | Improved error messages and comments. No functional changes                       |
+    | 3.0.4     | 31 Dec 2021   | Improved error messages and comments. No functional changes                       |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.5     | 28 Apr 2022   | Adjusted for new URI format                                                       |
     +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2020, 2021 Jack Consoli'
-__date__ = '31 Dec 2021'
+__copyright__ = 'Copyright 2020, 2021, 2022 Jack Consoli'
+__date__ = '28 Apr 2022'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.4'
+__version__ = '3.0.5'
 
 import brcdapi.brcdapi_rest as brcdapi_rest
 import brcdapi.fos_auth as brcdapi_auth
@@ -126,7 +128,7 @@ def create_aliases(session, fid, alias_list, echo=False):
         build_alias_list.append({'alias-name': alias_obj.get('name'),
                                  'member-entry': {'alias-entry-name': alias_obj.get('members')}})
     content = {'defined-configuration': {'alias': build_alias_list}}
-    obj = brcdapi_rest.send_request(session, 'brocade-zone/defined-configuration', 'POST', content, fid)
+    obj = brcdapi_rest.send_request(session, 'running/brocade-zone/defined-configuration', 'POST', content, fid)
     _is_error(obj, 'Failed to create aliases', echo)
     return obj
 
@@ -134,7 +136,7 @@ def create_aliases(session, fid, alias_list, echo=False):
 def del_aliases(session, fid, alias_list, echo=False):
     """Deletes aliases. Same as input parameters and return as create_aliases() but only 'name' is used in alias_list"""
     content = {'defined-configuration': {'alias': [{'alias-name': alias_obj.get('name')} for alias_obj in alias_list]}}
-    obj = brcdapi_rest.send_request(session, 'brocade-zone/defined-configuration', 'DELETE', content, fid)
+    obj = brcdapi_rest.send_request(session, 'running/brocade-zone/defined-configuration', 'DELETE', content, fid)
     _is_error(obj, 'Failed to delete alias', echo)
     return obj
 
@@ -175,7 +177,7 @@ def create_zones(session, fid, zone_list, echo=False):
         build_zone_list.append({'zone-name': zone_obj.get('name'), 'zone-type': zone_obj.get('type'),
                                 'member-entry': d})
     content = {'defined-configuration': {'zone': build_zone_list}}
-    obj = brcdapi_rest.send_request(session, 'brocade-zone/defined-configuration', 'POST', content, fid)
+    obj = brcdapi_rest.send_request(session, 'running/brocade-zone/defined-configuration', 'POST', content, fid)
     _is_error(obj, 'Failed to create zones', echo)
     return obj
 
@@ -196,7 +198,7 @@ def del_zones(session, fid, zones, echo=False):
     """
     # Delete the zones
     content = {'defined-configuration': {'zone': [{'zone-name': zone} for zone in zones]}}
-    obj = brcdapi_rest.send_request(session, 'brocade-zone/defined-configuration', 'DELETE', content, fid)
+    obj = brcdapi_rest.send_request(session, 'running/brocade-zone/defined-configuration', 'DELETE', content, fid)
     _is_error(obj, 'Failed to delete zone(s)', echo)
     return obj
 
@@ -233,7 +235,7 @@ def modify_zone(session, fid, zone, add_members, del_members, in_add_pmembers=No
         'entry-name': {'add_mem': add_members, 'del_mem': del_members},
     }
     # Read in the current defined zone
-    obj = brcdapi_rest.get_request(session, 'brocade-zone/defined-configuration/zone/zone-name/' + zone, fid)
+    obj = brcdapi_rest.get_request(session, 'running/brocade-zone/defined-configuration/zone/zone-name/' + zone, fid)
     if _is_error(obj, 'Failed reading zone ' + zone, echo):
         return obj
 
@@ -263,7 +265,7 @@ def modify_zone(session, fid, zone, add_members, del_members, in_add_pmembers=No
                                               'Member ' + mem + ' does not exist')
 
     content = {'defined-configuration': obj}
-    obj = brcdapi_rest.send_request(session, 'brocade-zone/defined-configuration', 'PATCH', content, fid)
+    obj = brcdapi_rest.send_request(session, 'running/brocade-zone/defined-configuration', 'PATCH', content, fid)
     _is_error(obj, 'Failed to create zones', echo)
     return obj
 
@@ -302,7 +304,7 @@ def create_zonecfg(session, fid, zonecfg_name, zone_list, echo=False):
             ]
         }
     }
-    obj = brcdapi_rest.send_request(session, 'brocade-zone/defined-configuration', 'POST', content, fid)
+    obj = brcdapi_rest.send_request(session, 'running/brocade-zone/defined-configuration', 'POST', content, fid)
     _is_error(obj, 'Failed to create zone configuration ' + zonecfg_name, echo)
     return obj
 
@@ -327,7 +329,7 @@ def del_zonecfg(session, fid, zonecfg_name, echo=False):
             'cfg': [{'cfg-name': zonecfg_name, }]
         }
     }
-    obj = brcdapi_rest.send_request(session, 'brocade-zone/defined-configuration', 'DELETE', content, fid)
+    obj = brcdapi_rest.send_request(session, 'running/brocade-zone/defined-configuration', 'DELETE', content, fid)
     _is_error(obj, 'Failed to delete zone configuration ' + zonecfg_name, echo)
     return obj
 
@@ -355,7 +357,7 @@ def enable_zonecfg(session, check_sum, fid, zonecfg_name, echo=False):
             'cfg-action': 1
         }
     }
-    obj = brcdapi_rest.send_request(session, 'brocade-zone/effective-configuration', 'PATCH', content, fid)
+    obj = brcdapi_rest.send_request(session, 'running/brocade-zone/effective-configuration', 'PATCH', content, fid)
     _is_error(obj, 'Failed to enable zone configuration ' + zonecfg_name, echo)
     return obj
 
@@ -382,7 +384,7 @@ def disable_zonecfg(session, check_sum, fid, zonecfg_name, echo=False):
             'cfg-action': 2
         }
     }
-    obj = brcdapi_rest.send_request(session, 'brocade-zone/effective-configuration', 'PATCH', content, fid)
+    obj = brcdapi_rest.send_request(session, 'running/brocade-zone/effective-configuration', 'PATCH', content, fid)
     _is_error(obj, 'Failed to enable zone configuration ' + zonecfg_name, echo)
     return obj
 
@@ -405,7 +407,7 @@ def _zonecfg_modify(session, fid, zonecfg_name, zone_list, method, echo=False):
             ]
         }
     }
-    obj = brcdapi_rest.send_request(session, 'brocade-zone/defined-configuration', method, content, fid)
+    obj = brcdapi_rest.send_request(session, 'running/brocade-zone/defined-configuration', method, content, fid)
     _is_error(obj, 'Failed to create zone configuration ' + zonecfg_name, echo)
     return obj
 
@@ -468,7 +470,7 @@ def checksum(session, fid, echo=False):
     :rtype: dict
     """
     # Get the checksum - this is needed to save the configuration.
-    obj = brcdapi_rest.get_request(session, 'brocade-zone/effective-configuration', fid)
+    obj = brcdapi_rest.get_request(session, 'running/brocade-zone/effective-configuration', fid)
     if _is_error(obj, 'Failed to get zone data from "brocade-zone/effective-configuration"', echo):
         return None, obj
     try:
@@ -493,7 +495,9 @@ def abort(session, fid, echo=False):
     :return: brcdapi_rest status object
     :rtype: dict
     """
-    obj = brcdapi_rest.send_request(session, 'brocade-zone/effective-configuration', 'PATCH',
+    obj = brcdapi_rest.send_request(session,
+                                    'running/brocade-zone/effective-configuration',
+                                    'PATCH',
                                     {'effective-configuration': {'cfg-action': 4}},
                                     fid)
     _is_error(obj, 'Abort failed', echo)
@@ -519,7 +523,7 @@ def save(session, fid, check_sum, echo=False):
             'checksum': check_sum
         }
     }
-    obj = brcdapi_rest.send_request(session, 'brocade-zone/effective-configuration', 'PATCH', content, fid)
+    obj = brcdapi_rest.send_request(session, 'running/brocade-zone/effective-configuration', 'PATCH', content, fid)
     _is_error(obj, 'Failed to save zone configuration test_zone_cfg', echo)
     return obj
 
@@ -543,7 +547,7 @@ def default_zone(session, fid, access, echo=False):
             'default-zone-access': access
         }
     }
-    obj = brcdapi_rest.send_request(session, 'brocade-zone/effective-configuration', 'PATCH', content, fid)
+    obj = brcdapi_rest.send_request(session, 'running/brocade-zone/effective-configuration', 'PATCH', content, fid)
     _is_error(obj, 'Failed to set the default zone access', echo)
     return obj
 
@@ -565,6 +569,6 @@ def clear_zone(session, fid, echo=False):
             'cfg-action': 3
         }
     }
-    obj = brcdapi_rest.send_request(session, 'brocade-zone/effective-configuration', 'PATCH', content, fid)
+    obj = brcdapi_rest.send_request(session, 'running/brocade-zone/effective-configuration', 'PATCH', content, fid)
     _is_error(obj, 'Failed to set the default zone access', echo)
     return obj

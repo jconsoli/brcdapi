@@ -1,4 +1,4 @@
-# Copyright 2020, 2021 Jack Consoli.  All rights reserved.
+# Copyright 2020, 2021, 2022 Jack Consoli.  All rights reserved.
 #
 # NOT BROADCOM SUPPORTED
 #
@@ -17,10 +17,12 @@
 
 **Description**
 
-    A collection of methods to perform common switch functions. For example on how to use these functions, see
+    A collection of methods to perform common switch functions. For examples on how to use these functions, see
     api_examples/switch_delete.py and api_examples/switch_create.py. While most of the API requests are pretty
     straight forward and don't need a driver, there are a few things that need special attention and therefore have a
     library method:
+
+**Public Methods**
 
     +-----------------------+---------------------------------------------------------------------------------------+
     | Method                | Description                                                                           |
@@ -65,6 +67,29 @@
       port addresses. This module can be used to create a FICON switch but if you attempt to enable the ports, you an
       error is returned stating "Port enabl failed because port not bound in FICON LS".
 
+**Public Methods**
+
+    +-------------------------------+-------------------------------------------------------------------------------+
+    | Method                        | Description                                                                   |
+    +===============================+===============================================================================+
+    | switch_wwn                    | Returns the switch WWN from the logical switch matching the specified FID.    |
+    +-------------------------------+-------------------------------------------------------------------------------+
+    | logical_switches              | Returns a list of logical switches with the default switch first              |
+    +-------------------------------+-------------------------------------------------------------------------------+
+    | fibrechannel_switch           | Set parameters for brocade-fibrechannel-switch/fibrechannel-switch.           |
+    +-------------------------------+-------------------------------------------------------------------------------+
+    | fibrechannel_configuration    | Sets the fabric parameters for 'brocade-fibrechannel-configuration'           |
+    +-------------------------------+-------------------------------------------------------------------------------+
+    | add_ports                     | Move ports to a logical switch. Ports are set to the default configuration    |
+    |                               | and disabled before moving them                                               |
+    +-------------------------------+-------------------------------------------------------------------------------+
+    | create_switch                 | Create a logical switch with some basic configuration then disables the       |
+    |                               | switch                                                                        |
+    +-------------------------------+-------------------------------------------------------------------------------+
+    | delete_switch                 | Sets all ports to their default configuration, moves those ports to the       |
+    |                               | default switch, and deletes the switch                                        |
+    +-------------------------------+-------------------------------------------------------------------------------+
+
 Version Control::
 
     +-----------+---------------+-----------------------------------------------------------------------------------+
@@ -82,15 +107,17 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.4     | 31 Dec 2021   | Comment updates and format changes only. No functional changes                    |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.5     | 28 Apr 2022   | Use new URI formats.                                                              |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2020, 2021 Jack Consoli'
-__date__ = '31 Dec 2021'
+__date__ = '28 Apr 2022'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.4'
+__version__ = '3.0.5'
 
 import pprint
 import collections
@@ -118,7 +145,7 @@ def switch_wwn(session, fid, echo=False):
     :rtype: str, dict
     """
     brcdapi_log.log('Getting switch data from brcdapi.switch.switch_wwn() for FID ' + str(fid), echo)
-    uri = 'brocade-fibrechannel-switch/fibrechannel-switch'
+    uri = 'running/brocade-fibrechannel-switch/fibrechannel-switch'
     obj = brcdapi_rest.get_request(session, uri, fid)
     if brcdapi_auth.is_error(obj):
         brcdapi_log.exception('Failed to get switch data for FID ' + str(fid), echo)
@@ -143,10 +170,10 @@ def logical_switches(session, echo=False):
     :rtype: dict, list
     """
     # Get the chassis information
-    obj = brcdapi_rest.get_request(session, 'brocade-chassis/chassis', None)
+    obj = brcdapi_rest.get_request(session, 'running/brocade-chassis/chassis', None)
     if brcdapi_auth.is_error(obj):
         return obj
-    uri = 'brocade-fibrechannel-logical-switch/fibrechannel-logical-switch'
+    uri = 'running/brocade-fibrechannel-logical-switch/fibrechannel-logical-switch'
     rl = list()
     try:
         if obj['chassis']['vf-enabled']:
@@ -205,7 +232,7 @@ def fibrechannel_switch(session, fid, parms, wwn=None, echo=False):
     for k, v in parms.items():
         sub_content[k] = v
     return brcdapi_rest.send_request(session,
-                                     'brocade-fibrechannel-switch/fibrechannel-switch',
+                                     'running/brocade-fibrechannel-switch/fibrechannel-switch',
                                      'PATCH',
                                      {'fibrechannel-switch': sub_content},
                                      fid)
@@ -232,7 +259,7 @@ def fibrechannel_configuration(session, fid, parms, echo=False):
 
     # Configure the switch
     return brcdapi_rest.send_request(session,
-                                     'brocade-fibrechannel-configuration/fabric',
+                                     'running/brocade-fibrechannel-configuration/fabric',
                                      'PATCH',
                                      dict(fabric=parms),
                                      fid)
@@ -270,8 +297,7 @@ def add_ports(session, to_fid, from_fid, i_ports=None, i_ge_ports=None, echo=Fal
         brcdapi_log.exception('Failed to set all ports to the default configuration', echo)
         return obj
 
-    # Move the ports, FOS returns an error if ports is an empty list in:
-    # 'port-member-list': {'port-member': ports}
+    # Move the ports, FOS returns an error if ports is an empty list in: 'port-member-list': {'port-member': ports}
     # so I have to custom build the content. Furthermore, it takes about 400 msec per port to move so to avoid an HTTP
     # connection timeout, the port moves are done in batches.
     while len(ports) > 0:
@@ -282,7 +308,7 @@ def add_ports(session, to_fid, from_fid, i_ports=None, i_ge_ports=None, echo=Fal
         ml = ['Start moving ports:'] + ['  ' + buf for buf in pl]
         brcdapi_log.log(ml, echo)
         obj = brcdapi_rest.send_request(session,
-                                        'brocade-fibrechannel-logical-switch/fibrechannel-logical-switch',
+                                        'running/brocade-fibrechannel-logical-switch/fibrechannel-logical-switch',
                                         'POST',
                                         {'fibrechannel-logical-switch': sub_content})
         if brcdapi_auth.is_error(obj):
@@ -300,7 +326,7 @@ def add_ports(session, to_fid, from_fid, i_ports=None, i_ge_ports=None, echo=Fal
         ml = ['Start moving GE ports:'] + ['  ' + buf for buf in pl]
         brcdapi_log.log(ml, echo)
         obj = brcdapi_rest.send_request(session,
-                                        'brocade-fibrechannel-logical-switch/fibrechannel-logical-switch',
+                                        'running/brocade-fibrechannel-logical-switch/fibrechannel-logical-switch',
                                         'POST',
                                         {'fibrechannel-logical-switch': sub_content})
         if brcdapi_auth.is_error(obj):
@@ -346,7 +372,7 @@ def create_switch(session, fid, base, ficon, echo=False):
     sub_content['ficon-mode-enabled'] = 0 if ficon is None else 1 if ficon else 0
     brcdapi_log.log('Creating logical switch ' + str(fid), echo)
     obj = brcdapi_rest.send_request(session,
-                                    'brocade-fibrechannel-logical-switch/fibrechannel-logical-switch',
+                                    'running/brocade-fibrechannel-logical-switch/fibrechannel-logical-switch',
                                     'POST',
                                     {'fibrechannel-logical-switch': sub_content})
     if brcdapi_auth.is_error(obj):
@@ -398,7 +424,7 @@ def delete_switch(session, fid, echo=False):
 
             # Delete the switch
             obj = brcdapi_rest.send_request(session,
-                                            'brocade-fibrechannel-logical-switch/fibrechannel-logical-switch',
+                                            'running/brocade-fibrechannel-logical-switch/fibrechannel-logical-switch',
                                             'DELETE',
                                             {'fibrechannel-logical-switch': {'fabric-id': fid}})
             brcdapi_log.log('Error' if brcdapi_auth.is_error(obj) else 'Success' + ' deleting FID ' + str(fid), echo)

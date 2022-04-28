@@ -1,4 +1,4 @@
-# Copyright 2021 Jack Consoli.  All rights reserved.
+# Copyright 2021, 2022 Jack Consoli.  All rights reserved.
 #
 # NOT BROADCOM SUPPORTED
 #
@@ -22,22 +22,25 @@ pre FOS v8.2.1b relevant code from those PyFOS modules.
 
 Primary Methods::
 
-    +-----------------------------+----------------------------------------------------------------------------------+
-    | Method                      | Description                                                                      |
-    +=============================+==================================================================================+
-    | is_error()                  | Determines if an object returned from api_request() is an error object           |
-    +-----------------------------+----------------------------------------------------------------------------------+
-    | formatted_error_msg()       | Formats the error message into a human readable format                           |
-    +-----------------------------+----------------------------------------------------------------------------------+
-    | is_not_supported()          | Determines if an error object returned from get_request() is a 'Not Supported'   |
-    |                             | error                                                                            |
-    +-----------------------------+----------------------------------------------------------------------------------+
-    | login()                     | Establish a session to the FOS switch and return the session object              |
-    +-----------------------------+----------------------------------------------------------------------------------+
-    | logout()                    | Terminate a session to FOS                                                       |
-    +-----------------------------+----------------------------------------------------------------------------------+
+    +-----------------------+---------------------------------------------------------------------------------------+
+    | Method                | Description                                                                           |
+    +=======================+=======================================================================================+
+    | basic_api_parse       | Performs a read and basic parse of the conn.getresponse()                             |
+    | create_error          | Creates a standard error object                                                       |
+    | obj_status            | Returns the status from API object.                                                   |
+    | is_error()            | Determines if an object returned from api_request() is an error object                |
+    | obj_reason            | Returns the reason from API object                                                    |
+    | obj_error_detail      | Formats the error message detail into human readable format. Typically only called    |
+    |                       | from formatted_error_msg().                                                           |
+    +-----------------------+---------------------------------------------------------------------------------------+
+    | formatted_error_msg   | Formats the error message into a human readable format                                |
+    +-----------------------+---------------------------------------------------------------------------------------+
+    | login()               | Establish a session to the FOS switch and return the session object                   |
+    +-----------------------+---------------------------------------------------------------------------------------+
+    | logout()              | Terminate a session to FOS                                                            |
+    +-----------------------+---------------------------------------------------------------------------------------+
 
-Support Methods::
+Public Methods::
 
     +-----------------------------+----------------------------------------------------------------------------------+
     | Method                      | Description                                                                      |
@@ -56,7 +59,7 @@ Support Methods::
 
 Login Session::
 
-    Not all parameters filled in by pyfos_auth.login
+    Not all parameters filled in by fos_auth.login
 
     +-------------------+-------------------------------------------------------------------------------------------+
     | Leaf              | Description                                                                               |
@@ -85,6 +88,8 @@ Login Session::
     +-------------------+-------------------------------------------------------------------------------------------+
     | shell             | shell from paramiko - CLI login                                                           |
     +-------------------+-------------------------------------------------------------------------------------------+
+    | uri_map           | dict: See brcdapi.util.add_uri_map() for details.                                         |
+    +-------------------+-------------------------------------------------------------------------------------------+
 
 Version Control::
 
@@ -95,16 +100,18 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 1.0.1     | 31 Dec 2021   | Improved comments only. No functional changes                                     |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 1.0.2     | 28 Apr 2022   | Build uri map dynamically.                                                        |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2021 Jack Consoli'
-__date__ = '31 Dec 2021'
+__copyright__ = 'Copyright 2021, 2022 Jack Consoli'
+__date__ = '28 Apr 2022'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.1'
+__version__ = '1.0.2'
 
 import http.client as httplib
 import base64
@@ -136,10 +143,7 @@ def basic_api_parse(obj):
                 brcdapi_log.exception(['Invalid data returned from FOS. Error code:', str(e)], True)
                 json_data = dict()
         try:
-            json_data.update(dict(
-                _raw_data=dict(
-                    status=obj.status,
-                    reason=obj.reason)))
+            json_data.update(_raw_data=dict(status=obj.status, reason=obj.reason))
         except AttributeError:
             pass  # I think logout is the only time I get here. Logout returns type bytes.
         except BaseException as e:
@@ -172,7 +176,7 @@ def create_error(status, reason, msg):
     :return: error_obj
     :rtype: dict
     """
-    ml = msg if isinstance(msg, list) else list(msg)
+    ml = msg if isinstance(msg, list) else [msg]
     ret_dict = dict(
         _raw_data=dict(status=status, reason=reason),
         errors=dict(error=[{'error-message': buf} for buf in ml]),
@@ -223,7 +227,7 @@ def obj_reason(obj):
 
 
 def obj_error_detail(obj):
-    """Formats the error message detail into human readable format
+    """Formats the error message detail into human readable format. Typically only called from formatted_error_msg().
 
     :param obj: API object
     :type obj: dict
@@ -269,22 +273,23 @@ def formatted_error_msg(obj):
     return 'Status: ' + str(obj_status(obj)) + '\nReason: ' + obj_reason(obj) + '\n' + obj_error_detail(obj)
 
 
-def login(user, password, ip_addr, is_https='none'):
+def login(user, password, ip_addr, in_http_access=None):
     """Establish a session to the FOS switch and return the session object
 
     :param user: User name to establish a session.
     :type user: str
     :param password: Password to establish a session.
     :type password: str
-    :param ip_addr: IP address of the FOS switch with which to establish a session.
+    :param ip_addr: Management IP address of chassis
     :type ip_addr: str
-    :param is_https: 'none' - http. 'self' https with a self-signed certificate. 'CA' https CA-signed certificate.
-    :type is_https: str
+    :param in_http_access: IP address of the FOS switch with which to establish a session.
+    :type in_http_access: str
     :return: Session object as described in the method description
     :rtype: dict
     """
     # Get connection token
-    conn = _get_connection(ip_addr, is_https)
+    http_access = 'none' if in_http_access is None else in_http_access
+    conn = _get_connection(ip_addr, http_access)
     auth = user + ':' + password
     auth_encoded = base64.b64encode(auth.encode())
     credential = {
@@ -298,12 +303,12 @@ def login(user, password, ip_addr, is_https='none'):
         conn.request('POST', _LOGIN_RESTCONF, '', credential)
     except TimeoutError:
         obj = create_error(brcdapi_util.HTTP_NOT_FOUND, 'Not Found', '')
-        obj.update(dict(ip_addr=ip_addr))
+        obj.update(ip_addr=ip_addr)
         return obj
     except BaseException as e:
         brcdapi_log.exception(['', 'Unknown exception: ', str(e)], True)
         obj = create_error(brcdapi_util.HTTP_NOT_FOUND, 'Not Found', str(e))
-        obj.update(dict(ip_addr=ip_addr))
+        obj.update(ip_addr=ip_addr)
         return obj
 
     # Attempt login
@@ -319,8 +324,11 @@ def login(user, password, ip_addr, is_https='none'):
         json_data.update({'content-version': None})
     credential.pop('Authorization')
     credential.update({'Authorization': resp.getheader('authorization')})
-    json_data.update(dict(conn=conn, credential=credential, ip_addr=ip_addr, ishttps=is_https, debug=False,
-                          session_less=False))
+    json_data.update(conn = conn,
+                     credential = credential,
+                     ip_addr = ip_addr,
+                     ishttps = False if http_access == 'none' else True,
+                     debug = False)
     return json_data
 
 

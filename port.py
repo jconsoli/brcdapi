@@ -1,4 +1,4 @@
-# Copyright 2020, 2021 Jack Consoli.  All rights reserved.
+# Copyright 2020, 2021, 2022 Jack Consoli.  All rights reserved.
 #
 # NOT BROADCOM SUPPORTED
 #
@@ -15,9 +15,13 @@
 """
 :mod:`port.py` - Methods to configure ports.
 
+Description::
+
     A collection of methods to perform common port functions. For examples on how to use these functions, see
     brocade-rest-api-examples/port_config.py. While most of the API requests are pretty straight forward and don't need,
-    a driver there are a few things that need special attention and therefore have a library method:
+    a driver there are a few things that need special attention and therefore have a library method.
+
+Public Methods & Data::
 
     +-----------------------+---------------------------------------------------------------------------------------+
     | Method                | Description                                                                           |
@@ -30,7 +34,7 @@
     +-----------------------+---------------------------------------------------------------------------------------+
     | default_port_config   | Disables and sets a list of FC ports to their factory default state.                  |
     +-----------------------+---------------------------------------------------------------------------------------+
-    | enable_port           | Enables or disables a port or list of ports.                                          |
+    | port_enable_disable   | Enables or disables a port or list of ports.                                          |
     +-----------------------+---------------------------------------------------------------------------------------+
 
 Version Control::
@@ -46,15 +50,17 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.3     | 31 Dec 2021   | Improved comments only. No functional changes                                     |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.4     | 28 Apr 2022   | Use new URI formats.                                                              |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2020, 2021 Jack Consoli'
-__date__ = '31 Dec 2021'
+__copyright__ = 'Copyright 2020, 2021, 2022 Jack Consoli'
+__date__ = '28 Apr 2022'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.3'
+__version__ = '3.0.4'
 
 import collections
 import brcdapi.util as brcdapi_util
@@ -94,7 +100,11 @@ def clear_stats(session, fid, i_ports, i_ge_ports):
     pl = [{'name': p, 'reset-statistics': 1} for p in ports_to_list(i_ports) + ports_to_list(i_ge_ports)]
     if len(pl) > 0:
         content = {'fibrechannel-statistics': pl}
-        return brcdapi_rest.send_request(session, 'brocade-interface/fibrechannel-statistics', 'PATCH', content, fid)
+        return brcdapi_rest.send_request(session,
+                                         'running/brocade-interface/fibrechannel-statistics',
+                                         'PATCH',
+                                         content,
+                                         fid)
     return brcdapi_util.GOOD_STATUS_OBJ
 
 
@@ -162,7 +172,7 @@ def default_port_config(session, fid, i_ports):
     # if they exist in the data returned from the switch
 
     # Read in the port configurations
-    obj = brcdapi_rest.get_request(session, 'brocade-interface/fibrechannel', fid)
+    obj = brcdapi_rest.get_request(session, 'running/brocade-interface/fibrechannel', fid)
     if brcdapi_auth.is_error(obj):
         brcdapi_log.log('Failed to read brocade-interface/fibrechannel for fid ' + str(fid), True)
         return obj
@@ -203,7 +213,7 @@ def default_port_config(session, fid, i_ports):
     # Now modify the port(s)
     if len(pl) > 0:
         return brcdapi_rest.send_request(session,
-                                         'brocade-interface/fibrechannel',
+                                         'running/brocade-interface/fibrechannel',
                                          'PATCH',
                                          {'fibrechannel': pl},
                                          fid)
@@ -212,7 +222,7 @@ def default_port_config(session, fid, i_ports):
 
 
 def port_enable_disable(session, fid, state, i_ports, echo=False):
-    """Enables a port or list of ports.
+    """Enable of disable a port or list of ports.
 
     :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
@@ -235,7 +245,7 @@ def port_enable_disable(session, fid, state, i_ports, echo=False):
     buf = 'En' if state else 'Dis'
     brcdapi_log.log(buf + 'abling ' + str(len(ports)) + ' ports.', echo)
     return brcdapi_rest.send_request(session,
-                                     'brocade-interface/fibrechannel',
+                                     'running/brocade-interface/fibrechannel',
                                      'PATCH',
                                      {'fibrechannel': [{'name': p, 'is-enabled-state': state} for p in ports]},
                                      fid)

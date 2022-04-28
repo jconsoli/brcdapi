@@ -1,4 +1,4 @@
-# Copyright 2020, 2021 Jack Consoli.  All rights reserved.
+# Copyright 2020, 2021, 2022 Jack Consoli.  All rights reserved.
 #
 # NOT BROADCOM SUPPORTED
 #
@@ -21,6 +21,30 @@ flush and close the file. This is not only useful for traditional programmers wh
 control, but useful in conjunction with control programs such as Ansible whereby printing to STD_OUT needs to be
 suppressed for all log messages except the final completion message.
 
+**Public Methods**
+
+    +-----------------------+-----------------------------------------------------------------------------------+
+    | Method                | Description                                                                       |
+    +=======================+===================================================================================+
+    | open_log              | Creates a log file. If the log file is already open, it is closed and a new one   |
+    |                       | created.                                                                          |
+    +-----------------------+-----------------------------------------------------------------------------------+
+    | close_log             | Closes the log file                                                               |
+    +-----------------------+-----------------------------------------------------------------------------------+
+    | log                   | Writes a message to the log file and optionally echos the message to STD_OUT      |
+    +-----------------------+-----------------------------------------------------------------------------------+
+    | exception             | Prints the traceback followed by the message. Optionally echoed to STD_OUT        |
+    +-----------------------+-----------------------------------------------------------------------------------+
+    | flush                 | Flushes (writes) the contents of the log file cache to storage                    |
+    +-----------------------+-----------------------------------------------------------------------------------+
+    | set_suppress_all      | Suppress all output except forced output. Useful with a playbook when only exit   |
+    |                       | status is desired                                                                 |
+    +-----------------------+-----------------------------------------------------------------------------------+
+    | clear_suppress_all    | Clears suppress all flag. See set_suppress_all()                                  |
+    +-----------------------+-----------------------------------------------------------------------------------+
+    | is_prog_suppress_all  | Returns the status of the suppress all flag                                       |
+    +-----------------------+-----------------------------------------------------------------------------------+
+
 Version Control::
 
     +-----------+---------------+-----------------------------------------------------------------------------------+
@@ -32,16 +56,18 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.6     | 31 Dec 2021   | Improved comments. No functional changes.                                         |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.7     | 28 Apr 2022   | Documentation updates only                                                        |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2020, 2021 Jack Consoli'
-__date__ = '31 Dec 2021'
+__copyright__ = 'Copyright 2020, 2021, 2022 Jack Consoli'
+__date__ = '28 Apr 2022'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.6'
+__version__ = '3.0.7'
 
 import traceback
 import datetime
@@ -66,6 +92,7 @@ def clear_suppress_all():
 
 def is_prog_suppress_all():
     """Returns the status of the suppress all flag
+
     :return: Flag state for _local_suppress_all
     :rtype: bool
     """
@@ -74,7 +101,7 @@ def is_prog_suppress_all():
 
 
 def log(msg, echo=False, force=False):
-    """Writes a message to the log file
+    """Writes a message to the log file and optionally echos the message to STD_OUT
 
     :param msg: Message to be printed to the log file
     :type msg: str, list
@@ -88,8 +115,7 @@ def log(msg, echo=False, force=False):
 
     buf = '\n'.join(msg) if isinstance(msg, list) else msg
     if _log_obj is not None:
-        _log_obj.write('\n# Log date: ' + datetime.datetime.now().strftime('%Y-%m-%d time: %H:%M:%S') + '\n')
-        _log_obj.write(buf)
+        _log_obj.write('\n# Log date: ' + datetime.datetime.now().strftime('%Y-%m-%d time: %H:%M:%S') + '\n' + buf)
     if echo and (not is_prog_suppress_all() or force):
         print(buf)
 
@@ -104,7 +130,7 @@ def flush():
 
 
 def exception(msg, echo=False):
-    """Prints the passed error message followed by the call stack returned from traceback
+    """Prints the traceback followed by the message. Optionally echoed to STD_OUT
 
     :param msg: Message to be printed to the log file
     :type msg: str, list
