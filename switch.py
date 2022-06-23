@@ -54,6 +54,8 @@
     | delete_switch         | Sets all ports to their default configuration, moves those ports to the default       |
     |                       | switchm and then deletes the switch.                                                  |
     +-----------------------+---------------------------------------------------------------------------------------+
+    | bind_addresses        | Binds port addresses to ports. Requires FOS 9.1 or higher.                            |
+    +-----------------------+---------------------------------------------------------------------------------------+
 
 **WARNING**
     * Circuits and tunnels are not automatically removed from GE ports when moving them to another logical switch
@@ -65,30 +67,7 @@
       all the ordered dictionaries in because once I got everything working, I did not want to change anything.
     * The address of a port in a FICON logical switch must be bound. As of FOS 9.0.b, there was no ability to bind the
       port addresses. This module can be used to create a FICON switch but if you attempt to enable the ports, you an
-      error is returned stating "Port enabl failed because port not bound in FICON LS".
-
-**Public Methods**
-
-    +-------------------------------+-------------------------------------------------------------------------------+
-    | Method                        | Description                                                                   |
-    +===============================+===============================================================================+
-    | switch_wwn                    | Returns the switch WWN from the logical switch matching the specified FID.    |
-    +-------------------------------+-------------------------------------------------------------------------------+
-    | logical_switches              | Returns a list of logical switches with the default switch first              |
-    +-------------------------------+-------------------------------------------------------------------------------+
-    | fibrechannel_switch           | Set parameters for brocade-fibrechannel-switch/fibrechannel-switch.           |
-    +-------------------------------+-------------------------------------------------------------------------------+
-    | fibrechannel_configuration    | Sets the fabric parameters for 'brocade-fibrechannel-configuration'           |
-    +-------------------------------+-------------------------------------------------------------------------------+
-    | add_ports                     | Move ports to a logical switch. Ports are set to the default configuration    |
-    |                               | and disabled before moving them                                               |
-    +-------------------------------+-------------------------------------------------------------------------------+
-    | create_switch                 | Create a logical switch with some basic configuration then disables the       |
-    |                               | switch                                                                        |
-    +-------------------------------+-------------------------------------------------------------------------------+
-    | delete_switch                 | Sets all ports to their default configuration, moves those ports to the       |
-    |                               | default switch, and deletes the switch                                        |
-    +-------------------------------+-------------------------------------------------------------------------------+
+      error is returned stating "Port enable failed because port not bound in FICON LS".
 
 Version Control::
 
@@ -109,15 +88,17 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.5     | 28 Apr 2022   | Use new URI formats.                                                              |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.6     | 22 Jun 2022   | Added bind_addresses()                                                            |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2020, 2021 Jack Consoli'
-__date__ = '28 Apr 2022'
+__copyright__ = 'Copyright 2020, 2021, 2022 Jack Consoli'
+__date__ = '22 Jun 2022'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.5'
+__version__ = '3.0.6'
 
 import pprint
 import collections
@@ -126,6 +107,7 @@ import brcdapi.fos_auth as brcdapi_auth
 import brcdapi.log as brcdapi_log
 import brcdapi.port as brcdapi_port
 import brcdapi.util as brcdapi_util
+import brcddb.brcddb_switch as brcddb_switch
 
 # It takes about 10 sec + 500 msec per port to move per API request. MAX_PORTS_TO_MOVE defines the number of ports that
 # can be moved in any single Rest request so as not to encounter an HTTP connection timeout.
@@ -299,7 +281,7 @@ def add_ports(session, to_fid, from_fid, i_ports=None, i_ge_ports=None, echo=Fal
 
     # Move the ports, FOS returns an error if ports is an empty list in: 'port-member-list': {'port-member': ports}
     # so I have to custom build the content. Furthermore, it takes about 400 msec per port to move so to avoid an HTTP
-    # connection timeout, the port moves are done in batches.
+    # connection timeout the port moves are done in batches.
     while len(ports) > 0:
         sub_content = {'fabric-id': to_fid}
         pl = ports[0: MAX_PORTS_TO_MOVE] if len(ports) > MAX_PORTS_TO_MOVE else ports
@@ -431,3 +413,27 @@ def delete_switch(session, fid, echo=False):
             return obj
 
     return brcdapi_auth.create_error(brcdapi_util.HTTP_BAD_REQUEST, 'FID not found', str(fid))
+
+
+def bind_addresses(session, fid, port_d, echo=False):
+    """Binds port addresses to ports. Requires FOS 9.1 or higher.
+
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
+    :type session: dict
+    :param port_d: Key is the port number. Value is the port address in hex (str).
+    :type port_d: dict
+    :param echo: If True, the list of ports for each move is echoed to STD_OUT
+    :type echo: bool
+    :return: brcdapi_rest status object for the first error encountered of the last request
+    :rtype: dict
+    """
+    port_l = [{'name': k, 'operation-type': 'port-address-bind', 'user-port-address': v, 'auto-bind': False}
+              for k, v in port_d.items()]
+    obj = brcdapi_rest.send_request(session,
+                                    'operations/port',
+                                    'POST',
+                                    {'port-operation-parameters': port_l},
+                                    fid=fid)
+    brcdapi_log.log('Error' if brcdapi_auth.is_error(obj) else 'Success' + ' binding addresses.', echo)
+
+    return obj

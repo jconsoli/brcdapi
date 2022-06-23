@@ -34,7 +34,11 @@ Public Methods & Data::
     +-----------------------+---------------------------------------------------------------------------------------+
     | default_port_config   | Disables and sets a list of FC ports to their factory default state.                  |
     +-----------------------+---------------------------------------------------------------------------------------+
-    | port_enable_disable   | Enables or disables a port or list of ports.                                          |
+    | port_enable_disable   | Enables or disables a port or list of ports. See enable_port() and port_disable()     |
+    +-----------------------+---------------------------------------------------------------------------------------+
+    | enable_port           | Calls port_enable_disable() with the enable/disable flag set to enable.               |
+    +-----------------------+---------------------------------------------------------------------------------------+
+    | disable_port          | Calls port_enable_disable() with the enable/disable flag set to disable.              |
     +-----------------------+---------------------------------------------------------------------------------------+
 
 Version Control::
@@ -52,15 +56,17 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.4     | 28 Apr 2022   | Use new URI formats.                                                              |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.5     | 22 Jun 2022   | Removed GE input parameter in clear_stats()                                       |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2020, 2021, 2022 Jack Consoli'
-__date__ = '28 Apr 2022'
+__date__ = '22 Jun 2022'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.4'
+__version__ = '3.0.5'
 
 import collections
 import brcdapi.util as brcdapi_util
@@ -83,21 +89,19 @@ def ports_to_list(i_ports):
     return [p if '/' in p else '0/' + p for p in temp_l]
 
 
-def clear_stats(session, fid, i_ports, i_ge_ports):
+def clear_stats(session, fid, ports_l):
     """Clear all statistical counters associated with a port or list of ports
 
     :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
     :param fid: Logical FID number for switch with ports. Use None if switch is not VF enabled.
     :type fid: int
-    :param i_ports: Port or list of FC ports for stats to be cleared on
-    :type i_ports: list
-    :param i_ge_ports: GE port or list of GE ports for stats to be cleared on
-    :type i_ge_ports: list
+    :param ports_l: Port or list of FC ports for stats to be cleared on
+    :type ports_l: list
     :return: brcdapi_rest status object
     :rtype: dict
     """
-    pl = [{'name': p, 'reset-statistics': 1} for p in ports_to_list(i_ports) + ports_to_list(i_ge_ports)]
+    pl = [{'name': p, 'reset-statistics': 1} for p in ports_to_list(ports_l)]
     if len(pl) > 0:
         content = {'fibrechannel-statistics': pl}
         return brcdapi_rest.send_request(session,
@@ -143,7 +147,7 @@ default_port_config_d['port-autodisable-enabled'] = 0  # Disabled
 # default_port_config_d['non-dfe-enabled'] = 0 Deprecated
 default_port_config_d['trunk-port-enabled'] = 1  # Enabled
 default_port_config_d['pod-license-state'] = 'released'  # The port is not reserved under a POD license
-default_port_config_d['disable-reason'] = 'None'
+# default_port_config_d['disable-reason'] = 'None'
 default_port_config_d['port-peer-beacon-enabled'] = False  # Disabled
 default_port_config_d['clean-address-enabled'] = False  # Disabled
 default_port_config_d['congestion-signal-enabled'] = True  # Gen7 FPIN feature
@@ -224,7 +228,7 @@ def default_port_config(session, fid, i_ports):
 def port_enable_disable(session, fid, state, i_ports, echo=False):
     """Enable of disable a port or list of ports.
 
-    :param session: Session object returned from brcdapi.brcdapi_auth.login()
+    :param session: Session object returned from brcdapi.fos_auth.login()
     :type session: dict
     :param fid: Logical FID number for switch with ports. Use None if switch is not VF enabled.
     :type fid: int

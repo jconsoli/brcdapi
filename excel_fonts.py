@@ -36,15 +36,18 @@ Version Control::
     +===========+===============+===================================================================================+
     | 1.0.0     | 28 Apr 2022   | Initial Launch                                                                    |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 1.0.1     | 22 Jun 2022   | Added default of None when passed parm in font_type(), fill_type(),               |
+    |           |               | border_type(), and align_type()                                                   |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2022 Jack Consoli'
-__date__ = '28 Apr 2022'
+__date__ = '22 Jun 2022'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.0'
+__version__ = '1.0.1'
 
 import brcdapi.log as brcdapi_log
 import openpyxl.styles as xl_styles
@@ -245,11 +248,12 @@ def font_type(x):
     """
     global font_tbl, std_font
 
+    if x is None:
+        return None
     if x in font_tbl:
         return font_tbl[x]
-    else:
-        brcdapi_log.exception('Unknown font type: ' + x, True)
-        return std_font
+    brcdapi_log.exception('Unknown font type: ' + x, True)
+    return std_font
 
 
 def fill_type(x):
@@ -262,11 +266,12 @@ def fill_type(x):
     """
     global _fill_tbl, _lightblue_fill
 
+    if x is None:
+        return None
     if x in _fill_tbl:
         return _fill_tbl[x]
-    else:
-        brcdapi_log.exception('Unknown fill type: ' + x, True)
-        return _lightblue_fill
+    brcdapi_log.exception('Unknown fill type: ' + x, True)
+    return _lightblue_fill
 
 
 def border_type(x):
@@ -279,11 +284,12 @@ def border_type(x):
     """
     global border_tbl, thin_border
 
+    if x is None:
+        return None
     if x in border_tbl:
         return border_tbl[x]
-    else:
-        brcdapi_log.exception('Unknown border type: ' + x, True)
-        return thin_border
+    brcdapi_log.exception('Unknown border type: ' + x, True)
+    return thin_border
 
 
 def align_type(x):
@@ -296,8 +302,9 @@ def align_type(x):
     """
     global align_tbl, wrap_alignment
 
+    if x is None:
+        return None
     if x in align_tbl:
         return align_tbl[x]
-    else:
-        brcdapi_log.exception('Unknown align type: ' + x, True)
-        return wrap_alignment
+    brcdapi_log.exception('Unknown align type: ' + x, True)
+    return wrap_alignment

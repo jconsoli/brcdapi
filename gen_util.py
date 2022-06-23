@@ -93,15 +93,17 @@ Version Control::
     +===========+===============+===================================================================================+
     | 1.0.0     | 28 Apr 2022   | Initial Launch                                                                    |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 1.0.1     | 22 Jun 2022   | Added valid_banner                                                                |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2022 Jack Consoli'
-__date__ = '28 Apr 2022'
+__date__ = '22 Jun 2022'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.0'
+__version__ = '1.0.1'
 
 import re
 import datetime
@@ -120,6 +122,7 @@ zone_notes = re.compile(r'[~*#+^]')
 ishex = re.compile(r'^[A-Fa-f0-9]*$')  # use: if ishex.match(hex_str) returns True if hex_str represents a hex number
 valid_file_name = re.compile(r'\w[ -]')  # use: good_file_name = valid_file_name.sub('_', bad_file_name)
 date_to_space = re.compile(r'[-/,+]')  # Used to convert special characters in data formats to a space
+valid_banner = re.compile(r'[^A-Za-z0-9 .,*\-\"\']')  # Use: good_banner = gen_util.valid_banner.sub('-', buf)
 
 multiplier = dict(k=1000, K=1000, m=1000000, M=1000000, g=1000000000, G=1000000000, t=1000000000000, T=1000000000000)
 # Using datetime is clumsy. These are easier. Speed is seldom the issue but it is faster
@@ -430,7 +433,7 @@ def paren_content(buf, p_remove=False):
 def add_to_obj(obj, k, v):
     """Adds a key value pair to obj using '/' notation in the key. If the key already exists, it is overwritten.
 
-    :param obj: Dictionary or brcddb.class object the key value pair is to be added to
+    :param obj: Dictionary the key value pair is to be added to
     :type obj: dict
     :param k: The key
     :type k: str

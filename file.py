@@ -49,15 +49,17 @@ Version Control::
     +===========+===============+===================================================================================+
     | 1.0.0     | 28 Apr 2022   | Initial Launch. Previously in brcddb.                                             |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 1.0.1     | 22 Jun 2022   | Minor performance enhancements.                                                   |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2022 Jack Consoli'
-__date__ = '28 Apr 2022'
+__date__ = '22 Jun 2022'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.0'
+__version__ = '1.0.1'
 
 import brcdapi.log as brcdapi_log
 import json
@@ -73,7 +75,6 @@ def write_dump(obj, file):
     :type file: str
     :rtype: None
     """
-    brcdapi_log.log('CALL: brcddb_util.write_dump. File: ' + file)
     with open(file, 'w') as f:
         f.write(json.dumps(obj, sort_keys=True))
     f.close()
@@ -95,7 +96,7 @@ def read_dump(file):
 
 
 def read_directory(folder):
-    """Reads in the contents of a folder (directory) and return the list of files only (no directories) in that folder
+    """Reads in the contents of a folder (directory) and returns the list of files only (no directories) in that folder
 
     :param folder: Name of the folder
     :type folder: str
@@ -137,7 +138,7 @@ def read_file(file, remove_blank=True, rc=True):
     :return: List of file file contents.
     :rtype: list
     """
-    # Apparently Putty puts some weird characters in the file. Looks like there is a Python bug with the line below. I
+    # Apparently, Putty puts some weird characters in the file. Looks like there is a Python bug with the line below. I
     # get "NameError: name 'open' is not defined.
     # f = open(file, 'r', encoding='utf-8', errors='ignore')
     #  So I read as bytes, decoded using utf-8 and then had to ignore errors.
@@ -146,7 +147,7 @@ def read_file(file, remove_blank=True, rc=True):
     f.close()
     content = data.replace('\r', '').split('\n')
     rl = [buf[:buf.find('#')].rstrip() if buf.find('#') >= 0 else buf.rstrip() for buf in content] if rc else content
-    return [buf for buf in rl if len(buf) > 0] if remove_blank else [buf for buf in rl]
+    return [buf for buf in rl if len(buf) > 0] if remove_blank else rl
 
 
 def file_properties(folder, file):
@@ -187,9 +188,6 @@ def file_properties(folder, file):
     +---------------+-------+---------------------------------------------------------------------------+
     | permission_f  | bool  | True if user has path access to file. Same as os.F_OK. Not valid for      |
     |               |       | Windows                                                                   |
-    +---------------+-------+---------------------------------------------------------------------------+
-    | exception     | bool  | True if an exception occurred trying to read the file attributes. This    |
-    |               |       | typically happens when trying to read protected system files.             |
     +---------------+-------+---------------------------------------------------------------------------+
 
     :param folder: Folder containing file

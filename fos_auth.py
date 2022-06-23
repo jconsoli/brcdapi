@@ -102,16 +102,18 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 1.0.2     | 28 Apr 2022   | Build uri map dynamically.                                                        |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 1.0.3     | 22 Jun 2022   | Added error message when login is for something other than none or self           |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2021, 2022 Jack Consoli'
-__date__ = '28 Apr 2022'
+__date__ = '22 Jun 2022'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.2'
+__version__ = '1.0.3'
 
 import http.client as httplib
 import base64
@@ -289,6 +291,11 @@ def login(user, password, ip_addr, in_http_access=None):
     """
     # Get connection token
     http_access = 'none' if in_http_access is None else in_http_access
+    if not isinstance(http_access, str) or http_access not in ('none', 'self'):
+        buf = 'HTTP access other than "none" and "self" has not been implemented. Entered HTTPS method was: ' +\
+              str(http_access)
+        brcdapi_log.log(buf, True)
+        return create_error(brcdapi_util.HTTP_BAD_REQUEST, 'Unsupported login', str(http_access))
     conn = _get_connection(ip_addr, http_access)
     auth = user + ':' + password
     auth_encoded = base64.b64encode(auth.encode())
