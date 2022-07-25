@@ -69,16 +69,18 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.7     | 28 Apr 2022   | Automated build of brcdapi.uri_map                                                |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.8     | 25 Jul 2022   | Added check_status()                                                              |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2019, 2020, 2021, 2022 Jack Consoli'
-__date__ = '28 Apr 2022'
+__date__ = '25 Jul 2022'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.7'
+__version__ = '3.0.8'
 
 import re
 import http.client as httplib
@@ -95,7 +97,7 @@ import brcdapi.gen_util as gen_util
 _DISABLE_OPTIONS_CHECK = True  # When False, makes sure OPTIONS was requested for each URI
 _MAX_RETRIES = 5  # Maximum number of times to retry a request
 _SVC_UNAVAIL_WAIT = 4  # Time, in seconds, to wait before retrying a request that returned 503, service unavaliable
-_FABRIC_BUSY_WAIT = 10  # Time, in seconds, to wait before retrying a request due to a fabric usy
+_FABRIC_BUSY_WAIT = 10  # Time, in seconds, to wait before retrying a request due to a fabric busy
 
 _DEBUG = False
 # _DEBUG_MODE is only used when _DEBUG == True as follows:
@@ -252,7 +254,7 @@ def _api_request(session, uri, http_method, content):
     :param http_method: Method for HTTP connect. 'GET', 'PATCH', 'POST', etc.
     :type http_method: str
     :param content: The content, in Python dict, to be converted to JSON and sent to switch.
-    :type content: dict
+    :type content: dict, None
     :return: Response and status in fos_auth.is_error() and fos_auth.formatted_error_msg() friendly format
     :rtype: dict
     """
@@ -402,7 +404,7 @@ def api_request(session, uri, http_method, content):
     :type uri: str
     :param http_method: Method for HTTP connect.
     :param content: The content, in Python dict, to be converted to JSON and sent to switch.
-    :type content: dict
+    :type content: dict, None
     :return: Response and status in fos_auth.is_error() and fos_auth.formatted_error_msg() friendly format
     :rtype: dict
     """
@@ -478,7 +480,7 @@ def send_request(session, ruri, http_method, content, fid=None):
     :type ruri: str
     :param http_method: Method (PATCH, POST, DELETE, PUT ...) for HTTP connect.
     :param content: The content, in Python dict, to be converted to JSON and sent to switch.
-    :type content: dict
+    :type content: dict, None
     :param fid: Fabric ID
     :type fid: int, None
     :return: Response and status in is_error() and fos_auth.formatted_error_msg() friendly format
@@ -527,3 +529,44 @@ def set_debug(debug, debug_mode=None, debug_folder=None):
             return False
 
     return True
+
+
+def check_status(session, fid, message_id, wait_time, num_check):
+    """Polls a switch for status of an operations URI
+
+    :param session: Session object returned from login()
+    :type session: dict
+    :param fid: Fabric ID
+    :type fid: int
+    :param message_id: Message ID returned in the response to the operation that is being checked
+    :type message_id: str, int
+    :param wait_time: The length of time in seconds to wait before polling the switch for status
+    :type wait_time: int
+    :param num_check: Maximum number of times to poll the switch
+    :type num_check: int
+    """
+    obj = fos_auth.create_error(brcdapi_util.HTTP_REQUEST_CONFLICT,
+                                     'Invalid parameter',
+                                     'num_check must be greater than 0')
+    i = num_check
+
+    while i > 0:
+        time.sleep(wait_time)
+        obj = send_request(session,
+                           'operations/show-status/message-id/' + str(message_id),
+                           'POST',
+                           None,
+                           fid)
+        if fos_auth.is_error(obj):
+            return obj  # Let the calling method deal with errors
+        try:
+            status = obj['show-status']['status']
+        except KeyError:
+            return fos_auth.create_error(brcdapi_util.HTTP_INT_SERVER_ERROR,
+                                             brcdapi_util.HTTP_REASON_UNEXPECTED_RESP,
+                                             "Missing: ['show-status']['status']")
+        if status == 'done':
+            break
+        i -= 1
+
+    return obj

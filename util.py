@@ -79,16 +79,18 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.6     | 22 Jun 2022   | Set FID=True for operations/port                                                  |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.7     | 25 Jul 2022   | Added new branches and leaves for 9.1.0b                                          |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2019, 2020, 2021, 2022 Jack Consoli'
-__date__ = '22 Jun 2022'
+__date__ = '25 Jul 2022'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.6'
+__version__ = '3.0.7'
 
 import pprint
 import copy
@@ -207,6 +209,7 @@ default_uri_map = {
             'gigabitethernet-statistics': dict(area=SWITCH_PORT_OBJ, fid=True, methods=('GET',)),
             'logical-e-port': dict(area=SWITCH_PORT_OBJ, fid=True, methods=('GET',)),
             'portchannel': dict(area=SWITCH_PORT_OBJ, fid=True, methods=('GET',)),
+            'portchannel-statistics': dict(area=SWITCH_PORT_OBJ, fid=True, methods=('GET',)),
             'fibrechannel-router-statistics': dict(area=SWITCH_PORT_OBJ, fid=True, methods=('GET',)),
         },
         'brocade-media': {
@@ -394,12 +397,13 @@ default_uri_map = {
         'brocade-extension-ipsec-policy': {
             'extension-ipsec-policy': dict(area=FABRIC_OBJ, fid=True, methods=('GET',)),
         },
-        'brocade-extension-tunnel': {
+        'brocade-extension-tunnel': {  # I think some of these should be SWITCH_PORT_OBJ
             'extension-tunnel': dict(area=FABRIC_OBJ, fid=True, methods=('GET',)),
             'extension-tunnel-statistics': dict(area=FABRIC_OBJ, fid=True, methods=('GET',)),
             'extension-circuit': dict(area=FABRIC_OBJ, fid=True, methods=('GET',)),
             'extension-circuit-statistics': dict(area=FABRIC_OBJ, fid=True, methods=('GET',)),
             'circuit-qos-statistics': dict(area=FABRIC_OBJ, fid=True, methods=('GET',)),
+            'circuit-interval-statistics': dict(area=FABRIC_OBJ, fid=True, methods=('GET',)),
             'wan-statistics': dict(area=FABRIC_OBJ, fid=True, methods=('GET',)),
         },
         'brocade-extension': {
@@ -458,6 +462,7 @@ default_uri_map = {
         'fabric': dict(area=NULL_OBJ, fid=True, methods=('POST', 'OPTIONS')),
         'supportlink': dict(area=NULL_OBJ, fid=False, methods=('POST', 'OPTIONS')),
         'usb-delete-file': dict(area=NULL_OBJ, fid=False, methods=('POST', 'OPTIONS')),
+        'portchannel': dict(area=NULL_OBJ, fid=True, methods=('POST', 'OPTIONS')),
     },
 }
 
@@ -598,6 +603,9 @@ def session_cntl(session, in_uri):
     :return: Control dicstionary associated with uri. None if not found
     :rtype: dict, None
     """
+    if 'operations/show-status/message-id/' in in_uri:
+        return None
+
     uri = '/'.join(split_uri(in_uri))
     d = gen_util.get_key_val(session.get('uri_map'), uri)
     if d is None:

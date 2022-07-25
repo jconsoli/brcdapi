@@ -95,15 +95,17 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 1.0.1     | 22 Jun 2022   | Added valid_banner                                                                |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 1.0.2     | 25 Jul 2022   | Handled exception in remove_duplicates() when input list is a list of dict        |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2022 Jack Consoli'
-__date__ = '22 Jun 2022'
+__date__ = '25 Jul 2022'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.1'
+__version__ = '1.0.2'
 
 import re
 import datetime
@@ -259,7 +261,10 @@ def remove_duplicates(obj_list):
     """
     seen = set()
     seen_add = seen.add  # seen.add isn't changing so making it local makes the next line more efficient
-    return [obj for obj in obj_list if not (obj in seen or seen_add(obj))]
+    try:
+        return [obj for obj in obj_list if not (obj in seen or seen_add(obj))]
+    except TypeError:
+        return obj_list
 
 
 def remove_none(obj_list):

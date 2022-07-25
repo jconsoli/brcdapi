@@ -51,15 +51,17 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 1.0.1     | 22 Jun 2022   | Minor performance enhancements.                                                   |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 1.0.2     | 25 Jul 2022   | Fixed bug in read_full_directory() when skip_sys == True                          |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2022 Jack Consoli'
-__date__ = '22 Jun 2022'
+__date__ = '25 Jul 2022'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.1'
+__version__ = '1.0.2'
 
 import brcdapi.log as brcdapi_log
 import json
@@ -109,7 +111,7 @@ def read_directory(folder):
             for file in os.listdir(folder):
                 full_path = os.path.join(folder, file)
                 try:
-                    if os.path.isfile(full_path) and '~$' not in file:
+                    if os.path.isfile(full_path) and len(file) > 2 and file[0:2] != '~$':
                         rl.append(file)
                 except PermissionError:
                     pass  # It's probably a system file
@@ -223,7 +225,7 @@ def read_full_directory(folder, skip_sys=False):
 
     :param folder: Name of the directory to read
     :type folder: str
-    :param skip_sys: If True, skip any file or folder that begins with '$'
+    :param skip_sys: If True, skip any file or folder that begins with '$' or '~'
     :param skip_sys: bool
     :return rl: List of properties dictionaries (as returned from file_properties) for each file as described above.
     :rtype rl: list
@@ -233,6 +235,8 @@ def read_full_directory(folder, skip_sys=False):
         for file in os.listdir(folder):
             full_path = os.path.join(folder, file)
             if os.path.isfile(full_path):
+                if skip_sys and len(file) > 2 and file[0:2] == '~$':
+                    continue
                 rl.append(file_properties(folder, file))
             else:
                 rl.extend(read_full_directory(full_path, skip_sys))

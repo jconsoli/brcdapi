@@ -26,10 +26,15 @@ Primary Methods::
     | Method                | Description                                                                           |
     +=======================+=======================================================================================+
     | basic_api_parse       | Performs a read and basic parse of the conn.getresponse()                             |
+    +-----------------------+---------------------------------------------------------------------------------------+
     | create_error          | Creates a standard error object                                                       |
+    +-----------------------+---------------------------------------------------------------------------------------+
     | obj_status            | Returns the status from API object.                                                   |
+    +-----------------------+---------------------------------------------------------------------------------------+
     | is_error()            | Determines if an object returned from api_request() is an error object                |
+    +-----------------------+---------------------------------------------------------------------------------------+
     | obj_reason            | Returns the reason from API object                                                    |
+    +-----------------------+---------------------------------------------------------------------------------------+
     | obj_error_detail      | Formats the error message detail into human readable format. Typically only called    |
     |                       | from formatted_error_msg().                                                           |
     +-----------------------+---------------------------------------------------------------------------------------+
@@ -104,16 +109,19 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 1.0.3     | 22 Jun 2022   | Added error message when login is for something other than none or self           |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 1.0.4     | 25 Jul 2022   | Modified obj_error_detail() to handle operations URLs which do not have           |
+    |           |               | obj[errors][error] for error detail                                               |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2021, 2022 Jack Consoli'
-__date__ = '22 Jun 2022'
+__date__ = '25 Jul 2022'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.3'
+__version__ = '1.0.4'
 
 import http.client as httplib
 import base64
@@ -236,32 +244,35 @@ def obj_error_detail(obj):
     :return: Formatted error detail
     :rtype: str
     """
-    try:
-        error_list = obj.get('errors').get('error')
-        if isinstance(error_list, dict):
-            error_list = [error_list]  # in 8.2.1a and below, a single error was returned as a dict
-        i = 0
-        buf = ''
-        for error_obj in error_list:
-            buf += 'Error Detail ' + str(i) + ':'
-            for k in error_obj.keys():
-                d = error_obj.get(k)
-                if isinstance(d, str):
-                    buf += '\n  ' + k + ': ' + d
-                elif isinstance(d, dict):
-                    buf += '\n  ' + k + ':'
-                    for k1 in d:
-                        d1 = d.get(k1)
-                        if isinstance(d1, str):
-                            buf += '\n    ' + k1 + ': ' + d1
-                        elif isinstance(d1, (int, float)):
-                            buf += '\n    ' + k1 + ': ' + str(d1)
-            i += 1
-            buf += '\n'
-        return buf
-    except BaseException as e:
-        brcdapi_log.exception(['Invalid data returned from FOS. Error code:', str(e)])
-        return ''  # A formatted error message isn't always present so this may happen
+    error_d = obj.get('errors')
+    if error_d is None:
+        return ''
+
+    error_list = error_d.get('error')
+    if error_list is None:
+        return ''
+
+    if isinstance(error_list, dict):
+        error_list = [error_list]  # in 8.2.1a and below, a single error was returned as a dict
+    i = 0
+    buf = ''
+    for error_obj in error_list:
+        buf += 'Error Detail ' + str(i) + ':'
+        for k in error_obj.keys():
+            d = error_obj.get(k)
+            if isinstance(d, str):
+                buf += '\n  ' + k + ': ' + d
+            elif isinstance(d, dict):
+                buf += '\n  ' + k + ':'
+                for k1 in d:
+                    d1 = d.get(k1)
+                    if isinstance(d1, str):
+                        buf += '\n    ' + k1 + ': ' + d1
+                    elif isinstance(d1, (int, float)):
+                        buf += '\n    ' + k1 + ': ' + str(d1)
+        i += 1
+        buf += '\n'
+    return buf
 
 
 def formatted_error_msg(obj):
