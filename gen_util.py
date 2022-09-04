@@ -42,6 +42,9 @@
   | sort_obj_num                | Sorts a list of dictionaries based on the value for a key. Value must be a        |
   |                             | number. Key may be in '/' format                                                  |
   +-----------------------------+-----------------------------------------------------------------------------------|
+  | sort_obj_str                | Sorts a list of dictionaries based on the value for a key or list of keys. Value  |
+  |                             | must be a string.                                                                 |
+  +-----------------------------+-----------------------------------------------------------------------------------|
   | convert_to_list             | Converts an object to a list. Typically used to convert objects that may be None  |
   |                             | or list.                                                                          |
   +-----------------------------+-----------------------------------------------------------------------------------|
@@ -97,15 +100,17 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 1.0.2     | 25 Jul 2022   | Handled exception in remove_duplicates() when input list is a list of dict        |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 1.0.3     | 04 Sep 2022   | Added sort_obj_str()                                                              |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2022 Jack Consoli'
-__date__ = '25 Jul 2022'
+__date__ = '04 Sep 2022'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.2'
+__version__ = '1.0.3'
 
 import re
 import datetime
@@ -203,7 +208,7 @@ def sort_obj_num(obj_list, key, r=False, h=False):
     :type r: bool
     :param h: True indicates that the value referenced by the key is a hex number
     :type h: bool
-    :return: Sorted list of obects.
+    :return: Sorted list of objects.
     :rtype: list
     """
     # count_dict: key is the count (value of dict item whose key is the input counter). Value is a list of port objects
@@ -223,6 +228,36 @@ def sort_obj_num(obj_list, key, r=False, h=False):
 
     # Sort the keys, which are the actual counter values and return the sorted list of objects
     return [v for k in sorted(list(count_dict.keys()), reverse=r) for v in count_dict[k]]
+
+
+def sort_obj_str(obj_list, key_list, r=False):
+    """Sorts a list of dictionaries based on the value for a key or list of keys. Value must be a string
+
+    :param obj_list: List of dict or brcddb class objects
+    :type obj_list: list, tuple
+    :param key_list: Key or list of keys. Sort order is based key_list[0], then [1] ... Keys may be in '/' format
+    :type key_list: str, list, tuple, None
+    :param r: Reverse flag. If True, sort in reverse order ('z' first, 'a' last)
+    :type r: bool
+    :return: Sorted list of objects.
+    :rtype: list
+    """
+    # count_dict: key is the count (value of dict item whose key is the input counter). Value is a list of port objects
+    # whose counter matches this count
+    key_l = convert_to_list(key_list)
+    while len(key_l) > 0:
+        key, sort_d = key_l.pop(), dict()
+        for obj in obj_list:
+            # Get the object to test against
+            v = get_key_val(obj, key)
+            if isinstance(v, str):
+                try:
+                    sort_d[v].append(obj)
+                except KeyError:
+                    sort_d.update({v: [obj]})
+        obj_list = [v for k in sorted(list(sort_d.keys()), reverse=r) for v in sort_d[k]]
+
+    return obj_list
 
 
 def convert_to_list(obj):

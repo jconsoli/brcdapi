@@ -52,7 +52,7 @@ Public Methods & Data::
     +-----------------------+---------------------------------------------------------------------------------------+
     | session_cntl          | Returns the control dictionary (uri map) for the uri                                  |
     +-----------------------+---------------------------------------------------------------------------------------+
-    | format_uri            | Formats a full URI for a KPI.                                                         |
+    | format_uri            | Formats a full URI                                                                    |
     +-----------------------+---------------------------------------------------------------------------------------+
     | uri_d                 | Returns the dictionary in the URI map for a specified URI                             |
     +-----------------------+---------------------------------------------------------------------------------------+
@@ -81,16 +81,18 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.7     | 25 Jul 2022   | Added new branches and leaves for 9.1.0b                                          |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.8     | 04 Sep 2022   | Added new branches and leaves for 9.1.1                                           |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2019, 2020, 2021, 2022 Jack Consoli'
-__date__ = '25 Jul 2022'
+__date__ = '04 Sep 2022'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.7'
+__version__ = '3.0.8'
 
 import pprint
 import copy
@@ -188,6 +190,7 @@ default_uri_map = {
     'running': {
         'brocade-fibrechannel-switch': {
             'fibrechannel-switch': dict(area=FABRIC_OBJ, fid=True, methods=('GET',)),
+            'switch-fabric-statistics': dict(area=FABRIC_OBJ, fid=True, methods=('GET',)),
             'topology-domain': dict(area=FABRIC_OBJ, fid=True, methods=('GET',)),
             'topology-route': dict(area=FABRIC_OBJ, fid=True, methods=('GET',)),
             'topology-error': dict(area=FABRIC_OBJ, fid=True, methods=('GET',)),
@@ -315,7 +318,10 @@ default_uri_map = {
             'monitoring-system-matrix': dict(area=SWITCH_OBJ, fid=True, methods=('GET',)),
             'switch-status-policy-report': dict(area=SWITCH_OBJ, fid=True, methods=('GET',)),
             'fpi-profile': dict(area=SWITCH_OBJ, fid=True, methods=('GET',)),
-             'maps-violation': dict(area=SWITCH_OBJ, fid=True, methods=('GET',)),
+            'maps-violation': dict(area=SWITCH_OBJ, fid=True, methods=('GET',)),
+            'backend-ports-history': dict(area=SWITCH_OBJ, fid=True, methods=('GET',)),
+            'gigabit-ethernet-ports-history': dict(area=SWITCH_OBJ, fid=True, methods=('GET',)),
+            'maps-device-login': dict(area=SWITCH_OBJ, fid=True, methods=('GET',)),
         },
         'brocade-time': {
             'clock-server': dict(area=CHASSIS_OBJ, fid=False, methods=('GET',)),
@@ -405,6 +411,7 @@ default_uri_map = {
             'circuit-qos-statistics': dict(area=FABRIC_OBJ, fid=True, methods=('GET',)),
             'circuit-interval-statistics': dict(area=FABRIC_OBJ, fid=True, methods=('GET',)),
             'wan-statistics': dict(area=FABRIC_OBJ, fid=True, methods=('GET',)),
+            'wan-statistics-v1': dict(area=FABRIC_OBJ, fid=True, methods=('GET',)),
         },
         'brocade-extension': {
             'traffic-control-list': dict(area=FABRIC_OBJ, fid=True, methods=('GET',)),
@@ -463,6 +470,7 @@ default_uri_map = {
         'supportlink': dict(area=NULL_OBJ, fid=False, methods=('POST', 'OPTIONS')),
         'usb-delete-file': dict(area=NULL_OBJ, fid=False, methods=('POST', 'OPTIONS')),
         'portchannel': dict(area=NULL_OBJ, fid=True, methods=('POST', 'OPTIONS')),
+        'device-login-rebalance': dict(area=NULL_OBJ, fid=True, methods=('POST', 'OPTIONS')),
     },
 }
 
@@ -615,7 +623,7 @@ def session_cntl(session, in_uri):
 
 
 def format_uri(session, uri, fid):
-    """Formats a full URI for a KPI.
+    """Formats a full URI.
 
     :param session: Session object returned from login()
     :type session: dict
@@ -628,7 +636,7 @@ def format_uri(session, uri, fid):
     """
     d = session_cntl(session, uri)
 
-    return '/rest/'+uri if d is None else d['uri'] if d['fid'] is None else d['uri'] + vfid_to_str(fid)
+    return '/rest/' + uri if d is None else d['uri'] if d['fid'] is None else d['uri'] + vfid_to_str(fid)
 
 
 def uri_d(session, uri):

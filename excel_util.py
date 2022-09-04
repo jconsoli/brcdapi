@@ -43,6 +43,9 @@ Public Methods & Data::
     +-----------------------+---------------------------------------------------------------------------------------+
     | cell_update           | A convinent way to set cell properties and the cell value in a single call.           |
     +-----------------------+---------------------------------------------------------------------------------------+
+    | read_workbook         | Reads a workbook into a list of worksheets followed by lists of lists which           |
+    |                       | effectively make up a row by column matrix of each sheet.                             |
+    +-----------------------+---------------------------------------------------------------------------------------+
 
 Version Control::
 
@@ -51,21 +54,25 @@ Version Control::
     +===========+===============+===================================================================================+
     | 1.0.0     | 28 Apr 2022   | Initial Launch                                                                    |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 1.0.1     | 04 sep 2022   | Added read_workbook() and automatically append .xlsx in save_report()             |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2022 Jack Consoli'
-__date__ = '28 Apr 2022'
+__date__ = '04 Sep 2022'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.0'
+__version__ = '1.0.1'
 
 import openpyxl as xl
 import openpyxl.utils.cell as xl_util
 import re
+import os
 import brcdapi.log as brcdapi_log
+import brcdapi.file as brcdapi_file
 import brcdapi.gen_util as gen_util
 import brcddb.brcddb_fabric as brcddb_fabric
 import brcddb.util.util as brcddb_util
@@ -182,7 +189,7 @@ def save_report(wb, file_name='Report.xlsx'):
     :param file_name: Report name
     :type file_name: str
     """
-    wb.save(file_name)
+    wb.save(brcdapi_file.full_file_name(file_name, '.xlsx'))
 
 
 def col_to_num(cell):
@@ -348,3 +355,95 @@ def cell_update(sheet, row, col, buf, font=None, align=None, fill=None, link=Non
         sheet[cell].hyperlink = link
     if buf is not None:
         sheet[cell] = buf
+
+
+def read_workbook(file, dm=0, order='row', sheets=None, skip_sheets=None, echo=False):
+    """Reads a POS report and adds it to the POS database
+
+    Copied to this library from other scripts. For large workbooks that take a long time to read, it turned out to be
+    convienent to leave these debug modes in. Note that reading a workbook is very time consuming while reading a JSON
+    file is magnitudes of order faster.
+
+    +-------+-------------------------------------------------------------------------------------------------------|
+    | mode  | Description                                                                                           |
+    +=======+=======================================================================================================|
+    | 0     | Read the workbook normally                                                                            |
+    +-------+-------------------------------------------------------------------------------------------------------|
+    | 1     | Read the workbook then write the return list to a JSON file of the same name replacing '.xlsx' with   |
+    |       | '.json'                                                                                               |
+    +-------+-------------------------------------------------------------------------------------------------------|
+    | 2     | Replace .xlsx in the file name with .json, then read the JSON file. sheets and skip_sheets are        |
+    |       | ignored.                                                                                              |
+    +-------+-------------------------------------------------------------------------------------------------------|
+    | 3     | If the equivalent JSON file exists and the last modification time stamp is more recent than the Excel |
+    |       | file continue as mode 2. Otherwise continue as mode 1.                                                |
+    +-------+-------------------------------------------------------------------------------------------------------|
+
+    :param file: Name of Excel workbook to read
+    :type file: str
+    :param dm: Debug mode.
+    :type dm: int
+    :param order: 'row' for row first followed by column data. 'col' for columns first followed by rows
+    :type order: str
+    :param sheets: Sheet or list of sheets by name to read. If None, read all sheets not in skip_sheets.
+    :type sheets: None, list, tuple, str
+    :param skip_sheets: Sheet or list of sheets by name to skip reading. '*' means just read the workbook, no sheets.
+    :type skip_sheets: None, list, tuple, str
+    :param echo: If True, print read/write status to STD_OUT
+    :type echo: bool
+    :return: List of dictionaries, one for each sheet, with the file, sheet name, and excel_util.read_sheet() output.
+    :rtype: list
+    """
+    rl = list()
+    json_file = file.replace('.xlsx', '.json')
+
+    if dm >= 2:
+        # Try reading the JSON file
+        try:
+            excel_file_tm = os.path.getmtime(file)
+        except (FileExistsError, FileNotFoundError):
+            excel_file_tm = 0
+        try:
+            if os.path.getmtime(json_file) > excel_file_tm:
+                brcdapi_log.log('Reading: ' + json_file, echo=echo)
+                return brcdapi_file.read_dump(json_file)
+        except FileNotFoundError:
+            pass
+        except FileExistsError:
+            brcdapi_log.log(['', 'The folder in ' + file + ' does not exist.'], echo=True)
+            return rl
+
+    # Read the workbook
+    brcdapi_log.log('Reading ' + file, echo=echo)
+    try:
+        wb = xl.load_workbook(file, data_only=True)  # Read the Workbook
+    except FileNotFoundError:
+        brcdapi_log.log(['', 'File not found: ' + file, ''], echo=True)
+        return rl
+    except FileExistsError:
+        brcdapi_log.log(['', 'The folder in ' + file + ' does not exist.'], echo=True)
+        return rl
+    except TypeError:
+        buf = 'Encountered a TypeError reading ' + file + '. This typically occurs when there is a sheet name '
+        buf += 'with special characters. To fix this, rename the sheet name (sheet tab).'
+        brcdapi_log.log(['', buf, ''], echo=True)
+        return rl
+
+    # Now read each sheet
+    if isinstance(skip_sheets, str) and len(skip_sheets) == 1 and skip_sheets == '*':
+        pass
+    else:
+        sheet_l = wb.sheetnames if sheets is None else gen_util.convert_to_list(sheets)
+        for sheet_name in [buf for buf in sheet_l if buf not in gen_util.convert_to_list(skip_sheets)]:
+            brcdapi_log.log('  Reading sheet ' + sheet_name, echo=echo)
+            sl, al = read_sheet(wb[sheet_name], 'row')
+            rl.append(dict(file=file, sheet=sheet_name, sl=sl, al=al))
+        brcdapi_log.log('  Read complete', echo=echo)
+
+    if dm == 1 or dm == 3:
+        # Write out to JSON
+        brcdapi_log.log('  Writing ' + json_file, echo=echo)
+        brcdapi_file.write_dump(rl, json_file)
+        brcdapi_log.log('  Write complete', echo=echo)
+
+    return rl
