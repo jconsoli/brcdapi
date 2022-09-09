@@ -102,20 +102,22 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 1.0.3     | 04 Sep 2022   | Added sort_obj_str()                                                              |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 1.0.4     | 09 Sep 2022   | Fixed bug in get_key_val() when an interim key was not found. The user reported   |
+    |           |               | error was an exception returned from api_get_examples.py.                         |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2022 Jack Consoli'
-__date__ = '04 Sep 2022'
+__date__ = '09 Sep 2022'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.3'
+__version__ = '1.0.4'
 
 import re
 import datetime
 import brcdapi.log as brcdapi_log
-import brcddb.classes.util as brcddb_class_util
 
 _DEBUG_FICON = False  # Intended for lab use only. Few, if any, will use this to zone a FICON switch
 _MAX_ZONE_NAME_LEN = 64
@@ -190,6 +192,8 @@ def get_key_val(obj, keys):
     for k in key_l:
         if isinstance(v, dict):
             v = v.get(k)
+        elif v is None:
+            return None
         elif k != last_key:
             brcdapi_log.exception('Object type, ' + str(type(v)) + ', for ' + k + ', in ' + keys +
                                   ' not a dict or brcddb object ', True)
