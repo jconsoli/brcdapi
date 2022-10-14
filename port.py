@@ -67,15 +67,17 @@ Version Control::
     | 3.0.6     | 25 Jul 2022   | Added decommission_port(), sort_ports(), and added persistent to enable_port()    |
     |           |               | and disable_port                                                                  |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.7     | 14 Oct 2022   | Modified decommission_port() to handle case when status is immediately available  |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2020, 2021, 2022 Jack Consoli'
-__date__ = '25 Jul 2022'
+__date__ = '14 Oct 2022'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.6'
+__version__ = '3.0.7'
 
 import collections
 import brcdapi.util as brcdapi_util
@@ -391,9 +393,7 @@ def decommission_port(session, fid, i_port_l, port_type, echo=False):
         message_id = obj['show-status']['message-id']
         status = obj['show-status']['status']
     except KeyError:
-        return brcdapi_auth.create_error(brcdapi_util.HTTP_INT_SERVER_ERROR,
-                                         brcdapi_util.HTTP_REASON_UNEXPECTED_RESP,
-                                         "Missing: ['show-status']['message-id']")
+        return obj  # Sometimes operations branches complete immediately
 
     # Check to see if it completed
     return obj if status == 'done' else brcdapi_rest.check_status(session, fid, message_id, _MAX_CHECK, _WAIT)

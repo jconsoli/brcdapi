@@ -34,8 +34,6 @@
   +-----------------------------+-----------------------------------------------------------------------------------|
   | num_to_month                | Converts an integer representing a month to text.                                 |
   +-----------------------------+-----------------------------------------------------------------------------------|
-  | remove_duplicate_space      | Removes duplicate spaces from a string                                            |
-  +-----------------------------+-----------------------------------------------------------------------------------|
   | get_key_val                 | Spins through a list of keys separated by a '/' and returns the value associated  |
   |                             | with the last key.                                                                |
   +-----------------------------+-----------------------------------------------------------------------------------|
@@ -62,7 +60,9 @@
   +-----------------------------+-----------------------------------------------------------------------------------|
   | is_di                       | Determines if an str is a d,i pair (used in zoning)                               |
   +-----------------------------+-----------------------------------------------------------------------------------|
-  | remove_duplicate_space      | Removes duplicate spaces                                                          |
+  | remove_duplicate_char       | Removes duplicate characters                                                      |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | remove_duplicate_space      | Depracated. Use remove_duplicate_char                                             |
   +-----------------------------+-----------------------------------------------------------------------------------|
   | str_to_num                  | Converts an str to an int if it can be represented as an int, otherwise float.    |
   |                             | 12.0 is returned as a float.                                                      |
@@ -82,6 +82,8 @@
   | dBm_to_absolute             | Converts a number in dBm to it's value                                            |
   +-----------------------------+-----------------------------------------------------------------------------------|
   | int_list_to_range           | Converts a list of integers to ranges as text.                                    |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | int_range_to_list           | Converts a CSV list of integer to ranges as text.                                 |
   +-----------------------------+-----------------------------------------------------------------------------------|
   | date_to_epoch               | Converts a date and time string to epoch time.                                    |
   +-----------------------------+-----------------------------------------------------------------------------------|
@@ -105,21 +107,23 @@ Version Control::
     | 1.0.4     | 09 Sep 2022   | Fixed bug in get_key_val() when an interim key was not found. The user reported   |
     |           |               | error was an exception returned from api_get_examples.py.                         |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 1.0.5     | 14 Oct 2022   | Depracated remove_duplicate_space() and added remove_duplicate_char()             |
+    |           |               | Added , range_to_list()                                                           |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2022 Jack Consoli'
-__date__ = '09 Sep 2022'
+__date__ = '14 Oct 2022'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.4'
+__version__ = '1.0.5'
 
 import re
 import datetime
 import brcdapi.log as brcdapi_log
 
-_DEBUG_FICON = False  # Intended for lab use only. Few, if any, will use this to zone a FICON switch
 _MAX_ZONE_NAME_LEN = 64
 _MAX_LINE_COUNT = 20  # Maximum number of lines before inserting a space when generating CLI
 _MAX_MEM = 3  # Maximum number of members to add to a zone object in a single FOS command (CLI)
@@ -153,21 +157,34 @@ num_to_month = ('Inv', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', '
 _tz_utc_offset = dict(est=-4, edt=-5, cst=-5, cdt=-6, pst=-6, pdt=-7)
 
 
+def remove_duplicate_char(buf, char):
+    """Removes duplicate characters
+
+    :param buf: Text to remove duplicate spaces from
+    :type buf: str
+    :param char: Character to check for duplicates in buf
+    :type char: str
+    :return: Input text with duplicate characters removed
+    :rtype: str
+    """
+    buf = 'x' + buf
+    temp_l = [buf[i] for i in range(1, len(buf)) if buf[i] != char or (buf[i] == char and buf[i-1] != char)]
+    return ''.join(temp_l)
+
+
 def remove_duplicate_space(buf):
-    """Removes duplicate spaces
+    """Removes duplicate spaces - Depracated
 
     :param buf: Text to remove duplicate spaces from
     :type buf: str
     :return: Input text with duplicate spaces removed
     :rtype: str
     """
-    buf = 'x' + buf
-    temp_l = [buf[i] for i in range(1, len(buf)) if buf[i] != ' ' or (buf[i] == ' ' and buf[i-1] != ' ')]
-    return ''.join(temp_l)
+    return remove_duplicate_char(buf, ' ')
 
 
 def get_key_val(obj, keys):
-    """Spins through a list of keys separated by a '/' and returns the value associated with the last key.
+    """Spins through a list of dict keys separated by a '/' and returns the value associated with the last key.
 
     :param obj: Starting point in the object
     :type obj: dict, ProjectObj, FabricObj, SwitchObj, PortObj, ZoneCfgObj, ZoneObj, PortObj, LoginObj
@@ -181,7 +198,7 @@ def get_key_val(obj, keys):
     if hasattr(obj, 'r_get') and callable(obj.r_get):
         return obj.r_get(keys)
     if not isinstance(obj, dict):
-        brcdapi_log.exception('Object type, ' + str(type(obj)) + ', not a dict or brcddb object,', True)
+        brcdapi_log.exception('Object type, ' + str(type(obj)) + ', not a dict or brcddb object,', echo=True)
         return None
 
     key_l = keys.split('/')
@@ -196,7 +213,7 @@ def get_key_val(obj, keys):
             return None
         elif k != last_key:
             brcdapi_log.exception('Object type, ' + str(type(v)) + ', for ' + k + ', in ' + keys +
-                                  ' not a dict or brcddb object ', True)
+                                  ' not a dict or brcddb object ', echo=True)
             return None
     return v
 
@@ -464,7 +481,7 @@ def paren_content(buf, p_remove=False):
                     break
 
     if p_count != 0:
-        brcdapi_log.exception('Input string does not have matching parenthesis:\n' + buf, True)
+        brcdapi_log.exception('Input string does not have matching parenthesis:\n' + buf, echo=True)
         r_buf = list()
     remainder = '' if len(buf) - len(r_buf) < 1 else buf[len(r_buf):]
     if len(r_buf) > 2 and p_remove:
@@ -485,7 +502,7 @@ def add_to_obj(obj, k, v):
     :type v: int, str, list, dict
     """
     if not isinstance(k, str):
-        brcdapi_log.exception('Invalid key. Expected type str, received type ' + str(type(k)), True)
+        brcdapi_log.exception('Invalid key. Expected type str, received type ' + str(type(k)), echo=True)
         return
     key_list = k.split('/')
     if isinstance(obj, dict):
@@ -499,7 +516,7 @@ def add_to_obj(obj, k, v):
             obj.update({key: d})
         add_to_obj(d, '/'.join(key_list), v)
     else:
-        brcdapi_log.exception('Invalid object type. Expected dict, received ' + str(type(obj)), True)
+        brcdapi_log.exception('Invalid object type. Expected dict, received ' + str(type(obj)), echo=True)
 
 
 def get_struct_from_obj(obj, k):
@@ -570,8 +587,7 @@ def int_list_to_range(num_list):
     :return: List of str as described above
     :rtype: list
     """
-    rl = list()
-    range_l = list()
+    rl, range_l = list(), list()
     for i in num_list:
         ri = len(range_l)
         if ri > 0 and i != range_l[ri-1] + 1:
@@ -582,6 +598,53 @@ def int_list_to_range(num_list):
     if ri > 0:
         rl.append(str(range_l[0]) if ri == 1 else str(range_l[0]) + '-' + str(range_l[ri-1]))
 
+    return rl
+
+
+def range_to_list(num_range, hex_num=False, upper=False, sort=False, rsort=False, strip=False):
+    """Converts a CSV list of integer or hex numbers to ranges as text. For example: "0-2, 9, 6-5" is returned as
+    [0, 1, 2, 9, 6, 5]. If hex is True, all values are assumed to be hex and the returned list is a list of str. For
+    example: "0-2, 9-0xb" is returned as ["0x0", "0x1", "0x2", "0x9", "0xa", "0xb"]. Note that a reverse range is
+    permitted.
+
+    :param num_range: List of numeric values, int or float
+    :type num_range: str
+    :param hex_num: If True, treat the input str num_range as hex
+    :type hex_num: bool
+    :param upper: Ony significant when hex_num==True. If True, output is upper case. Otherwise lower case.
+    :type upper: bool
+    :param sort: If True the output is sorted from lowest to highest.
+    :type sort: bool
+    :param rsort: Ignored if sort is True. When True, the output is sorted from highest to lowest
+    :type rsort: bool
+    :param strip: Only significant when hex_num==True. If true, leading '0x' is removed
+    :return: List of int or hex str as described above
+    :rtype: list
+    """
+    rl = list()
+
+    # Get all the values as integers
+    for buf in num_range.replace(' ', '').split(','):
+        temp_l = [int(v, 16) for v in buf.split('-')] if hex_num else [int(v) for v in buf.split('-')]
+        if len(temp_l) > 0:
+            max_i, min_i = max(temp_l), min(temp_l)
+            if min_i == temp_l[0]:
+                rl.extend([v for v in range(min_i, max_i+1)])
+            else:
+                rl.extend([v for v in reversed(range(min_i, max_i+1))])
+
+    # Prepare the return data
+    if sort:
+        rl.sort()
+    elif rsort:
+        rl.sort(reverse=True)
+
+    # Return
+    if hex_num:
+        if strip:
+            return [hex(v).upper().replace('0X', '') for v in rl] if upper else [hex(v).replace('0x', '') for v in rl]
+        else:
+            return [hex(v).upper().replace('X', 'x') for v in rl] if upper else [hex(v) for v in rl]
     return rl
 
 
@@ -682,7 +745,7 @@ def date_to_epoch(date_time, fmt=0, utc=False):
 
     if len(ml) > 0:
         ml.append('Unsupported format for: ' + date_time + ' Format, fmt, is: ' + str(fmt))
-        brcdapi_log.exception(ml, True)
+        brcdapi_log.exception(ml, echo=True)
         return 0.0
 
     return datetime.datetime(year, month, day, time_l[0], time_l[1], time_l[2], time_l[3]).timestamp()

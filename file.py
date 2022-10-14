@@ -53,15 +53,17 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 1.0.2     | 25 Jul 2022   | Fixed bug in read_full_directory() when skip_sys == True                          |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 1.0.3     | 14 Oct 2022   | Fixed missing new line when line end is just '\r' in file()                       |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2022 Jack Consoli'
-__date__ = '25 Jul 2022'
+__date__ = '14 Oct 2022'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.2'
+__version__ = '1.0.3'
 
 import brcdapi.log as brcdapi_log
 import json
@@ -147,7 +149,9 @@ def read_file(file, remove_blank=True, rc=True):
     f = open(file, 'rb')
     data = f.read().decode('utf-8', errors='ignore')
     f.close()
-    content = data.replace('\r', '').split('\n')
+
+    # Every once in a while, a Windows file has just '\r' for the line end. I've never seen '\n\r' but just in case...
+    content = data.replace('\r\n', '\n').replace('\n\r', '\n').replace('\r', '\n').split('\n')
     rl = [buf[:buf.find('#')].rstrip() if buf.find('#') >= 0 else buf.rstrip() for buf in content] if rc else content
     return [buf for buf in rl if len(buf) > 0] if remove_blank else rl
 
