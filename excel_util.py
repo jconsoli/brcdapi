@@ -56,16 +56,18 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 1.0.1     | 04 sep 2022   | Added read_workbook() and automatically append .xlsx in save_report()             |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 1.0.2     | 24 Oct 2022   | Improved error messaging                                                          |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2022 Jack Consoli'
-__date__ = '04 Sep 2022'
+__date__ = '24 Oct 2022'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.1'
+__version__ = '1.0.2'
 
 import openpyxl as xl
 import openpyxl.utils.cell as xl_util
@@ -152,7 +154,8 @@ def parse_parameters(in_wb=None, sheet_name='parameters', hdr_row=0, wb_name=Non
     try:
         sheet = wb[sheet_name]
     except BaseException as e:
-        brcdapi_log.exception(['sheet ' + sheet_name + ' does not exist.', 'Exception is: ' + str(e)], True)
+        e_buf = str(e) if isinstance(e, (bytes, str)) else str(type(e))
+        brcdapi_log.exception(['sheet ' + sheet_name + ' does not exist.', 'Exception is: ' + e_buf], echo=True)
         return rd
     sl, al = read_sheet(sheet, 'row')
     hdr_row_l = al[hdr_row]

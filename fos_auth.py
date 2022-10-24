@@ -112,16 +112,18 @@ Version Control::
     | 1.0.4     | 25 Jul 2022   | Modified obj_error_detail() to handle operations URLs which do not have           |
     |           |               | obj[errors][error] for error detail                                               |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 1.0.5     | 24 Oct 2022   | Improved error messaging                                                          |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2021, 2022 Jack Consoli'
-__date__ = '25 Jul 2022'
+__date__ = '24 Oct 2022'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.4'
+__version__ = '1.0.5'
 
 import http.client as httplib
 import base64
@@ -143,24 +145,39 @@ def basic_api_parse(obj):
     :return: Standard object used in all brcdapi and brcddb libraries
     :rtype: dict
     """
-    json_data = dict()
+    http_response, json_data = None, dict()  # If Control-C before comleting read, http_response is never initialialized
     try:
         http_response = obj.read()
         if isinstance(http_response, bytes) and len(http_response) > 0:
             try:
                 json_data = json.loads(http_response)
             except BaseException as e:
-                brcdapi_log.exception(['Invalid data returned from FOS. Error code:', str(e)], True)
-                json_data = dict()
+                http_buf = 'None' if http_response is None else \
+                    http_response.decode(encoding=brcdapi_util.encoding_type, errors='ignore')
+                brcdapi_log.exception(['Invalid data returned from FOS. Error code:',
+                                       str(e, errors='ignore') if isinstance(e, (bytes, str)) else str(type(e)),
+                                       '',
+                                       'http_response:',
+                                       http_buf],
+                                      echo=True)
+                json_data = create_error(brcdapi_util.HTTP_INT_SERVER_ERROR,
+                                         'Invalid data returned from FOS',
+                                         'See previous message')
         try:
             json_data.update(_raw_data=dict(status=obj.status, reason=obj.reason))
         except AttributeError:
             pass  # I think logout is the only time I get here. Logout returns type bytes.
         except BaseException as e:
-            brcdapi_log.exception(['Invalid data returned from FOS. Error code:', str(e)], True)
-            pass  # Some requests do not return a status and reason when the request was completed successfully
+            http_buf = 'None' if http_response is None else \
+                http_response.decode(encoding=brcdapi_util.encoding_type, errors='ignore')
+            brcdapi_log.exception(['Invalid data returned from FOS. Error code:',
+                                   str(e, errors='ignore') if isinstance(e, (bytes, str)) else str(type(e)),
+                                   '',
+                                   'http_response:',
+                                   http_buf],
+                                  echo=True)
     except AttributeError:
-        pass  # I think logout is the only time I get here. Logout returns type bytes.
+        pass  # I think logout is the only time I get here.
     return json_data
 
 
@@ -295,18 +312,20 @@ def login(user, password, ip_addr, in_http_access=None):
     :type password: str
     :param ip_addr: Management IP address of chassis
     :type ip_addr: str
-    :param in_http_access: IP address of the FOS switch with which to establish a session.
-    :type in_http_access: str
+    :param in_http_access: 'none' or None for HTTP. For HTTPS, only 'self' is supported.
+    :type in_http_access: str, None
     :return: Session object as described in the method description
     :rtype: dict
     """
-    # Get connection token
+    # Get and validate HTTP or HTTPS method
     http_access = 'none' if in_http_access is None else in_http_access
     if not isinstance(http_access, str) or http_access not in ('none', 'self'):
         buf = 'HTTP access other than "none" and "self" has not been implemented. Entered HTTPS method was: ' +\
               str(http_access)
-        brcdapi_log.log(buf, True)
-        return create_error(brcdapi_util.HTTP_BAD_REQUEST, 'Unsupported login', str(http_access))
+        brcdapi_log.log(buf, echo=True)
+        return create_error(brcdapi_util.HTTP_BAD_REQUEST, 'Unsupported login', str(http_access, errors='ignore'))
+
+    # Get connection token
     conn = _get_connection(ip_addr, http_access)
     auth = user + ':' + password
     auth_encoded = base64.b64encode(auth.encode())
@@ -324,8 +343,9 @@ def login(user, password, ip_addr, in_http_access=None):
         obj.update(ip_addr=ip_addr)
         return obj
     except BaseException as e:
-        brcdapi_log.exception(['', 'Unknown exception: ', str(e)], True)
-        obj = create_error(brcdapi_util.HTTP_NOT_FOUND, 'Not Found', str(e))
+        e_buf = str(e, errors='ignore') if isinstance(e, (bytes, str)) else str(type(e))
+        brcdapi_log.exception(['', 'Unknown exception: ', e_buf], echo=True)
+        obj = create_error(brcdapi_util.HTTP_NOT_FOUND, 'Not Found', e_buf)
         obj.update(ip_addr=ip_addr)
         return obj
 
@@ -347,6 +367,7 @@ def login(user, password, ip_addr, in_http_access=None):
                      ip_addr = ip_addr,
                      ishttps = False if http_access == 'none' else True,
                      debug = False)
+
     return json_data
 
 

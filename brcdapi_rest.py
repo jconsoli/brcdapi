@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-:mod:`brcdapi_rest` - Provides a single interface to the RESTConf API in FOS.
+:mod:`brcdapi_rest` - Provides a single interface, _api_request(), to the RESTConf API in FOS.
 
 Methods in this module are used to establish, modify, send requests, and terminate sessions. Also does the following:
 
@@ -23,6 +23,7 @@ Methods in this module are used to establish, modify, send requests, and termina
     * Fabric busy - wait 10 seconds and retry request up to 5 times
     * Service unavailable - wait 30 seconds and retry request
     * Debug mode allows for off line work. Used with GET only
+    * Raise KeyboardInterrupt, wait for requests to complete first if any
 
 This is a thin interface. Logging is only performed in debug mode. It is the responsibility of the next higher layer,
 such as the brcddb libraries, to control what gets printed to the log.
@@ -71,16 +72,18 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.8     | 25 Jul 2022   | Added check_status()                                                              |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.9     | 24 Oct 2022   | Improved error messaging and add Control-C to exit                                |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2019, 2020, 2021, 2022 Jack Consoli'
-__date__ = '25 Jul 2022'
+__date__ = '24 Oct 2022'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.8'
+__version__ = '3.0.9'
 
 import re
 import http.client as httplib
@@ -103,10 +106,12 @@ _DEBUG = False
 # _DEBUG_MODE is only used when _DEBUG == True as follows:
 # 0 - Perform all requests normally. Write all responses to a file
 # 1 - Do not perform any I/O. Read all responses from file into response and fake a successful login
-_DEBUG_MODE = 0
+_DEBUG_MODE = 1
 # _DEBUG_PREFIX is only used when _DEBUG == True. Folder where all the json dumps of API requests are read/written.
 _DEBUG_PREFIX = 'eng_raw_28_apr_2022/'
 verbose_debug = False  # When True, prints data structures. Only useful for debugging. Can be set externally
+_req_pending = False  # When True, the script is waiting for a response from a switch
+_control_c_pend = False  # When True, a keyboard interrup is pending a request to complete
 
 # Programmer's Tip: If there is significant activity on the switch from other sources (AMP, BNA, SANNav, ...) it may
 # take a long time for a response. Also, some operations, such as logical switch creation, can take 20-30 sec. If the
@@ -144,7 +149,8 @@ def login(user_id, pw, ip_addr, https='none'):
     # Build the URI map
     obj = get_request(session, 'brocade-module-version')
     if fos_auth.is_error(obj):
-        brcdapi_log.exception(brcdapi_util.mask_ip_addr(ip_addr) + ' ERROR: ' + fos_auth.formatted_error_msg(obj), True)
+        brcdapi_log.exception(brcdapi_util.mask_ip_addr(ip_addr) + ' ERROR: ' + fos_auth.formatted_error_msg(obj),
+                              echo=True)
     else:
         try:
             brcdapi_util.add_uri_map(session, obj)
@@ -152,7 +158,7 @@ def login(user_id, pw, ip_addr, https='none'):
             logout(session)
             session = fos_auth.create_error(brcdapi_util.HTTP_INT_SERVER_ERROR,
                                             'Programming error encountered in brcdapi_util.add_uri_map.',
-                                            [str(e)])
+                                            [str(e, errors='ignore') if isinstance(e, (bytes, str)) else str(type(e))])
 
     return session
 
@@ -258,6 +264,8 @@ def _api_request(session, uri, http_method, content):
     :return: Response and status in fos_auth.is_error() and fos_auth.formatted_error_msg() friendly format
     :rtype: dict
     """
+    global _DEBUG, _DEBUG_MODE, _req_pending, _control_c_pend
+
     if _DEBUG and _DEBUG_MODE == 1 and http_method == 'OPTIONS':
         return dict(_raw_data=dict(status=brcdapi_util.HTTP_NO_CONTENT, reason='OK'))
 
@@ -266,7 +274,7 @@ def _api_request(session, uri, http_method, content):
 
     if verbose_debug:
         buf = ['_api_request() - Send:', 'Method: ' + http_method, 'URI: ' + uri, 'content:', pprint.pformat(content)]
-        brcdapi_log.log(buf, True)
+        brcdapi_log.log(buf, echo=True)
 
     # Set up the headers and JSON data
     header = session.get('credential')
@@ -274,37 +282,58 @@ def _api_request(session, uri, http_method, content):
         return fos_auth.create_error(brcdapi_util.HTTP_FORBIDDEN, 'No login session', list())
     header.update({'Accept': 'application/yang-data+json'})
     header.update({'Content-Type': 'application/yang-data+json'})
-    conn = session.get('conn')
+    json_data = json.dumps(content) if content is not None and len(content) > 0 else None
 
     # Send the request and get the response
-    json_data = json.dumps(content) if content is not None and len(content) > 0 else None
+    http_response, _req_pending, conn = None, True, session.get('conn')
     try:
         conn.request(http_method, uri, json_data, header)
     except BaseException as e:
         obj = fos_auth.create_error(brcdapi_util.HTTP_NOT_FOUND,
                                     'Not Found',
-                                    ['Typical of switch going offline or pre-FOS 8.2.1c', str(e)])
+                                    ['Typical of switch going offline or pre-FOS 8.2.1c',
+                                     str(e, errors='ignore') if isinstance(e, (bytes, str)) else str(type(e))])
+        _req_pending = False
+        if _control_c_pend:
+            _control_c_pend = False
+            raise KeyboardInterrupt
+        
         if 'ip_addr' in session:
             obj.update(ip_addr=session.get('ip_addr'))
         return obj
     try:
         http_response = conn.getresponse()
         json_data = fos_auth.basic_api_parse(http_response)
-        if http_method == 'OPTIONS':
-            if fos_auth.is_error(json_data):
-                _set_methods(session, uri, brcdapi_util.op_not_supported)
-            else:
-                _add_methods(session, http_response, uri)
-        if verbose_debug:
-            brcdapi_log.log(['_api_request() - Response:', pprint.pformat(json_data)], True)
+        if isinstance(json_data, dict):
+            if http_method == 'OPTIONS':
+                if fos_auth.is_error(json_data):
+                    _set_methods(session, uri, brcdapi_util.op_not_supported)
+                else:
+                    _add_methods(session, http_response, uri)
+            if verbose_debug:
+                brcdapi_log.log(['_api_request() - Response:', pprint.pformat(json_data)], echo=True)
     except TimeoutError:
         buf = 'Time out processing ' + uri + '. Method: ' + http_method
-        brcdapi_log.log(buf, True)
-        obj = fos_auth.create_error(brcdapi_util.HTTP_REQUEST_TIMEOUT, buf, '')
-        return obj
+        return fos_auth.create_error(brcdapi_util.HTTP_REQUEST_TIMEOUT, buf, '')
+    except TypeError:
+        # Apparently, the http lib intercepts Control-C. A TypeError is a by-product of how it's handled.
+        _control_c_pend = True
     except BaseException as e:
-        brcdapi_log.exception('Unexpected error, ' + str(e), True)
-        raise 'Fault'
+        e_buf = str(e, errors='ignore') if isinstance(e, (bytes, str)) else str(type(e))
+        ml = ['Unexpected error:',
+              'Exception: ' + e_buf,
+              'Unexpected error, ' + e_buf,
+              'http_response: ' + 'None' if http_response is None else \
+                  http_response.decode(encoding=brcdapi_util.encoding_type, errors='ignore'),
+              'json_data: ' + 'None' if json_data is None else \
+                  json_data.decode(encoding=brcdapi_util.encoding_type, errors='ignore')]
+        brcdapi_log.exception(ml, echo=True)
+        raise RuntimeError
+    
+    _req_pending = False
+    if _control_c_pend:
+        _control_c_pend = False
+        raise KeyboardInterrupt
 
     # Do some basic parsing of the response
     tl = uri.split('?')[0].split('/')
@@ -313,17 +342,18 @@ def _api_request(session, uri, http_method, content):
         msg = ''
         try:
             msg = json_data['errors']['error']['error-message']
-        except BaseException as e:
+        except BaseException as e0:
+            e0_buf = str(e0, errors='ignore') if isinstance(e0, (bytes, str)) else str(type(e0))
             if '_raw_data' not in json_data:  # Make sure it's not an error without any detail
-                first_e = str(e)
                 try:
                     # The purpose of capturing the message is to support the code below that works around a defect in
                     # FOS whereby empty lists or no change PATCH requests are returned as errors. In the case of
                     # multiple errors, I'm assuming the first error is the same for all errors. For any code I wrote,
                     # that will be true. Since I know this will be fixed in a future version of FOS, I took the easy way
                     msg = json_data['errors']['error'][0]['error-message']
-                except BaseException as e:
-                    brcdapi_log.exception(['Invalid data returned from FOS:', first_e, str(e)])
+                except BaseException as e1:
+                    e1_buf = str(e1, errors='ignore') if isinstance(e1, (bytes, str)) else str(type(e1))
+                    brcdapi_log.exception(['Invalid data returned from FOS:', e0_buf, e1_buf], echo=True)
                     msg = ''
         try:
             if http_method == 'GET' and json_data['_raw_data']['status'] == brcdapi_util.HTTP_NOT_FOUND and \
@@ -384,14 +414,16 @@ def _retry(obj):
     :return delay: Time, in seconds, to wait for retrying the request
     :rtype delay: int
     """
-    status = fos_auth.obj_status(obj)
-    reason = fos_auth.obj_reason(obj) if isinstance(fos_auth.obj_reason(obj), str) else ''
+    global _SVC_UNAVAIL_WAIT, _FABRIC_BUSY_WAIT
+
+    status, reason = fos_auth.obj_status(obj), fos_auth.obj_reason(obj)
     if isinstance(status, int) and status == 503 and isinstance(reason, str) and 'Service Unavailable' in reason:
         brcdapi_log.log('FOS API services unavailable. Will retry in ' + str(_SVC_UNAVAIL_WAIT) + ' seconds.', True)
         return True, _SVC_UNAVAIL_WAIT
     if status == brcdapi_util.HTTP_BAD_REQUEST and 'The Fabric is busy' in fos_auth.formatted_error_msg(obj):
-        brcdapi_log.log('Fabric is busy. Will retry in ' + str(_FABRIC_BUSY_WAIT) + ' seconds.')
+        brcdapi_log.log('Fabric is busy. Will retry in ' + str(_FABRIC_BUSY_WAIT) + ' seconds.', echo=True)
         return True, _FABRIC_BUSY_WAIT
+
     return False, 0
 
 
@@ -412,7 +444,7 @@ def api_request(session, uri, http_method, content):
 
     if uri is None:  # An error occurred in brcdapi_util.format_uri()
         buf = 'Missing URI'
-        brcdapi_log.exception(buf, True)
+        brcdapi_log.exception(buf, echo=True)
         return fos_auth.create_error(brcdapi_util.HTTP_BAD_REQUEST, 'Missing URI', buf)
     obj = _api_request(session, uri, http_method, content)
     retry_count = _MAX_RETRIES
@@ -452,12 +484,13 @@ def get_request(session, ruri, fid=None):
                       'Method: GET', 'URI: ' + brcdapi_util.format_uri(session, ruri, fid),
                       'api_request() - Response:',
                       pprint.pformat(json_data)]
-                brcdapi_log.log(ml, True)
-        except FileNotFoundError:
+                brcdapi_log.log(ml, echo=True)
+        except (FileNotFoundError, FileExistsError):
             return fos_auth.create_error(brcdapi_util.HTTP_NOT_FOUND, 'File not found: ', [file])
         except BaseException as e:
-            brcdapi_log.log('Unknown error, ' + str(e) + ' encountered opening ' + file, True)
-            raise
+            e_buf = str(e, errors='ignore') if isinstance(e, (bytes, str)) else str(type(e))
+            brcdapi_log.log('Unknown error, ' + e_buf + ' encountered opening ' + file, echo=True)
+            raise RuntimeError
     else:
         json_data = api_request(session, brcdapi_util.format_uri(session, ruri, fid), 'GET', dict())
     if _DEBUG and _DEBUG_MODE == 0:
@@ -466,7 +499,7 @@ def get_request(session, ruri, fid=None):
                 f.write(json.dumps(json_data))
             f.close()
         except FileNotFoundError:
-            brcdapi_log.log('\nThe folder for ' + file + ' does not exist.', True)
+            brcdapi_log.log('\nThe folder for ' + file + ' does not exist.', echo=True)
 
     return json_data
 
@@ -520,12 +553,12 @@ def set_debug(debug, debug_mode=None, debug_folder=None):
                 _DEBUG_PREFIX += '/'
             else:
                 buf = 'Invalid debug_folder type. debug_folder type must be str. Type is: ' + str(type(debug_folder))
-                brcdapi_log.exception(buf, True)
+                brcdapi_log.exception(buf, echo=True)
                 return False
         else:
             buf = 'Invalid debug_mode. debug_mode must be an integer of value 0 or 1. debug_mode type: ' + \
                   str(type(debug_mode)) + ', value: ' + str(debug_mode)
-            brcdapi_log.exception(buf, True)
+            brcdapi_log.exception(buf, echo=True)
             return False
 
     return True
@@ -570,3 +603,15 @@ def check_status(session, fid, message_id, wait_time, num_check):
         i -= 1
 
     return obj
+
+
+def control_c():
+    """Raises KeyboardInterrupt as soon as the request in progress completes"""
+    global _req_pending, _control_c_pend
+
+    brcdapi_log.log('Control-C detected.', echo=True)
+    if _req_pending:
+        brcdapi_log.log('Processing will stop as soon as the request in progress completes.', echo=True)
+        _control_c_pend = True
+    else:
+        raise KeyboardInterrupt

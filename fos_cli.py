@@ -36,16 +36,18 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.2     | 31 Dec 2021   | Improved comments. No functional changes.                                         |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.3     | 24 Oct 2022   | Improved error messaging.                                                         |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2020, 2021 Jack Consoli'
-__date__ = '31 Dec 2021'
+__date__ = '24 Oct 2022'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.2'
+__version__ = '3.0.3'
 
 import paramiko
 
@@ -72,7 +74,8 @@ def login(ip_addr, user_id, pw, timeout=15):
     try:
         ssh.connect(ip_addr, username=user_id, password=pw, timeout=timeout)
     except BaseException as e:
-        return ['Invalid name or password.', 'Error is: ' + str(e)], ssh
+        e_buf = str(e) if isinstance(e, (bytes, str)) else str(type(e))
+        return ['Invalid name or password.', 'Error is: ' + e_buf], ssh
     shell = ssh.invoke_shell()
     shell.settimeout(timeout)
 
