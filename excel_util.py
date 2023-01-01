@@ -1,4 +1,4 @@
-# Copyright 2022 Jack Consoli.  All rights reserved.
+# Copyright 2022, 2023 Jack Consoli.  All rights reserved.
 #
 # NOT BROADCOM SUPPORTED
 #
@@ -46,6 +46,8 @@ Public Methods & Data::
     | read_workbook         | Reads a workbook into a list of worksheets followed by lists of lists which           |
     |                       | effectively make up a row by column matrix of each sheet.                             |
     +-----------------------+---------------------------------------------------------------------------------------+
+    | copy_worksheet        | Typically used to copy a worksheet from one workbook to another                       |
+    +-----------------------+---------------------------------------------------------------------------------------+
 
 Version Control::
 
@@ -58,19 +60,23 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 1.0.2     | 24 Oct 2022   | Improved error messaging                                                          |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 1.0.3     | 01 Jan 2023   | Added ability to accept wild cards in sheets to read and skip in read_workbook(). |
+    |           |               | Added copy_worksheet()
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2022 Jack Consoli'
-__date__ = '24 Oct 2022'
+__copyright__ = 'Copyright 2022, 2023 Jack Consoli'
+__date__ = '01 Jan 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.2'
+__version__ = '1.0.3'
 
 import openpyxl as xl
 import openpyxl.utils.cell as xl_util
+import fnmatch
 import re
 import os
 import brcdapi.log as brcdapi_log
@@ -337,7 +343,7 @@ def cell_update(sheet, row, col, buf, font=None, align=None, fill=None, link=Non
     :param font: Font type
     :type font: None, xl_styles
     :param align: Cell alignment
-    :type font: None, xl_styles
+    :type align: None, xl_styles
     :param fill: Cell fill color
     :type fill: None, xl_styles
     :param link: Hyperlink to apply to cell
@@ -368,7 +374,7 @@ def read_workbook(file, dm=0, order='row', sheets=None, skip_sheets=None, echo=F
     file is magnitudes of order faster.
 
     +-------+-------------------------------------------------------------------------------------------------------|
-    | mode  | Description                                                                                           |
+    | dm    | Description                                                                                           |
     +=======+=======================================================================================================|
     | 0     | Read the workbook normally                                                                            |
     +-------+-------------------------------------------------------------------------------------------------------|
@@ -388,9 +394,9 @@ def read_workbook(file, dm=0, order='row', sheets=None, skip_sheets=None, echo=F
     :type dm: int
     :param order: 'row' for row first followed by column data. 'col' for columns first followed by rows
     :type order: str
-    :param sheets: Sheet or list of sheets by name to read. If None, read all sheets not in skip_sheets.
+    :param sheets: Sheet or list of sheets by name to read. If None, read all not in skip_sheets. Accepts wild cards
     :type sheets: None, list, tuple, str
-    :param skip_sheets: Sheet or list of sheets by name to skip reading. '*' means just read the workbook, no sheets.
+    :param skip_sheets: Sheet or list of sheets to skip. Accepts wild cards.
     :type skip_sheets: None, list, tuple, str
     :param echo: If True, print read/write status to STD_OUT
     :type echo: bool
@@ -403,11 +409,11 @@ def read_workbook(file, dm=0, order='row', sheets=None, skip_sheets=None, echo=F
     if dm >= 2:
         # Try reading the JSON file
         try:
-            excel_file_tm = os.path.getmtime(file)
+            excel_file_time = os.path.getmtime(file)
         except (FileExistsError, FileNotFoundError):
-            excel_file_tm = 0
+            excel_file_time = 0
         try:
-            if os.path.getmtime(json_file) > excel_file_tm:
+            if excel_file_time < os.path.getmtime(json_file):
                 brcdapi_log.log('Reading: ' + json_file, echo=echo)
                 return brcdapi_file.read_dump(json_file)
         except FileNotFoundError:
@@ -432,16 +438,37 @@ def read_workbook(file, dm=0, order='row', sheets=None, skip_sheets=None, echo=F
         brcdapi_log.log(['', buf, ''], echo=True)
         return rl
 
-    # Now read each sheet
-    if isinstance(skip_sheets, str) and len(skip_sheets) == 1 and skip_sheets == '*':
-        pass
+    # Figure out which sheets to skip
+    skip_sheet_d = dict()
+    for sheet_name in gen_util.convert_to_list(skip_sheets):
+        if '*' in sheet_name or '?' in sheet_name:
+            for sheet_name in fnmatch.filter(wb.sheetnames, sheet_name):
+                skip_sheet_d.update({sheet_name: True})
+        else:
+            skip_sheet_d.update({sheet_name: True})
+
+    # Figure out which sheets to read
+    sheet_l = list()
+    if sheets is None:
+        sheet_l.extend([buf for buf in wb.sheetnames if buf not in skip_sheet_d])
     else:
-        sheet_l = wb.sheetnames if sheets is None else gen_util.convert_to_list(sheets)
-        for sheet_name in [buf for buf in sheet_l if buf not in gen_util.convert_to_list(skip_sheets)]:
-            brcdapi_log.log('  Reading sheet ' + sheet_name, echo=echo)
-            sl, al = read_sheet(wb[sheet_name], 'row')
-            rl.append(dict(file=file, sheet=sheet_name, sl=sl, al=al))
-        brcdapi_log.log('  Read complete', echo=echo)
+        for sheet_name in gen_util.convert_to_list(sheets):
+            if '*' in sheet_name or '?' in sheet_name:
+                for buf in fnmatch.filter(wb.sheetnames, sheet_name):
+                    if buf not in skip_sheet_d and buf not in sheet_l:
+                        sheet_l.append(buf)
+            elif sheet_name in wb.sheetnames:
+                if sheet_name not in skip_sheet_d and sheet_name not in sheet_l:
+                    sheet_l.append(sheet_name)
+            else:
+                brcdapi_log.log('Sheet ' + sheet_name + ' not found in ' + file + '. Skipping this sheet.', echo=True)
+
+    # Read the sheets
+    for sheet_name in sheet_l:
+        brcdapi_log.log('  Reading sheet ' + sheet_name, echo=echo)
+        sl, al = read_sheet(wb[sheet_name], order='row')
+        rl.append(dict(file=file, sheet=sheet_name, sl=sl, al=al))
+    brcdapi_log.log('  Read complete', echo=echo)
 
     if dm == 1 or dm == 3:
         # Write out to JSON
@@ -450,3 +477,61 @@ def read_workbook(file, dm=0, order='row', sheets=None, skip_sheets=None, echo=F
         brcdapi_log.log('  Write complete', echo=echo)
 
     return rl
+
+
+def copy_worksheet(wb, sheet_index, sheet_name, sheet_l, col_width_l=None, font=None, align=None, fill=None,
+                   border=None):
+    """Typically used to copy a worksheet from one workbook to another
+
+    :param wb: openpyxl Workbook
+    :type wb: openpyxl class object
+    :param sheet_index: Index as to where this sheet should be placed in the Workbook
+    :type sheet_index: int
+    :param sheet_name: Name of worksheet
+    :type sheet_name: str
+    :param sheet_l: Sheet list returned from excel_util.read_workbook
+    :type sheet_l: list
+    :param col_width_l: List of column widths. First entry is for 'A', next is for 'B', etc.
+    :type col_width_l: list, tuple, int, None
+    :param font: Font type
+    :type font: None, xl_styles
+    :param align: Cell alignment
+    :type align: None, xl_styles
+    :param fill: Cell fill color
+    :type fill: None, xl_styles
+    :param border: Border type to apply to cell
+    :type border: None, xl_styles
+    :return: List of error messages
+    :rtype: list
+    """
+    el = list()
+
+    # Find the sheet to copy
+    for sheet_d in sheet_l:
+        if str(sheet_d.get('sheet')) == sheet_name:
+
+            # Create the sheet and set up the column widths
+            sheet = wb.create_sheet(index=sheet_index, title=sheet_name)
+            col = 1
+            for width in gen_util.convert_to_list(col_width_l):
+                sheet.column_dimensions[xl_util.get_column_letter(col)].width = width
+                col += 1
+
+            # Copy the data
+            for cell_d in sheet_d['sl']:
+                cell = cell_d['cell']
+                if font is not None:
+                    sheet[cell].font = font
+                if fill is not None:
+                    sheet[cell].fill = fill
+                if align is not None:
+                    sheet[cell].alignment = align
+                if border is not None:
+                    sheet[cell].border = border
+                sheet[cell] = cell_d['val']
+            return el
+
+    # If we got this far, the sheet wasn't found
+    el.append('Could not find ' + sheet_name + ' in ' + str(sheet_d.get('file')))
+
+    return el

@@ -1,4 +1,4 @@
-# Copyright 2020, 2021, 2022 Jack Consoli.  All rights reserved.
+# Copyright 2020, 2021, 2022, 2023 Jack Consoli.  All rights reserved.
 #
 # NOT BROADCOM SUPPORTED
 #
@@ -26,25 +26,38 @@ Public Methods & Data::
     +-----------------------+---------------------------------------------------------------------------------------+
     | Method                | Description                                                                           |
     +=======================+=======================================================================================+
-    | ports_to_list         | Converts ports to a list of ports. Many sources for ports return None, a single port, |
-    |                       | or just the port (no slot on fixed port switches) and sometimes the port is an        |
-    |                       | integer. The API always wants to see ports in 's/p' notation.                         |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | sort_ports            | Sorts a list of ports. This is useful because if port_l is a list of ports in 's/p'   |
-    |                       | notation, .sort() performs an ASCII sort which does not return the desired results.   |
+    | bind_addresses        | Binds port addresses to ports. Requires FOS 9.1 or higher.                            |
     +-----------------------+---------------------------------------------------------------------------------------+
     | clear_stats           | Clear all statistical counters associated with a port or list of ports.               |
     +-----------------------+---------------------------------------------------------------------------------------+
+    | decommission_port     | Decomissions a port or list of ports                                                  |
+    +-----------------------+---------------------------------------------------------------------------------------+
     | default_port_config   | Disables and sets an FC port or list of FC ports to their factory default state.      |
+    +-----------------------+---------------------------------------------------------------------------------------+
+    | disable_port          | Disables a port or list of ports on a specific logical switch.                        |
+    +-----------------------+---------------------------------------------------------------------------------------+
+    | enable_port           | Enables a port or list of ports on a specific logical switch.                         |
     +-----------------------+---------------------------------------------------------------------------------------+
     | port_enable_disable   | Enables or disables a port or list of ports. Typically enable_port() or               |
     |                       | port_disable() is called externally instead of this method.                           |
     +-----------------------+---------------------------------------------------------------------------------------+
-    | enable_port           | Enables a port or list of ports on a specific logical switch.                         |
+    | ports_to_list         | Converts ports to a list of ports. Many sources for ports return None, a single port, |
+    |                       | or just the port (no slot on fixed port switches) and sometimes the port is an        |
+    |                       | integer. The API always wants to see ports in 's/p' notation.                         |
     +-----------------------+---------------------------------------------------------------------------------------+
-    | disable_port          | Disables a port or list of ports on a specific logical switch.                        |
+    | port_range_to_list    | Converts a CSV list of ports to ranges as text. Ports are converted to standard s/p   |
+    |                       | notation and sorted by slot. The orginal order may not be preserved. For example:     |
+    |                       | "5/0-2, 9, 2/6-5, 5/6-8" is returned as:                                              |
+    |                       | ['5/0', '5/1', '5/2', '5/6', '5/7', '5/8', '0/9', '2/5', '2/6']                       |
     +-----------------------+---------------------------------------------------------------------------------------+
-    | decommission_port     | Decomissions a port or list of ports                                                  |
+    | release_pod           | Releases a POD license for a port or list of ports.                                   |
+    +-----------------------+---------------------------------------------------------------------------------------+
+    | reserve_pod           | Reserves a POD license for a port or list of ports                                    |
+    +-----------------------+---------------------------------------------------------------------------------------+
+    | set_mode              | Set the mode (E-Port only, F-Port only, or any).                                      |
+    +-----------------------+---------------------------------------------------------------------------------------+
+    | sort_ports            | Sorts a list of ports. This is useful because if port_l is a list of ports in 's/p'   |
+    |                       | notation, .sort() performs an ASCII sort which does not return the desired results.   |
     +-----------------------+---------------------------------------------------------------------------------------+
 
 Version Control::
@@ -69,17 +82,21 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.7     | 14 Oct 2022   | Modified decommission_port() to handle case when status is immediately available  |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.8     | 01 Jan 2023   | Added reserve_pod(), release_pod(), port_range_to_list(), set_mode(), and         |
+    |           |               | bind_addresses().                                                                 |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2020, 2021, 2022 Jack Consoli'
-__date__ = '14 Oct 2022'
+__copyright__ = 'Copyright 2020, 2021, 2022, 2023 Jack Consoli'
+__date__ = '01 Jan 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.7'
+__version__ = '3.0.8'
 
 import collections
+import time
 import brcdapi.util as brcdapi_util
 import brcdapi.brcdapi_rest as brcdapi_rest
 import brcdapi.fos_auth as brcdapi_auth
@@ -218,7 +235,7 @@ def default_port_config(session, fid, i_port_l):
     # Read in the port configurations
     obj = brcdapi_rest.get_request(session, 'running/brocade-interface/fibrechannel', fid)
     if brcdapi_auth.is_error(obj):
-        brcdapi_log.log('Failed to read brocade-interface/fibrechannel for fid ' + str(fid), True)
+        brcdapi_log.log('Failed to read brocade-interface/fibrechannel for fid ' + str(fid), echo=True)
         return obj
     # Put all the ports in a dictionary for easy lookup
     port_d = dict()
@@ -230,7 +247,7 @@ def default_port_config(session, fid, i_port_l):
     for port in port_l:
         d = port_d.get(port)
         if d is None:
-            brcdapi_log.exception('Port ' + port + ' not in FID ' + str(fid), True)
+            brcdapi_log.exception('Port ' + port + ' not in FID ' + str(fid), echo=True)
             continue
         port_content = collections.OrderedDict()  # This may not need to be ordered.
         port_content['name'] = port
@@ -295,7 +312,7 @@ def port_enable_disable(session, fid, enable_flag, i_port_l, persistent=False, e
         pl = [{'name': p, 'persistent-disable': pd} for p in port_l]
     else:
         pl = [{'name': p, 'is-enabled-state': enable_flag} for p in port_l]
-    buf += 'En' if enable_flag else 'Dis'
+    buf += ' En' if enable_flag else ' Dis'
     brcdapi_log.log(buf + 'abling ' + str(len(port_l)) + ' ports.', echo)
     obj = brcdapi_rest.send_request(session,
                                     'running/brocade-interface/fibrechannel',
@@ -397,3 +414,175 @@ def decommission_port(session, fid, i_port_l, port_type, echo=False):
 
     # Check to see if it completed
     return obj if status == 'done' else brcdapi_rest.check_status(session, fid, message_id, _MAX_CHECK, _WAIT)
+
+
+def reserve_pod(session, fid, ports_l):
+    """Reserves a POD license for a port or list of ports.
+
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
+    :type session: dict
+    :param fid: Logical FID number for switch with ports. Use None if switch is not VF enabled.
+    :type fid: int
+    :param ports_l: List of ports to enable or disable
+    :type ports_l: tuple, list, str, int
+    :return: The object returned from the API. If i_port_l is an empty list, a made up good status is returned.
+    :rtype: dict
+    """
+    content_l = [{'name': p, 'pod-license-state': 'reserved'} for p in ports_to_list(ports_l)]
+    if len(content_l) > 0:
+        return brcdapi_rest.send_request(session,
+                                         'running/brocade-interface/fibrechannel',
+                                         'PATCH',
+                                         {'fibrechannel': content_l},
+                                         fid)
+
+    return brcdapi_util.GOOD_STATUS_OBJ  # If we get here, the port list, ports_l, was empty.
+
+
+def release_pod(session, fid, ports_l):
+    """Releases a POD license for a port or list of ports.
+
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
+    :type session: dict
+    :param fid: Logical FID number for switch with ports. Use None if switch is not VF enabled.
+    :type fid: int
+    :param ports_l: List of ports to enable or disable
+    :type ports_l: tuple, list, str, int
+    :return: The object returned from the API. If i_port_l is an empty list, a made up good status is returned.
+    :rtype: dict
+    """
+    content_l = [{'name': p, 'pod-license-state': 'released'} for p in ports_to_list(ports_l)]
+    if len(content_l) > 0:
+        return brcdapi_rest.send_request(session,
+                                         'running/brocade-interface/fibrechannel',
+                                         'PATCH',
+                                         {'fibrechannel': content_l},
+                                         fid)
+
+    return brcdapi_util.GOOD_STATUS_OBJ  # If we get here, the port list, ports_l, was empty.
+
+
+def disable_eport(session, fid, ports_l):
+    """Disables E-Port mode for this port.
+
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
+    :type session: dict
+    :param fid: Logical FID number for switch with ports. Use None if switch is not VF enabled.
+    :type fid: int
+    :param ports_l: List of ports to enable or disable
+    :type ports_l: tuple, list, str, int
+    :return: The object returned from the API. If port_l is an empty list, a made up good status is returned.
+    :rtype: dict
+    """
+    content_l = [{'name': p, 'e-port-disable': 1} for p in ports_to_list(ports_l)]
+    if len(content_l) > 0:
+        return brcdapi_rest.send_request(session,
+                                         'running/brocade-interface/fibrechannel',
+                                         'PATCH',
+                                         {'fibrechannel': content_l},
+                                         fid)
+
+    return brcdapi_util.GOOD_STATUS_OBJ  # If we get here, the port list, ports_l, was empty.
+
+
+def e_port(session, fid, ports_l, mode):
+    """Disables E-Port mode for the specified ports.
+
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
+    :type session: dict
+    :param fid: Logical FID number for switch with ports. Use None if switch is not VF enabled.
+    :type fid: int
+    :param ports_l: List of ports to enable or disable
+    :type ports_l: tuple, list, str, int
+    :param mode: If True, enable E-Port capabilitiy. If False, disable E-Port capability
+    :type mode: bool
+    :return: The object returned from the API. If port_l is an empty list, a made up good status is returned.
+    :rtype: dict
+    """
+    content_l = [{'name': p, 'e-port-disable': 0 if mode else 1} for p in ports_to_list(ports_l)]
+    if len(content_l) > 0:
+        return brcdapi_rest.send_request(session,
+                                         'running/brocade-interface/fibrechannel',
+                                         'PATCH',
+                                         {'fibrechannel': content_l},
+                                         fid)
+
+    return brcdapi_util.GOOD_STATUS_OBJ  # If we get here, the port list, ports_l, was empty.
+
+
+def n_port(session, fid, ports_l, mode):
+    """Enable/disables port for use as N-Ports. This is only applicable to switches configured for Access Gateway mode.
+
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
+    :type session: dict
+    :param fid: Logical FID number for switch with ports. Use None if switch is not VF enabled.
+    :type fid: int
+    :param ports_l: List of ports to enable or disable
+    :type ports_l: tuple, list, str, int
+    :param mode: If True, enable N-Port capability. If False, disable N-Port capability
+    :type mode: bool
+    :param mode: If True, enable E-Port capabilitiy. If False, disable E-Port capability
+    :type mode: bool
+    :return: The object returned from the API. If port_l is an empty list, a made up good status is returned.
+    :rtype: dict
+    """
+    content_l = [{'name': p, 'n-port-enabled': 1 if mode else 0} for p in ports_to_list(ports_l)]
+    if len(content_l) > 0:
+        return brcdapi_rest.send_request(session,
+                                         'running/brocade-interface/fibrechannel',
+                                         'PATCH',
+                                         {'fibrechannel': content_l},
+                                         fid)
+
+    return brcdapi_util.GOOD_STATUS_OBJ  # If we get here, the port list, ports_l, was empty.
+
+
+def port_range_to_list(num_range):
+    """Converts a CSV list of ports to ranges as text. Ports are converted to standard s/p notation and sorted by slot.
+    The orginal order may not be preserved. For example: "5/0-2, 9, 2/6-5, 5/6-8" is returned as:
+    ['5/0', '5/1', '5/2', '5/6', '5/7', '5/8', '0/9', '2/5', '2/6']
+
+    :param num_range: List of numeric values, int or float
+    :type num_range: str
+    :return: List of str for ports as described above
+    :rtype: list
+    """
+    rl = list()
+
+    slot_d = dict()
+    for buf in [b.replace(' ', '') if '/' in b else '0/' + b.replace(' ', '') for b in num_range.split(',')]:
+        temp_l = buf.split('/')
+        port_l = slot_d.get(temp_l[0])
+        if port_l is None:
+            port_l = list()
+            slot_d.update({temp_l[0]: port_l})
+        port_l.extend(gen_util.range_to_list(temp_l[1]))
+
+    for slot, port_l in slot_d.items():
+        rl.extend([slot + '/' + str(p) for p in port_l])
+
+    return rl
+
+
+def bind_addresses(session, fid, port_d, echo=False):
+    """Binds port addresses to ports. Requires FOS 9.1 or higher.
+
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
+    :type session: dict
+    :param port_d: Key is the port number. Value is the port address in hex (str).
+    :type port_d: dict
+    :param echo: If True, the list of ports for each move is echoed to STD_OUT
+    :type echo: bool
+    :return: brcdapi_rest status object for the first error encountered of the last request
+    :rtype: dict
+    """
+    port_l = [{'name': k, 'operation-type': 'port-address-bind', 'user-port-address': v, 'auto-bind': False}
+              for k, v in port_d.items()]
+    obj = brcdapi_rest.send_request(session,
+                                    'operations/port',
+                                    'POST',
+                                    {'port-operation-parameters': port_l},
+                                    fid=fid)
+    brcdapi_log.log('Error' if brcdapi_auth.is_error(obj) else 'Success' + ' binding addresses.', echo)
+
+    return obj

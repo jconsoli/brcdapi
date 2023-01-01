@@ -1,4 +1,4 @@
-# Copyright 2022 Jack Consoli.  All rights reserved.
+# Copyright 2022, 2023 Jack Consoli.  All rights reserved.
 #
 # NOT BROADCOM SUPPORTED
 #
@@ -24,18 +24,62 @@
   +-----------------------------+-----------------------------------------------------------------------------------|
   | Method or Data              | Description                                                                       |
   +=============================+===================================================================================+
-  | ReGex & miscellaneous       | Compiled ReGex for filtered or converting common. Common multipliers and date     |
-  |                             | conversion tables. Search for "ReGex matching" for details.                       |
+  | add_to_obj                  | Adds a key value pair to obj using '/' notation in the key. If the key already    |
+  |                             | exists, it is overwritten.                                                        |
   +-----------------------------+-----------------------------------------------------------------------------------|
-  | multiplier                  | Converts K, M, G, & T to an integer multiplier.                                   |
+  | convert_to_list             | Converts an object to a list. Typically used to convert objects that may be None  |
+  |                             | or list.                                                                          |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | date_to_epoch               | Converts a date and time string to epoch time.                                    |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | dBm_to_absolute             | Converts a number in dBm to it's value                                            |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | get_key_val                 | Spins through a list of keys separated by a '/' and returns the value associated  |
+  |                             | with the last key.                                                                |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | get_struct_from_obj         | Returns a Python data structure for a key using / notation in obj with everything |
+  |                             | not in the key, k, filtered out                                                   |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | is_di                       | Determines if an str is a d,i pair (used in zoning)                               |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | int_list_to_range           | Converts a list of integers to ranges as text.                                    |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | is_valid_zone_name          | Checks to ensure that a zone object meets the FOS zone object naming convention   |
+  |                             | rules                                                                             |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | is_wwn                      | Validates that the wwn is a properly formed WWN                                   |
   +-----------------------------+-----------------------------------------------------------------------------------|
   | month_to_num                | Using datetime is clumsy. These are easier. Speed is seldom the issue but it is   |
   |                             | faster.                                                                           |
   +-----------------------------+-----------------------------------------------------------------------------------|
+  | multiplier                  | Converts K, M, G, & T to an integer multiplier.                                   |
+  +-----------------------------+-----------------------------------------------------------------------------------|
   | num_to_month                | Converts an integer representing a month to text.                                 |
   +-----------------------------+-----------------------------------------------------------------------------------|
-  | get_key_val                 | Spins through a list of keys separated by a '/' and returns the value associated  |
-  |                             | with the last key.                                                                |
+  | pad_string                  | Pads characters to a string to a fixed length. This is a cheesy way to support    |
+  |                             | report formatting without textable                                                |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | paren_content               | Returns the contents of a string within matching parenthesis. First character     |
+  |                             | must be '('                                                                       |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | range_to_list               | Converts a CSV list of integer to ranges as text.                                 |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | ReGex & miscellaneous       | Compiled ReGex for filtered or converting common. Common multipliers and date     |
+  |                             | conversion tables. Search for "ReGex matching" for details.                       |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | remove_duplicate_char       | Removes duplicate characters                                                      |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | remove_duplicate_space      | Depracated. Use remove_duplicate_char                                             |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | remove_duplicates           | Removes duplicate entries in a list                                               |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | remove_none                 | Removes list entries whose value is None                                          |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | resolve_multiplier          | Converts an str representation of a number. Supported conversions are K, k, M, m, |
+  |                             | G, g, T, and t.                                                                   |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | slot_port                   | Seperate the slot and port number from a s/p port reference. Can also be used to  |
+  |                             | validate s/p notation.                                                            |
   +-----------------------------+-----------------------------------------------------------------------------------|
   | sort_obj_num                | Sorts a list of dictionaries based on the value for a key. Value must be a        |
   |                             | number. Key may be in '/' format                                                  |
@@ -43,52 +87,11 @@
   | sort_obj_str                | Sorts a list of dictionaries based on the value for a key or list of keys. Value  |
   |                             | must be a string.                                                                 |
   +-----------------------------+-----------------------------------------------------------------------------------|
-  | convert_to_list             | Converts an object to a list. Typically used to convert objects that may be None  |
-  |                             | or list.                                                                          |
-  +-----------------------------+-----------------------------------------------------------------------------------|
-  | remove_duplicates           | Removes duplicate entries in a list                                               |
-  +-----------------------------+-----------------------------------------------------------------------------------|
-  | remove_none                 | Removes list entries whose value is None                                          |
-  +-----------------------------+-----------------------------------------------------------------------------------|
-  | is_wwn                      | Validates that the wwn is a properly formed WWN                                   |
-  +-----------------------------+-----------------------------------------------------------------------------------|
-  | is_valid_zone_name          | Checks to ensure that a zone object meets the FOS zone object naming convention   |
-  |                             | rules                                                                             |
-  +-----------------------------+-----------------------------------------------------------------------------------|
   | slot_port                   | Seperate the slot and port number from a s/p port reference. Can also be used to  |
   |                             | validate s/p notation.                                                            |
   +-----------------------------+-----------------------------------------------------------------------------------|
-  | is_di                       | Determines if an str is a d,i pair (used in zoning)                               |
-  +-----------------------------+-----------------------------------------------------------------------------------|
-  | remove_duplicate_char       | Removes duplicate characters                                                      |
-  +-----------------------------+-----------------------------------------------------------------------------------|
-  | remove_duplicate_space      | Depracated. Use remove_duplicate_char                                             |
-  +-----------------------------+-----------------------------------------------------------------------------------|
   | str_to_num                  | Converts an str to an int if it can be represented as an int, otherwise float.    |
   |                             | 12.0 is returned as a float.                                                      |
-  +-----------------------------+-----------------------------------------------------------------------------------|
-  | paren_content               | Returns the contents of a string within matching parenthesis. First character     |
-  |                             | must be '('                                                                       |
-  +-----------------------------+-----------------------------------------------------------------------------------|
-  | add_to_obj                  | Adds a key value pair to obj using '/' notation in the key. If the key already    |
-  |                             | exists, it is overwritten.                                                        |
-  +-----------------------------+-----------------------------------------------------------------------------------|
-  | get_struct_from_obj         | Returns a Python data structure for a key using / notation in obj with everything |
-  |                             | not in the key, k, filtered out                                                   |
-  +-----------------------------+-----------------------------------------------------------------------------------|
-  | resolve_multiplier          | Converts an str representation of a number. Supported conversions are k, m,, g,   |
-  |                             | or t                                                                              |
-  +-----------------------------+-----------------------------------------------------------------------------------|
-  | dBm_to_absolute             | Converts a number in dBm to it's value                                            |
-  +-----------------------------+-----------------------------------------------------------------------------------|
-  | int_list_to_range           | Converts a list of integers to ranges as text.                                    |
-  +-----------------------------+-----------------------------------------------------------------------------------|
-  | int_range_to_list           | Converts a CSV list of integer to ranges as text.                                 |
-  +-----------------------------+-----------------------------------------------------------------------------------|
-  | date_to_epoch               | Converts a date and time string to epoch time.                                    |
-  +-----------------------------+-----------------------------------------------------------------------------------|
-  | pad_string                  | Pads characters to a string to a fixed length. This is a cheesy way to support    |
-  |                             | report formatting without textable                                                |
   +-----------------------------+-----------------------------------------------------------------------------------|
 
 Version Control::
@@ -110,15 +113,17 @@ Version Control::
     | 1.0.5     | 14 Oct 2022   | Depracated remove_duplicate_space() and added remove_duplicate_char()             |
     |           |               | Added , range_to_list()                                                           |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 1.0.6     | 01 Jan 2023   | Fixed zone obect in is_valid_zone_name()                                          |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2022 Jack Consoli'
-__date__ = '14 Oct 2022'
+__copyright__ = 'Copyright 2022, 2023 Jack Consoli'
+__date__ = '01 Jan 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.5'
+__version__ = '1.0.6'
 
 import re
 import datetime
@@ -366,13 +371,13 @@ def is_valid_zone_name(zone_name):
     """
     global _MAX_ZONE_NAME_LEN
 
-    if zone_obj is None:
+    if zone_name is None:
         return False
-    if len(zone_obj) < 2 or len(zone_obj) > _MAX_ZONE_NAME_LEN:  # At least 1 character and less than or = 64
+    if len(zone_name) < 2 or len(zone_name) > _MAX_ZONE_NAME_LEN:  # At least 1 character and less than or = 64
         return False
-    if not re.match("^[A-Za-z0-9]*$", zone_obj[0:1]):  # Must begin with letter or number
+    if not re.match("^[A-Za-z0-9]*$", zone_name[0:1]):  # Must begin with letter or number
         return False
-    if not re.match("^[A-Za-z0-9_-]*$", zone_obj[1:]):  # Remaining characters must be letters, numbers, '_', or '-'
+    if not re.match("^[A-Za-z0-9_-]*$", zone_name[1:]):  # Remaining characters must be letters, numbers, '_', or '-'
         return False
     return True
 
@@ -602,7 +607,7 @@ def int_list_to_range(num_list):
 
 
 def range_to_list(num_range, hex_num=False, upper=False, sort=False, rsort=False, strip=False):
-    """Converts a CSV list of integer or hex numbers to ranges as text. For example: "0-2, 9, 6-5" is returned as
+    """Converts a CSV list of integer or hex numbers as ranges to a list. For example: "0-2, 9, 6-5" is returned as
     [0, 1, 2, 9, 6, 5]. If hex is True, all values are assumed to be hex and the returned list is a list of str. For
     example: "0-2, 9-0xb" is returned as ["0x0", "0x1", "0x2", "0x9", "0xa", "0xb"]. Note that a reverse range is
     permitted.

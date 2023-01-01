@@ -1,4 +1,4 @@
-# Copyright 2020, 2021, 2022 Jack Consoli.  All rights reserved.
+# Copyright 2020, 2021, 2022, 2023 Jack Consoli.  All rights reserved.
 #
 # NOT BROADCOM SUPPORTED
 #
@@ -52,9 +52,7 @@
     |                       | is a little more convenient to use.                                                   |
     +-----------------------+---------------------------------------------------------------------------------------+
     | delete_switch         | Sets all ports to their default configuration, moves those ports to the default       |
-    |                       | switchm and then deletes the switch.                                                  |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | bind_addresses        | Binds port addresses to ports. Requires FOS 9.1 or higher.                            |
+    |                       | switch and then deletes the switch.                                                   |
     +-----------------------+---------------------------------------------------------------------------------------+
 
 **WARNING**
@@ -90,15 +88,17 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.6     | 22 Jun 2022   | Added bind_addresses()                                                            |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.7     | 01 Jan 2023   | Moved bind_addresses() to brcdapi.port module.                                    |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2020, 2021, 2022 Jack Consoli'
-__date__ = '22 Jun 2022'
+__copyright__ = 'Copyright 2020, 2021, 2022, 2023 Jack Consoli'
+__date__ = '01 Jan 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.6'
+__version__ = '3.0.7'
 
 import pprint
 import collections
@@ -363,6 +363,8 @@ def create_switch(session, fid, base, ficon, echo=False):
     # Disable the switch
     fibrechannel_switch(session, fid, {'is-enabled-state': False}, None, echo)
 
+    return obj
+
 
 def delete_switch(session, fid, echo=False):
     """Sets all ports to their default configuration, moves those ports to the default switch, and deletes the switch
@@ -416,7 +418,7 @@ def delete_switch(session, fid, echo=False):
 
 
 def bind_addresses(session, fid, port_d, echo=False):
-    """Binds port addresses to ports. Requires FOS 9.1 or higher.
+    """Binds port addresses to ports. Requires FOS 9.1 or higher. Moved to brcdapi.port.py
 
     :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
@@ -427,13 +429,4 @@ def bind_addresses(session, fid, port_d, echo=False):
     :return: brcdapi_rest status object for the first error encountered of the last request
     :rtype: dict
     """
-    port_l = [{'name': k, 'operation-type': 'port-address-bind', 'user-port-address': v, 'auto-bind': False}
-              for k, v in port_d.items()]
-    obj = brcdapi_rest.send_request(session,
-                                    'operations/port',
-                                    'POST',
-                                    {'port-operation-parameters': port_l},
-                                    fid=fid)
-    brcdapi_log.log('Error' if brcdapi_auth.is_error(obj) else 'Success' + ' binding addresses.', echo)
-
-    return obj
+    return brcdapi_port.bind_addresses(session, fid, port_d, echo)
