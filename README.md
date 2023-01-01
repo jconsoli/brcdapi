@@ -1,5 +1,10 @@
 # brcdapi
 
+**Updates 01 Jan 2023**
+
+* Added ability to bind addresses in switch.py
+* Added methods to reserve and release POD licenses in switch_config.py and port.py
+
 **Updates: 7 Aug 2021**
 
 * util.py - Clean up mask_ip_addr()
