@@ -1,4 +1,4 @@
-# Copyright 2022 Jack Consoli.  All rights reserved.
+# Copyright 2022, 2023 Jack Consoli.  All rights reserved.
 #
 # NOT BROADCOM SUPPORTED
 #
@@ -39,15 +39,17 @@ Version Control::
     | 1.0.1     | 22 Jun 2022   | Added default of None when passed parm in font_type(), fill_type(),               |
     |           |               | border_type(), and align_type()                                                   |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 1.0.2     | 21 Jan 2023   | Added cli_font                                                                    |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2022 Jack Consoli'
-__date__ = '22 Jun 2022'
+__copyright__ = 'Copyright 2022, 2023 Jack Consoli'
+__date__ = '21 Jan 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.1'
+__version__ = '1.0.2'
 
 import brcdapi.log as brcdapi_log
 import openpyxl.styles as xl_styles
@@ -57,6 +59,15 @@ import openpyxl.styles as xl_styles
 #                                                               #
 #   If you add a font type, remember to add it to font_tbl      #
 #################################################################
+cli_font = xl_styles.Font(
+    name='Courier New',
+    size=11,
+    bold=False,
+    italic=False,
+    vertAlign=None,
+    underline='none',
+    strike=False,
+    color='FF000000')
 std_font = xl_styles.Font(
     name='Calibri',
     size=11,
@@ -139,6 +150,7 @@ _white_bold_font = xl_styles.Font(
     strike=False,
     color='FFFFFFFF')
 font_tbl = dict(
+    cli=cli_font,
     std=std_font,
     hdr_1=h1_font,
     hdr_2=h2_font,
