@@ -32,7 +32,7 @@
     +-----------------------+---------------------------------------------------------------------------------------+
     | logical_switches      | Returns a list of logical switches with the default switch first. It's fairly common  |
     |                       | to need a list of logical switches with the ability to discern which one is the       |
-    |                       | default so this method is provided as a conienence.                                   |
+    |                       | default so this method is provided as a convienence.                                  |
     +-----------------------+---------------------------------------------------------------------------------------+
     | add_ports             | Move ports to a logical switch. Ports cannot be moved if they have any special        |
     |                       | configurations so this method automatically sets all ports to be moved back to the    |
@@ -90,15 +90,17 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.7     | 01 Jan 2023   | Moved bind_addresses() to brcdapi.port module.                                    |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.8     | 11 Feb 2023   | Modified comments only.                                                           |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2020, 2021, 2022, 2023 Jack Consoli'
-__date__ = '01 Jan 2023'
+__date__ = '11 Feb 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.7'
+__version__ = '3.0.8'
 
 import pprint
 import collections
@@ -113,6 +115,9 @@ import brcddb.brcddb_switch as brcddb_switch
 # can be moved in any single Rest request so as not to encounter an HTTP connection timeout.
 MAX_PORTS_TO_MOVE = 32
 
+_FC_SWITCH = 'running/brocade-fibrechannel-switch/fibrechannel-switch'
+_FC_LS = 'running/brocade-fibrechannel-logical-switch/fibrechannel-logical-switch'
+
 
 def switch_wwn(session, fid, echo=False):
     """Returns the switch WWN from the logical switch matching the specified FID.
@@ -126,17 +131,18 @@ def switch_wwn(session, fid, echo=False):
     :return: Switch WWN or return from first error encountered
     :rtype: str, dict
     """
-    brcdapi_log.log('Getting switch data from brcdapi.switch.switch_wwn() for FID ' + str(fid), echo)
-    uri = 'running/brocade-fibrechannel-switch/fibrechannel-switch'
-    obj = brcdapi_rest.get_request(session, uri, fid)
+    global _FC_SWITCH
+
+    brcdapi_log.log('Getting switch data from brcdapi.switch.switch_wwn() for FID ' + str(fid), echo=echo)
+    obj = brcdapi_rest.get_request(session, _FC_SWITCH, fid)
     if brcdapi_auth.is_error(obj):
-        brcdapi_log.exception('Failed to get switch data for FID ' + str(fid), echo)
+        brcdapi_log.exception('Failed to get switch data for FID ' + str(fid), echo=echo)
         return obj
     try:
         return obj.get('fibrechannel-switch')[0].get('name')
     except (TypeError, IndexError) as e:
-        buf = 'Unexpected data returned from ' + uri + '. FID: ' + str(fid)
-        brcdapi_log.exception(buf, echo)
+        buf = 'Unexpected data returned from ' + _FC_SWITCH + '. FID: ' + str(fid)
+        brcdapi_log.exception(buf, echo=echo)
         return brcdapi_auth.create_error(brcdapi_util.HTTP_INT_SERVER_ERROR, e, buf)
 
 
@@ -151,16 +157,17 @@ def logical_switches(session, echo=False):
         enabled. The default switch FID is first, [0].
     :rtype: dict, list
     """
+    global _FC_LS
+
     # Get the chassis information
     obj = brcdapi_rest.get_request(session, 'running/brocade-chassis/chassis', None)
     if brcdapi_auth.is_error(obj):
         return obj
-    uri = 'running/brocade-fibrechannel-logical-switch/fibrechannel-logical-switch'
     rl = list()
     try:
         if obj['chassis']['vf-enabled']:
             # Get all the switches in this chassis
-            obj = brcdapi_rest.get_request(session, uri, None)
+            obj = brcdapi_rest.get_request(session, _FC_LS, None)
             if brcdapi_auth.is_error(obj):
                 return obj
             for ls in obj['fibrechannel-logical-switch']:
@@ -169,10 +176,10 @@ def logical_switches(session, echo=False):
                     break
             rl.extend([ls for ls in obj['fibrechannel-logical-switch'] if not bool(ls['default-switch-status'])])
     except (ValueError, IndexError) as e:
-        ml = ['Unexpected data returned from ' + uri]
+        ml = ['Unexpected data returned from ' + _FC_LS]
         if isinstance(obj, dict):
             ml.append(pprint.pformat(obj) if isinstance(obj, dict) else 'Unknown programming error')
-        brcdapi_log.exception(ml, echo)
+        brcdapi_log.exception(ml, echo=echo)
         return brcdapi_auth.create_error(brcdapi_util.HTTP_INT_SERVER_ERROR, 'Unknown error: ' + e, '')
 
     return rl
@@ -197,15 +204,17 @@ def fibrechannel_switch(session, fid, parms, wwn=None, echo=False):
     :return: Return from last request or first error encountered
     :rtype: dict
     """
+    global _FC_SWITCH
+
     brcdapi_log.log('brocade-fibrechannel-switch/fibrechannel-switch FID ' + str(fid) + ' with parms:\n' +
-                    pprint.pformat(parms), echo)
+                    pprint.pformat(parms), echo=echo)
     if len(parms.keys()) == 0:
         return brcdapi_util.GOOD_STATUS_OBJ
 
     if wwn is None:
         # I don't know why, but sometimes I need the WWN for brocade-fibrechannel-switch/fibrechannel-switch
-        wwn = switch_wwn(session, fid, echo)
-        if brcdapi_auth.is_error(wwn):
+        wwn = switch_wwn(session, fid, echo=echo)
+        if isinstance(wwn, dict) and brcdapi_auth.is_error(wwn):
             return wwn
 
     # Configure the switch
@@ -214,7 +223,7 @@ def fibrechannel_switch(session, fid, parms, wwn=None, echo=False):
     for k, v in parms.items():
         sub_content[k] = v
     return brcdapi_rest.send_request(session,
-                                     'running/brocade-fibrechannel-switch/fibrechannel-switch',
+                                     _FC_SWITCH,
                                      'PATCH',
                                      {'fibrechannel-switch': sub_content},
                                      fid)
@@ -235,7 +244,7 @@ def fibrechannel_configuration(session, fid, parms, echo=False):
     :rtype: dict
     """
     brcdapi_log.log('brocade-fibrechannel-configuration/fabric FID ' + str(fid) + ' with parms: ' +
-                    ', '.join([str(buf) for buf in parms.keys()]), echo)
+                    ', '.join([str(buf) for buf in parms.keys()]), echo=echo)
     if len(parms.keys()) == 0:
         return brcdapi_util.GOOD_STATUS_OBJ
 
@@ -265,18 +274,20 @@ def add_ports(session, to_fid, from_fid, i_ports=None, i_ge_ports=None, echo=Fal
     :return: brcdapi_rest status object for the first error encountered of the last request
     :rtype: dict
     """
+    global _FC_LS
+
     ports = brcdapi_port.ports_to_list(i_ports)
     ge_ports = brcdapi_port.ports_to_list(i_ge_ports)
     if len(ports) + len(ge_ports) == 0:
         return brcdapi_util.GOOD_STATUS_OBJ
     buf = 'Attempting to move ' + str(len(ports)) + ' ports and ' + str(len(ge_ports)) + ' GE ports from FID ' + \
           str(from_fid) + ' to FID ' + str(to_fid)
-    brcdapi_log.log(buf, echo)
+    brcdapi_log.log(buf, echo=echo)
 
     # Set all ports to the default configuration and disable before moving.
     obj = brcdapi_port.default_port_config(session, from_fid, ports + ge_ports)
     if brcdapi_auth.is_error(obj):
-        brcdapi_log.exception('Failed to set all ports to the default configuration', echo)
+        brcdapi_log.exception('Failed to set all ports to the default configuration', echo=echo)
         return obj
 
     # Move the ports, FOS returns an error if ports is an empty list in: 'port-member-list': {'port-member': ports}
@@ -288,16 +299,16 @@ def add_ports(session, to_fid, from_fid, i_ports=None, i_ge_ports=None, echo=Fal
         ports = ports[MAX_PORTS_TO_MOVE:]
         sub_content.update({'port-member-list': {'port-member': pl}})
         ml = ['Start moving ports:'] + ['  ' + buf for buf in pl]
-        brcdapi_log.log(ml, echo)
+        brcdapi_log.log(ml, echo=echo)
         obj = brcdapi_rest.send_request(session,
-                                        'running/brocade-fibrechannel-logical-switch/fibrechannel-logical-switch',
+                                        _FC_LS,
                                         'POST',
                                         {'fibrechannel-logical-switch': sub_content})
         if brcdapi_auth.is_error(obj):
-            brcdapi_log.exception('Encountered errors moving ports.', echo)
+            brcdapi_log.exception('Encountered errors moving ports.', echo=echo)
             return obj
         else:
-            brcdapi_log.log('Successfully moved ports.', echo)
+            brcdapi_log.log('Successfully moved ports.', echo=echo)
 
     # Do the same for the GE ports
     while len(ge_ports) > 0:
@@ -306,16 +317,16 @@ def add_ports(session, to_fid, from_fid, i_ports=None, i_ge_ports=None, echo=Fal
         ge_ports = ports[MAX_PORTS_TO_MOVE:]
         sub_content.update({'ge-port-member-list': {'port-member': pl}})
         ml = ['Start moving GE ports:'] + ['  ' + buf for buf in pl]
-        brcdapi_log.log(ml, echo)
+        brcdapi_log.log(ml, echo=echo)
         obj = brcdapi_rest.send_request(session,
-                                        'running/brocade-fibrechannel-logical-switch/fibrechannel-logical-switch',
+                                        _FC_LS,
                                         'POST',
                                         {'fibrechannel-logical-switch': sub_content})
         if brcdapi_auth.is_error(obj):
-            brcdapi_log.exception('Encountered errors moving ports.', echo)
+            brcdapi_log.exception('Encountered errors moving ports.', echo=echo)
             return obj
         else:
-            brcdapi_log.log('Successfully moved ports.', echo)
+            brcdapi_log.log('Successfully moved ports.', echo=echo)
 
 
 def create_switch(session, fid, base, ficon, echo=False):
@@ -333,11 +344,13 @@ def create_switch(session, fid, base, ficon, echo=False):
     :return: Return from create switch operation or first error encountered
     :rtype: dict
     """
+    global _FC_LS
+
     # Make sure the chassis configuration supports the logical switch to create.
     switch_list = logical_switches(session)
     if isinstance(switch_list, dict):
         # The only time brcdapi_switch.logical_switches() returns a dict is when an error is encountered
-        brcdapi_log.log(brcdapi_auth.formatted_error_msg(switch_list), True)
+        brcdapi_log.log(brcdapi_auth.formatted_error_msg(switch_list), echo=True)
         return switch_list
     if not isinstance(switch_list, list):
         return brcdapi_auth.create_error(brcdapi_util.HTTP_BAD_REQUEST, 'Chassis not VF enabled', '')
@@ -352,16 +365,16 @@ def create_switch(session, fid, base, ficon, echo=False):
     sub_content['fabric-id'] = fid
     sub_content['base-switch-enabled'] = 0 if base is None else 1 if base else 0
     sub_content['ficon-mode-enabled'] = 0 if ficon is None else 1 if ficon else 0
-    brcdapi_log.log('Creating logical switch ' + str(fid), echo)
+    brcdapi_log.log('Creating logical switch ' + str(fid), echo=echo)
     obj = brcdapi_rest.send_request(session,
-                                    'running/brocade-fibrechannel-logical-switch/fibrechannel-logical-switch',
+                                    _FC_LS,
                                     'POST',
                                     {'fibrechannel-logical-switch': sub_content})
     if brcdapi_auth.is_error(obj):
         return obj
 
     # Disable the switch
-    fibrechannel_switch(session, fid, {'is-enabled-state': False}, None, echo)
+    fibrechannel_switch(session, fid, {'is-enabled-state': False}, wwn=None, echo=echo)
 
     return obj
 
@@ -378,6 +391,8 @@ def delete_switch(session, fid, echo=False):
     :return: brcdapi_rest status object for the first error encountered of the last request
     :rtype: dict
     """
+    global _FC_LS
+
     switch_list = logical_switches(session)
     if isinstance(switch_list, dict):
         # The only time brcdapi_switch.logical_switches() returns a dict is when an error is encountered
@@ -387,7 +402,7 @@ def delete_switch(session, fid, echo=False):
         return brcdapi_auth.create_error(brcdapi_util.HTTP_BAD_REQUEST, 'Chassis not VF enabled', '')
 
     default_fid = switch_list[0]['fabric-id']
-    brcdapi_log.log('brcdapi.switch.delete_switch(): Attempting to delete FID ' + str(fid), echo)
+    brcdapi_log.log('brcdapi.switch.delete_switch(): Attempting to delete FID ' + str(fid), echo=echo)
     # Find this logical switch
     for i in range(0, len(switch_list)):
         if switch_list[i]['fabric-id'] == fid:
@@ -401,17 +416,19 @@ def delete_switch(session, fid, echo=False):
             port_l = None if d is None else d.get('port-member')
             d = switch_list[i].get('ge-port-member-list')
             ge_port_l = None if d is None else d.get('port-member')
-            obj = add_ports(session, default_fid, fid, port_l, ge_port_l, echo)
+            obj = add_ports(session, default_fid, fid, port_l, ge_port_l, echo=echo)
             if brcdapi_auth.is_error(obj):
-                brcdapi_log.exception('Error moving ports from FID ' + str(fid) + ' to FID ' + str(default_fid), echo)
+                brcdapi_log.exception('Error moving ports from FID ' + str(fid) + ' to FID ' + str(default_fid),
+                                      echo=echo)
                 # return obj
 
             # Delete the switch
             obj = brcdapi_rest.send_request(session,
-                                            'running/brocade-fibrechannel-logical-switch/fibrechannel-logical-switch',
+                                            _FC_LS,
                                             'DELETE',
                                             {'fibrechannel-logical-switch': {'fabric-id': fid}})
-            brcdapi_log.log('Error' if brcdapi_auth.is_error(obj) else 'Success' + ' deleting FID ' + str(fid), echo)
+            brcdapi_log.log('Error' if brcdapi_auth.is_error(obj) else 'Success' + ' deleting FID ' + str(fid),
+                            echo=echo)
             return obj
 
     return brcdapi_auth.create_error(brcdapi_util.HTTP_BAD_REQUEST, 'FID not found', str(fid))
@@ -429,4 +446,4 @@ def bind_addresses(session, fid, port_d, echo=False):
     :return: brcdapi_rest status object for the first error encountered of the last request
     :rtype: dict
     """
-    return brcdapi_port.bind_addresses(session, fid, port_d, echo)
+    return brcdapi_port.bind_addresses(session, fid, port_d, echo=echo)

@@ -21,19 +21,24 @@ Public Methods & Data::
     +-----------------------+---------------------------------------------------------------------------------------+
     | Method                | Description                                                                           |
     +=======================+=======================================================================================+
-    | parse_parameters      | Parses a Workbook into a dictionary of header columns and content by header. See      |
-    |                       | sample_parameters.xlsx                                                                |
+    | cell_match_val        | Finds the cell matching a value                                                       |
     +-----------------------+---------------------------------------------------------------------------------------+
-    | new_report            | Creates a workbook object for the Excel report.                                       |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | save_report           | Saves a workbook object as an Excel file.                                             |
+    | cell_update           | A convinent way to set cell properties and the cell value in a single call.           |
     +-----------------------+---------------------------------------------------------------------------------------+
     | col_to_num            | Converts a cell reference to a column number. I'm pretty sure the openpyxl library    |
     |                       | has an equivalent. If so, I never should have wrote this.                             |
     +-----------------------+---------------------------------------------------------------------------------------+
-    | cell_match_val        | Finds the cell matching a value                                                       |
+    | copy_worksheet        | Typically used to copy a worksheet from one workbook to another                       |
     +-----------------------+---------------------------------------------------------------------------------------+
     | excel_datetime        | Converts a datetime.datetime class object from Excel to formatted text                |
+    +-----------------------+---------------------------------------------------------------------------------------+
+    | find_headers          | Match columns to headers. Duplicate headers are ignored. Optionally warn if a         |
+    |                       | duplicate is encountered.                                                             |
+    +-----------------------+---------------------------------------------------------------------------------------+
+    | new_report            | Creates a workbook object for the Excel report.                                       |
+    +-----------------------+---------------------------------------------------------------------------------------+
+    | parse_parameters      | Parses a Workbook into a dictionary of header columns and content by header. See      |
+    |                       | sample_parameters.xlsx                                                                |
     +-----------------------+---------------------------------------------------------------------------------------+
     | read_sheet            | Reads the contents (values) of a worksheet into two lists of dictionaries. The cell   |
     |                       | list is a list of dictionaries whereby the key is the cell reference and the value is |
@@ -41,12 +46,10 @@ Public Methods & Data::
     |                       | search engine. The second is a list of lists that make up a C like array that can be  |
     |                       | accessed with a row and column number for the cell value.                             |
     +-----------------------+---------------------------------------------------------------------------------------+
-    | cell_update           | A convinent way to set cell properties and the cell value in a single call.           |
-    +-----------------------+---------------------------------------------------------------------------------------+
     | read_workbook         | Reads a workbook into a list of worksheets followed by lists of lists which           |
     |                       | effectively make up a row by column matrix of each sheet.                             |
     +-----------------------+---------------------------------------------------------------------------------------+
-    | copy_worksheet        | Typically used to copy a worksheet from one workbook to another                       |
+    | save_report           | Saves a workbook object as an Excel file.                                             |
     +-----------------------+---------------------------------------------------------------------------------------+
 
 Version Control::
@@ -61,18 +64,20 @@ Version Control::
     | 1.0.2     | 24 Oct 2022   | Improved error messaging                                                          |
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 1.0.3     | 01 Jan 2023   | Added ability to accept wild cards in sheets to read and skip in read_workbook(). |
-    |           |               | Added copy_worksheet()
+    |           |               | Added copy_worksheet()                                                            |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 1.0.4     | 11 Feb 2023   | Added find_headers()                                                              |
     +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2022, 2023 Jack Consoli'
-__date__ = '01 Jan 2023'
+__date__ = '11 Feb 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.3'
+__version__ = '1.0.4'
 
 import openpyxl as xl
 import openpyxl.utils.cell as xl_util
@@ -166,8 +171,7 @@ def parse_parameters(in_wb=None, sheet_name='parameters', hdr_row=0, wb_name=Non
     sl, al = read_sheet(sheet, 'row')
     hdr_row_l = al[hdr_row]
     for i in range(0, len(hdr_row_l)):
-        width = sheet.column_dimensions[xl_util.get_column_letter(i+1)].width
-        col_width.append(width)
+        col_width.append(sheet.column_dimensions[xl_util.get_column_letter(i+1)].width)
         if hdr_row_l[i] is not None:
             hdr_d.update({hdr_row_l[i]: i})
 
@@ -535,3 +539,39 @@ def copy_worksheet(wb, sheet_index, sheet_name, sheet_l, col_width_l=None, font=
     el.append('Could not find ' + sheet_name + ' in ' + str(sheet_d.get('file')))
 
     return el
+
+
+def find_headers(hdr_row_l, hdr_l=None, warn=False):
+    """Match columns to headers. Duplicate headers are ignored. Optionally warn if a duplicate is encountered.
+
+    :param hdr_row_l: Typically al[0] from sl, al = excel_util.read_sheet(sheet, 'row')
+    :type hdr_row_l: list
+    :param hdr_l: Header or list of headers to find. Find all headers if None
+    :type hdr_l: str, list, tuple, None
+    :param warn: If True, add an exception message to the log warning that there are multiple column headers
+    :type warn: bool
+    :return: Dictionary of headers. Key is the header in hdr_l. The value is the index into hdr_row where it was found.
+             if not found, the value is None
+    :rtype: dict
+    """
+    rd = dict()
+
+    # If None, get all headers
+    if hdr_l is None:
+        for col in range(0, len(hdr_row_l)):
+            if hdr_row_l[col] in rd:
+                if warn:
+                    brcdapi_log.exception('Duplicate header: ' + hdr_row_l[col], echo=True)
+            else:
+                rd.update({hdr_row_l[col]: col})
+
+    # There is a specific list of headers to get
+    else:
+        for buf in gen_util.convert_to_list(hdr_l):
+            rd.update({buf: None})
+            for col in range(0, len(hdr_row_l)):
+                if hdr_row_l[col] == buf:
+                    rd[buf] = col
+                    break
+
+    return rd

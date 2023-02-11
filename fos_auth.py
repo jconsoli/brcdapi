@@ -1,4 +1,4 @@
-# Copyright 2021, 2022 Jack Consoli.  All rights reserved.
+# Copyright 2021, 2022, 2023 Jack Consoli.  All rights reserved.
 #
 # NOT BROADCOM SUPPORTED
 #
@@ -16,9 +16,8 @@
 # limitations under the License.
 
 """
-:mod:`brcdapi.pyfos_auth` - Login, logout, and error formatting. With the exception of error handling, typically, the
-remaining methods contained herein are only used by brcdapi.brcdapi_rest. Consolidated modules from PyFOS and removed
-pre FOS v8.2.1b relevant code from those PyFOS modules.
+:mod:`brcdapi.fos_auth` - Login, logout, and error formatting. With the exception of error handling, typically, the
+remaining methods contained herein are only used by brcdapi.brcdapi_rest.
 
 Primary Methods::
 
@@ -114,21 +113,25 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 1.0.5     | 24 Oct 2022   | Improved error messaging                                                          |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 1.0.6     | 11 Feb 2023   | Modified is_error() to handle objects with good status and errors. Additional     |
+    |           |               | error checking added to basic_api_parse()                                         |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2021, 2022 Jack Consoli'
-__date__ = '24 Oct 2022'
+__copyright__ = 'Copyright 2021, 2022, 2023 Jack Consoli'
+__date__ = '11 Feb 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.5'
+__version__ = '1.0.6'
 
 import http.client as httplib
 import base64
 import ssl
 import json
+import pprint
 import brcdapi.util as brcdapi_util
 import brcdapi.log as brcdapi_log
 
@@ -151,18 +154,24 @@ def basic_api_parse(obj):
         if isinstance(http_response, bytes) and len(http_response) > 0:
             try:
                 json_data = json.loads(http_response)
+            except UnicodeDecodeError:
+                return create_error(brcdapi_util.HTTP_INT_SERVER_ERROR,
+                                    'Invalid data returned from FOS',
+                                    'UnicodeDecodeError')
             except BaseException as e:
-                http_buf = 'None' if http_response is None else \
-                    http_response.decode(encoding=brcdapi_util.encoding_type, errors='ignore')
+                try:
+                    http_buf = 'None' if http_response is None else \
+                        http_response.decode(encoding=brcdapi_util.encoding_type, errors='ignore')
+                except BaseException as e0:
+                    http_buf = 'Could not decode http_response. Exception is: ' + str(e, errors='ignore') if \
+                        isinstance(e, (bytes, str)) else str(type(e))
                 brcdapi_log.exception(['Invalid data returned from FOS. Error code:',
                                        str(e, errors='ignore') if isinstance(e, (bytes, str)) else str(type(e)),
                                        '',
                                        'http_response:',
                                        http_buf],
                                       echo=True)
-                json_data = create_error(brcdapi_util.HTTP_INT_SERVER_ERROR,
-                                         'Invalid data returned from FOS',
-                                         'See previous message')
+                return create_error(brcdapi_util.HTTP_INT_SERVER_ERROR, 'Invalid data returned from FOS', '')
         try:
             json_data.update(_raw_data=dict(status=obj.status, reason=obj.reason))
         except AttributeError:
@@ -178,6 +187,11 @@ def basic_api_parse(obj):
                                   echo=True)
     except AttributeError:
         pass  # I think logout is the only time I get here.
+    except BaseException as e:
+        buf = 'Undetermined error parsing response'
+        brcdapi_log.exception([str(e,errors='ignore') if isinstance(e,(bytes, str)) else str(type(e)), buf], echo=True)
+        return create_error(brcdapi_util.HTTP_INT_SERVER_ERROR, buf, '')
+
     return json_data
 
 
@@ -188,7 +202,8 @@ def _get_connection(ip_addr, ca):
     if ca == 'none':
         return httplib.HTTPConnection(ip_addr)
     # Assume it's a certificate
-    return httplib.HTTPSConnection(ip_addr, ca)  # Is this right? Need to test
+    brcdapi_log.exception('Only "none" (HTTP) and "self" (self signed HTTPS) are supported at this time.', echo=True)
+    raise ConnectionRefusedError
 
 
 def create_error(status, reason, msg):
@@ -204,11 +219,7 @@ def create_error(status, reason, msg):
     :rtype: dict
     """
     ml = msg if isinstance(msg, list) else [msg]
-    ret_dict = dict(
-        _raw_data=dict(status=status, reason=reason),
-        errors=dict(error=[{'error-message': buf} for buf in ml]),
-    )
-    return ret_dict
+    return dict(_raw_data=dict(status=status, reason=reason), errors=dict(error=[{'error-message': buf} for buf in ml]))
 
 
 def obj_status(obj):
@@ -232,13 +243,18 @@ def is_error(obj):
     """
     if obj is None:
         return False
-    if 'errors' in obj:
+    if not isinstance(obj, dict):
+        brcdapi_log.exception('Expected type dict. Received type: ' + str(type(obj)), echo=True)
         return True
     status = obj_status(obj)
     if isinstance(status, int):
         if status < 200 or status >= 300:
             return True
+        if 'errors' in obj:
+            brcdapi_log.exception(['', 'Response contains good status and errors:', pprint.pformat(obj), ''], echo=True)
         return False
+    if 'errors' in obj:
+        return True
     return False
 
 
@@ -271,8 +287,7 @@ def obj_error_detail(obj):
 
     if isinstance(error_list, dict):
         error_list = [error_list]  # in 8.2.1a and below, a single error was returned as a dict
-    i = 0
-    buf = ''
+    i, buf = 0, ''
     for error_obj in error_list:
         buf += 'Error Detail ' + str(i) + ':'
         for k in error_obj.keys():
@@ -287,8 +302,7 @@ def obj_error_detail(obj):
                         buf += '\n    ' + k1 + ': ' + d1
                     elif isinstance(d1, (int, float)):
                         buf += '\n    ' + k1 + ': ' + str(d1)
-        i += 1
-        buf += '\n'
+        i, buf = i + 1, buf + '\n'
     return buf
 
 
@@ -300,7 +314,12 @@ def formatted_error_msg(obj):
     :return: msg
     :rtype: str
     """
-    return 'Status: ' + str(obj_status(obj)) + '\nReason: ' + obj_reason(obj) + '\n' + obj_error_detail(obj)
+    if isinstance(obj, dict):
+        buf = 'Status: ' + str(obj_status(obj)) + '\nReason: ' + obj_reason(obj) + '\n' + obj_error_detail(obj)
+    else:
+        buf = 'Expected type dict. Received type: ', str(type(obj))
+        brcdapi_log.exception(buf , echo=True)
+    return buf
 
 
 def login(user, password, ip_addr, in_http_access=None):
@@ -314,7 +333,7 @@ def login(user, password, ip_addr, in_http_access=None):
     :type ip_addr: str
     :param in_http_access: 'none' or None for HTTP. For HTTPS, only 'self' is supported.
     :type in_http_access: str, None
-    :return: Session object as described in the method description
+    :return: Session object as described in the module header. See Login Session
     :rtype: dict
     """
     # Get and validate HTTP or HTTPS method
@@ -326,7 +345,10 @@ def login(user, password, ip_addr, in_http_access=None):
         return create_error(brcdapi_util.HTTP_BAD_REQUEST, 'Unsupported login', str(http_access, errors='ignore'))
 
     # Get connection token
-    conn = _get_connection(ip_addr, http_access)
+    try:
+        conn = _get_connection(ip_addr, http_access)
+    except ConnectionRefusedError:
+        return create_error(brcdapi_util.HTTP_NOT_FOUND, 'Connection refused', '').update(ip_addr=ip_addr)
     auth = user + ':' + password
     auth_encoded = base64.b64encode(auth.encode())
     credential = {
@@ -339,15 +361,11 @@ def login(user, password, ip_addr, in_http_access=None):
     try:
         conn.request('POST', _LOGIN_RESTCONF, '', credential)
     except TimeoutError:
-        obj = create_error(brcdapi_util.HTTP_NOT_FOUND, 'Not Found', '')
-        obj.update(ip_addr=ip_addr)
-        return obj
+        return create_error(brcdapi_util.HTTP_NOT_FOUND, 'Not Found', '').update(ip_addr=ip_addr)
     except BaseException as e:
         e_buf = str(e, errors='ignore') if isinstance(e, (bytes, str)) else str(type(e))
         brcdapi_log.exception(['', 'Unknown exception: ', e_buf], echo=True)
-        obj = create_error(brcdapi_util.HTTP_NOT_FOUND, 'Not Found', e_buf)
-        obj.update(ip_addr=ip_addr)
-        return obj
+        return create_error(brcdapi_util.HTTP_NOT_FOUND, 'Not Found', e_buf).update(ip_addr=ip_addr)
 
     # Attempt login
     resp = conn.getresponse()
@@ -355,12 +373,9 @@ def login(user, password, ip_addr, in_http_access=None):
     content = resp.getheader('content-type')
     content_l = content.split(';')
     if len(content_l) == 2:
-        json_data.update({'content-type': content_l[0]})
-        json_data.update({'content-version': content_l[1]})
+        json_data.update({'content-type': content_l[0], 'content-version': content_l[1]})
     else:
-        json_data.update({'content-type': content})
-        json_data.update({'content-version': None})
-    credential.pop('Authorization')
+        json_data.update({'content-type': content, 'content-version': None})
     credential.update({'Authorization': resp.getheader('authorization')})
     json_data.update(conn = conn,
                      credential = credential,
@@ -380,6 +395,4 @@ def logout(session):
     """
     conn = session.get('conn')
     conn.request('POST', _LOGOUT_RESTCONF, '', session.get('credential'))
-    resp = conn.getresponse()
-    obj = basic_api_parse(resp.read())
-    return obj
+    return basic_api_parse(conn.getresponse().read())

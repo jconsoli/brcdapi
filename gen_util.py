@@ -93,6 +93,8 @@
   | str_to_num                  | Converts an str to an int if it can be represented as an int, otherwise float.    |
   |                             | 12.0 is returned as a float.                                                      |
   +-----------------------------+-----------------------------------------------------------------------------------|
+  | uwatts_to_dbm               | Converts a number in uWatts to dBm                                                |
+  +-----------------------------+-----------------------------------------------------------------------------------|
 
 Version Control::
 
@@ -115,18 +117,21 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 1.0.6     | 01 Jan 2023   | Fixed zone obect in is_valid_zone_name()                                          |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 1.0.7     | 11 Feb 2023   | Added uwatts_to_dbm()                                                             |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2022, 2023 Jack Consoli'
-__date__ = '01 Jan 2023'
+__date__ = '11 Feb 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.6'
+__version__ = '1.0.7'
 
 import re
 import datetime
+import math
 import brcdapi.log as brcdapi_log
 
 _MAX_ZONE_NAME_LEN = 64
@@ -567,7 +572,7 @@ def dBm_to_absolute(val, r=1):
     """Converts a number in dBm to it's value
 
     :param val: dBm value
-    :type val: str, float
+    :type val: str, float, int
     :param r: Number of digits to the right of the decimal point to round off to
     :type r: int
     :return: val converted to it's absolute value. None if val cannot be converted to a float.
@@ -575,6 +580,23 @@ def dBm_to_absolute(val, r=1):
     """
     try:
         return round((10 ** (float(val)/10)) * 1000, r)
+    except ValueError:
+        pass
+    return None
+
+
+def uwatts_to_dbm(val, r=1):
+    """Converts a number in uWatts to dBm
+
+    :param val: uWatt value
+    :type val: str, float, int
+    :param r: Number of digits to the right of the decimal point to round off to
+    :type r: int
+    :return: val converted to it's absolute value. None if val cannot be converted to a float.
+    :rtype: float, None
+    """
+    try:
+        return round(10*math.log10(float(val)/1000), r)
     except ValueError:
         pass
     return None

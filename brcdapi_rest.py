@@ -1,4 +1,4 @@
-# Copyright 2019, 2020, 2021, 2022 Jack Consoli.  All rights reserved.
+# Copyright 2019, 2020, 2021, 2022, 2023 Jack Consoli.  All rights reserved.
 #
 # NOT BROADCOM SUPPORTED
 #
@@ -74,17 +74,20 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.9     | 24 Oct 2022   | Improved error messaging and add Control-C to exit                                |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.1.0     | 11 Feb 2023   | Added exception handling, http.client.RemoteDisconnected, to _api_request()       |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2019, 2020, 2021, 2022 Jack Consoli'
-__date__ = '24 Oct 2022'
+__copyright__ = 'Copyright 2019, 2020, 2021, 2022, 2023 Jack Consoli'
+__date__ = '11 Feb 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.9'
+__version__ = '3.1.0'
 
+import http.client
 import re
 import http.client as httplib
 import json
@@ -106,9 +109,9 @@ _DEBUG = False
 # _DEBUG_MODE is only used when _DEBUG == True as follows:
 # 0 - Perform all requests normally. Write all responses to a file
 # 1 - Do not perform any I/O. Read all responses from file into response and fake a successful login
-_DEBUG_MODE = 1
+_DEBUG_MODE = 0
 # _DEBUG_PREFIX is only used when _DEBUG == True. Folder where all the json dumps of API requests are read/written.
-_DEBUG_PREFIX = 'eng_raw_28_apr_2022/'
+_DEBUG_PREFIX = 'raw_data_230127/'
 verbose_debug = False  # When True, prints data structures. Only useful for debugging. Can be set externally
 _req_pending = False  # When True, the script is waiting for a response from a switch
 _control_c_pend = False  # When True, a keyboard interrup is pending a request to complete
@@ -318,6 +321,9 @@ def _api_request(session, uri, http_method, content):
     except TypeError:
         # Apparently, the http lib intercepts Control-C. A TypeError is a by-product of how it's handled.
         _control_c_pend = True
+    except http.client.RemoteDisconnected:
+        buf = 'Disconnect while processing ' + uri + '. Method: ' + http_method
+        return fos_auth.create_error(brcdapi_util.HTTP_REQUEST_TIMEOUT, buf, '')
     except BaseException as e:
         e_buf = str(e, errors='ignore') if isinstance(e, (bytes, str)) else str(type(e))
         ml = ['Unexpected error:',
@@ -328,7 +334,7 @@ def _api_request(session, uri, http_method, content):
               'json_data: ' + 'None' if json_data is None else \
                   json_data.decode(encoding=brcdapi_util.encoding_type, errors='ignore')]
         brcdapi_log.exception(ml, echo=True)
-        raise RuntimeError
+        return fos_auth.create_error(brcdapi_util.HTTP_REQUEST_TIMEOUT, 'Unexpected error:', e_buf.split('\n'))
     
     _req_pending = False
     if _control_c_pend:
@@ -593,13 +599,12 @@ def check_status(session, fid, message_id, wait_time, num_check):
         if fos_auth.is_error(obj):
             return obj  # Let the calling method deal with errors
         try:
-            status = obj['show-status']['status']
+            if obj['show-status']['status'] == 'done':
+                break
         except KeyError:
             return fos_auth.create_error(brcdapi_util.HTTP_INT_SERVER_ERROR,
                                              brcdapi_util.HTTP_REASON_UNEXPECTED_RESP,
                                              "Missing: ['show-status']['status']")
-        if status == 'done':
-            break
         i -= 1
 
     return obj
