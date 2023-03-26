@@ -1,4 +1,4 @@
-# Copyright 2020, 2021, 2022 Jack Consoli.  All rights reserved.
+# Copyright 2020, 2021, 2022, 2023 Jack Consoli.  All rights reserved.
 #
 # NOT BROADCOM SUPPORTED
 #
@@ -18,7 +18,7 @@
 **Description**
 
     The methods herein simplify zoning operations by building the proper content for the API request and inserting the
-    proper method. For example, the caller can create a zones simply by passing a list of zone names and their members
+    proper method. For example, the caller can create a zone simply by passing a list of zone names and their members
     to create_zones(). The method create_zones() formats the content and method and then sends the request.
 
     These methods do not perform any validation. They are limited to packaging the content and determining the HTTP
@@ -44,6 +44,37 @@
 
     The members of a zone configurations can be modified via the API.
 
+**Public Methods**
+
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | Method                      | Description                                                                       |
+  +=============================+===================================================================================+
+  | create_aliases              | Creates aliases                                                                   |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | del_aliases                 | Delete aliases                                                                    |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | create_zones                | Create zones                                                                      |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | find_zone                   | Finds and returns the dictionary from the API for a specific zone in the return   |
+  |                             | from the API for 'running/brocade-zone/defined-configuration'                     |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | del_zones                   | Delete zones                                                                      |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | modify_zone                 | Add and remove members from a zone.                                               |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | create_zonecfg              | Add a zone configuration.                                                         |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | del_zonecfg                 | Delete a zone configuration                                                       |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | enable_zonecfg              | Enable a zone configuration.                                                      |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | disable_zonecfg             | Disable a zone configuration.                                                     |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | zonecfg_add                 | Add members to a zone configuration.                                              |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | zonecfg_remove              | Remove members from a zone configuration.                                         |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+
 Version Control::
 
     +-----------+---------------+-----------------------------------------------------------------------------------+
@@ -64,21 +95,24 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.5     | 28 Apr 2022   | Adjusted for new URI format                                                       |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.6     | 26 Mar 2023   | Allow a list of aliases by name to delete del_aliases(). Added find_zone()        |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2020, 2021, 2022 Jack Consoli'
-__date__ = '28 Apr 2022'
+__copyright__ = 'Copyright 2020, 2021, 2022, 2023 Jack Consoli'
+__date__ = '26 Mar 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.5'
+__version__ = '3.0.6'
 
+import pprint
 import brcdapi.brcdapi_rest as brcdapi_rest
 import brcdapi.fos_auth as brcdapi_auth
 import brcdapi.log as brcdapi_log
+import brcdapi.gen_util as gen_util
 import brcdapi.util as brcdapi_util
-from pprint import pprint  # Debug
 
 
 def _is_error(obj, msg, echo):
@@ -94,8 +128,8 @@ def _is_error(obj, msg, echo):
     :rtype: str
     """
     if brcdapi_auth.is_error(obj):
-        brcdapi_log.log(msg, echo)
-        brcdapi_log.exception(brcdapi_auth.formatted_error_msg(obj), echo)
+        brcdapi_log.log(msg, echo=echo)
+        brcdapi_log.exception(brcdapi_auth.formatted_error_msg(obj), echo=echo)
         return True
     return False
 
@@ -123,6 +157,8 @@ def create_aliases(session, fid, alias_list, echo=False):
     :return: brcdapi_rest status object
     :rtype: dict
     """
+    if len(gen_util.convert_to_list(alias_list)) == 0:
+        return brcdapi_util.GOOD_STATUS_OBJ
     build_alias_list = list()
     for alias_obj in alias_list:
         build_alias_list.append({'alias-name': alias_obj.get('name'),
@@ -134,8 +170,23 @@ def create_aliases(session, fid, alias_list, echo=False):
 
 
 def del_aliases(session, fid, alias_list, echo=False):
-    """Deletes aliases. Same as input parameters and return as create_aliases() but only 'name' is used in alias_list"""
-    content = {'defined-configuration': {'alias': [{'alias-name': alias_obj.get('name')} for alias_obj in alias_list]}}
+    """Deletes aliases.
+
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
+    :type session: dict
+    :param fid: Logical FID number
+    :type fid: int
+    :param alias_list: List of aliases by name (str) or dictionaries as in create_aliases().
+    :type alias_list: list
+    :param echo: If True, echoes any error messages to STD_OUT
+    :type echo: bool
+    :return: brcdapi_rest status object
+    :rtype: dict
+    """
+    if len(gen_util.convert_to_list(alias_list)) == 0:
+        return brcdapi_util.GOOD_STATUS_OBJ
+    content = {'defined-configuration': {'alias': [{'alias-name': alias_obj if isinstance(alias_obj, str) else \
+        alias_obj.get('name')} for alias_obj in alias_list]}}
     obj = brcdapi_rest.send_request(session, 'running/brocade-zone/defined-configuration', 'DELETE', content, fid)
     _is_error(obj, 'Failed to delete alias', echo)
     return obj
@@ -146,6 +197,24 @@ def del_aliases(session, fid, alias_list, echo=False):
 #                    Zone Methods
 #
 ###################################################################
+def find_zone(obj, zone):
+    """Finds and returns the dictionary from the API for a specific zone
+
+    :param obj: Return from brcdapi_rest.get_request(session, 'running/brocade-zone/defined-configuration', fid)
+    :type obj: dict
+    :return: Zone dictionary for the specific zone
+    :rtype: dict, None
+    """
+    try:
+        for d in gen_util.convert_to_list(gen_util.get_key_val(obj, 'defined-configuration/zone')):
+            if d['zone-name'] == zone:
+                return d
+    except KeyError:
+        buf = '"zone-name" missing in "defined-configuration/zone" for zone ' + zone + ' in:'
+        brcdapi_log.exception([buf, pprint.pformat(obj, indent=4)], echo=True)
+    return None
+
+
 def create_zones(session, fid, zone_list, echo=False):
     """Add zones to a fabric.
 
@@ -164,6 +233,8 @@ def create_zones(session, fid, zone_list, echo=False):
     :return: brcdapi_rest status object
     :rtype: dict
     """
+    if len(gen_util.convert_to_list(zone_list)) == 0:
+        return brcdapi_util.GOOD_STATUS_OBJ
     # Create the zones
     build_zone_list = list()
     for zone_obj in zone_list:
@@ -182,29 +253,31 @@ def create_zones(session, fid, zone_list, echo=False):
     return obj
 
 
-def del_zones(session, fid, zones, echo=False):
+def del_zones(session, fid, zone_list, echo=False):
     """Deletes zones.
 
     :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
     :param fid: Logical FID number
     :type fid: int
-    :param zones: List of zone names to delete
-    :type zones: list
+    :param zone_list: List of zone names to delete
+    :type zone_list: list
     :param echo: If True, echoes any error messages to STD_OUT
     :type echo: bool
     :return: brcdapi_rest status object
     :rtype: dict
     """
+    if len(gen_util.convert_to_list(zone_list)) == 0:
+        return brcdapi_util.GOOD_STATUS_OBJ
     # Delete the zones
-    content = {'defined-configuration': {'zone': [{'zone-name': zone} for zone in zones]}}
+    content = {'defined-configuration': {'zone': [{'zone-name': zone} for zone in zone_list]}}
     obj = brcdapi_rest.send_request(session, 'running/brocade-zone/defined-configuration', 'DELETE', content, fid)
     _is_error(obj, 'Failed to delete zone(s)', echo)
     return obj
 
 
 def modify_zone(session, fid, zone, add_members, del_members, in_add_pmembers=None, in_del_pmembers=None, echo=False):
-    """Adds and removes members from a zone.
+    """Add and remove members from a zone.
 
     :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
@@ -213,37 +286,42 @@ def modify_zone(session, fid, zone, add_members, del_members, in_add_pmembers=No
     :param zone: Name of zone to be modified
     :type zone: str
     :param add_members: Members to add to the zone
-    :type add_members: list
+    :type add_members: list, None
     :param del_members: Members to delete from the zone
-    :type del_members: list
+    :type del_members: list, None
     :param in_add_pmembers: Principal members to add to zone. Only relevant for peer zones
-    :type in_add_pmembers: list
+    :type in_add_pmembers: list, None
     :param in_del_pmembers: Principal members to delete from a zone. Only relevant for peer zones
-    :type in_del_pmembers: list
+    :type in_del_pmembers: list, None
     :param echo: If True, echoes any error messages to STD_OUT
     :type echo: bool
     :return: brcdapi_rest status object
     :rtype: dict
     """
-    add_pmembers = list() if in_add_pmembers is None else in_add_pmembers
-    del_pmembers = list() if in_del_pmembers is None else in_del_pmembers
+    add_mem_l = gen_util.convert_to_list(add_members)
+    add_pmem_l = gen_util.convert_to_list(in_add_pmembers)
+    del_mem_l = gen_util.convert_to_list(del_members)
+    del_pmem_l = gen_util.convert_to_list(in_del_pmembers)
+    if len(add_mem_l) + len(add_pmem_l) + len(del_mem_l) + len(del_pmem_l) == 0:
+        return brcdapi_util.GOOD_STATUS_OBJ
 
     # This method reads the zone to change, makes the modifications in a local object, and PATCH the change. I'm
     # assuming the type of zone could be changed but this method is just changing the membership. See "Important Notes"
     control = {
-        'principal-entry-name': {'add_mem': add_pmembers, 'del_mem': del_pmembers},
-        'entry-name': {'add_mem': add_members, 'del_mem': del_members},
+        'principal-entry-name': {'add_mem': add_pmem_l, 'del_mem': del_pmem_l},
+        'entry-name': {'add_mem': add_mem_l, 'del_mem': del_mem_l},
     }
-    # Read in the current defined zone
-    obj = brcdapi_rest.get_request(session, 'running/brocade-zone/defined-configuration/zone/zone-name/' + zone, fid)
+    # Read in the current defined zone and find this specific zone
+    obj = brcdapi_rest.get_request(session, 'running/brocade-zone/defined-configuration', fid)
     if _is_error(obj, 'Failed reading zone ' + zone, echo):
         return obj
+    d = find_zone(obj, zone)
+    if d is None:
+        er_obj = brcdapi_auth.create_error(brcdapi_util.HTTP_NOT_FOUND, brcdapi_util.HTTP_REASON_NOT_FOUND, zone)
+        _is_error(er_obj, 'Failed modifying zone ' + zone, echo)
+        return er_obj
 
     # Modify the zone
-    d = obj.get('zone')
-    if d is None:
-        return brcdapi_auth.create_error(brcdapi_util.HTTP_BAD_REQUEST, brcdapi_util.HTTP_REASON_MAL_FORMED_OBJ,
-                                         'Missing leaf "zone" in returned object for ' + zone)
     me = d.get('member-entry')
     if me is None:
         me = dict()  # I'm not sure what FOS returns if all the members were deleted so this is just to be safe
@@ -260,11 +338,12 @@ def modify_zone(session, fid, zone, add_members, del_members, in_add_pmembers=No
                 if mem in ml:
                     ml.remove(mem)
                 else:
-                    brcdapi_auth.create_error(brcdapi_util.HTTP_BAD_REQUEST,
-                                              'Delete error',
-                                              'Member ' + mem + ' does not exist')
+                    er_obj = brcdapi_auth.create_error(brcdapi_util.HTTP_BAD_REQUEST,
+                                                       'Delete error',
+                                                       'Member ' + mem + ' does not exist')
+                    _is_error(er_obj, 'Failed to delete zone members for zone ' + zone, echo)
 
-    content = {'defined-configuration': obj}
+    content = {'defined-configuration': dict(zone=[d])}
     obj = brcdapi_rest.send_request(session, 'running/brocade-zone/defined-configuration', 'PATCH', content, fid)
     _is_error(obj, 'Failed to create zones', echo)
     return obj
@@ -310,7 +389,7 @@ def create_zonecfg(session, fid, zonecfg_name, zone_list, echo=False):
 
 
 def del_zonecfg(session, fid, zonecfg_name, echo=False):
-    """Deletes a zone configuration
+    """Delete a zone configuration
 
     :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
@@ -335,7 +414,7 @@ def del_zonecfg(session, fid, zonecfg_name, echo=False):
 
 
 def enable_zonecfg(session, check_sum, fid, zonecfg_name, echo=False):
-    """Enables a zone configuration.
+    """Enable a zone configuration.
 
     :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
@@ -363,7 +442,7 @@ def enable_zonecfg(session, check_sum, fid, zonecfg_name, echo=False):
 
 
 def disable_zonecfg(session, check_sum, fid, zonecfg_name, echo=False):
-    """Enables a zone configuration.
+    """Disable a zone configuration.
 
     :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
@@ -395,6 +474,8 @@ def _zonecfg_modify(session, fid, zonecfg_name, zone_list, method, echo=False):
     :param method:  'DELETE' for remove or 'POST' to add members
     :type method: str
     """
+    if len(gen_util.convert_to_list(zone_list)) == 0:
+        return brcdapi_util.GOOD_STATUS_OBJ
     content = {
         'defined-configuration': {
             'cfg': [
@@ -413,7 +494,7 @@ def _zonecfg_modify(session, fid, zonecfg_name, zone_list, method, echo=False):
 
 
 def zonecfg_add(session, fid, zonecfg_name, zone_list, echo=False):
-    """Adds members to a zone configuration.
+    """Add members to a zone configuration.
 
     :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
@@ -432,7 +513,7 @@ def zonecfg_add(session, fid, zonecfg_name, zone_list, echo=False):
 
 
 def zonecfg_remove(session, fid, zonecfg_name, zone_list, echo=False):
-    """Removes members from a zone configuration.
+    """Remove members from a zone configuration.
 
     :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
@@ -441,7 +522,7 @@ def zonecfg_remove(session, fid, zonecfg_name, zone_list, echo=False):
     :param zonecfg_name: Name of zone configuration to be modified
     :type zonecfg_name: str
     :param zone_list: Members to remove from the zone configuration
-    :type zone_list: list
+    :type zone_list: list, None
     :param echo: If True, echoes any error messages to STD_OUT
     :type echo: bool
     :return: brcdapi_rest status object
@@ -476,8 +557,8 @@ def checksum(session, fid, echo=False):
     try:
         return obj.get('effective-configuration').get('checksum'), obj
     except TypeError:
-        brcdapi_log.log('Failed to get checksum', echo)
-        brcdapi_log.exception(pprint.pformat(obj, indent=4), echo)
+        brcdapi_log.log('Failed to get checksum', echo=echo)
+        brcdapi_log.exception(pprint.pformat(obj, indent=4), echo=echo)
         return None, brcdapi_auth.create_error(brcdapi_util.HTTP_INT_SERVER_ERROR,
                                                brcdapi_util.HTTP_REASON_UNEXPECTED_RESP,
                                                'Missing effective-configuration/checksum')
@@ -486,7 +567,7 @@ def checksum(session, fid, echo=False):
 def abort(session, fid, echo=False):
     """Aborts a zoning transaction
 
-    :param session: Session object returned from brcdapi.brcdapi_auth.login()
+    :param session: Session object returned from brcdapi.fos_auth.login()
     :type session: dict
     :param fid: Logical FID number for the fabric of interest
     :type fid: int

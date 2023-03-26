@@ -119,15 +119,17 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 1.0.7     | 11 Feb 2023   | Added uwatts_to_dbm()                                                             |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 1.0.8     | 26 Mar 2023   | Added missing ^ and $ to valid zone names                                         |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2022, 2023 Jack Consoli'
-__date__ = '11 Feb 2023'
+__date__ = '26 Mar 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.7'
+__version__ = '1.0.8'
 
 import re
 import datetime
@@ -146,7 +148,8 @@ ishex = re.compile(r'^[A-Fa-f0-9]*$')  # use: if ishex.match(hex_str) returns Tr
 valid_file_name = re.compile(r'\w[ -]')  # use: good_file_name = valid_file_name.sub('_', bad_file_name)
 date_to_space = re.compile(r'[-/,+]')  # Used to convert special characters in data formats to a space
 valid_banner = re.compile(r'[^A-Za-z0-9 .,*\-\"\']')  # Use: good_banner = gen_util.valid_banner.sub('-', buf)
-
+valid_zone_first_char = re.compile(r'[A-Za-z0-9]')  # use: if valid_zone_first_char.match(zone_str[0])
+valid_zone_char = re.compile(r'[\w\-_$^]*$')  # use: if valid_zone_first_char.match(zone_str)
 multiplier = dict(k=1000, K=1000, m=1000000, M=1000000, g=1000000000, G=1000000000, t=1000000000000, T=1000000000000)
 # Using datetime is clumsy. These are easier. Speed is seldom the issue but it is faster
 month_to_num = dict(
@@ -374,17 +377,15 @@ def is_valid_zone_name(zone_name):
     :return: True if zone object name is a valid format, otherwise False
     :rtype: bool
     """
-    global _MAX_ZONE_NAME_LEN
+    global _MAX_ZONE_NAME_LEN, valid_zone_first_char, valid_zone_char
 
     if zone_name is None:
         return False
-    if len(zone_name) < 2 or len(zone_name) > _MAX_ZONE_NAME_LEN:  # At least 1 character and less than or = 64
+    if len(zone_name) < 2 or len(zone_name) > _MAX_ZONE_NAME_LEN:  # At least 2 characters and less than or = 64
         return False
-    if not re.match("^[A-Za-z0-9]*$", zone_name[0:1]):  # Must begin with letter or number
+    if not valid_zone_first_char.match(zone_name[0:1]):
         return False
-    if not re.match("^[A-Za-z0-9_-]*$", zone_name[1:]):  # Remaining characters must be letters, numbers, '_', or '-'
-        return False
-    return True
+    return valid_zone_char.match(zone_name[1:])
 
 
 def slot_port(port):

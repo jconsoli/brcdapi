@@ -28,22 +28,24 @@ Methods in this module are used to establish, modify, send requests, and termina
 This is a thin interface. Logging is only performed in debug mode. It is the responsibility of the next higher layer,
 such as the brcddb libraries, to control what gets printed to the log.
 
-Primary Methods::
+Pupblic Methods::
 
     +-----------------------------+----------------------------------------------------------------------------------+
     | Method                      | Description                                                                      |
     +=============================+==================================================================================+
-    | login()                     | Adds a wrapper around brcdapi.fos_auth.login()                                 |
-    +-----------------------------+----------------------------------------------------------------------------------+
-    | logout()                    | Adds a wrapper around brcdapi.pyfo_auth.logout()                                 |
-    +-----------------------------+----------------------------------------------------------------------------------+
     | api_request()               | Single interface to the FOS REST API. Performs a Rest API request. Handles low   |
     |                             | levels protocol errors and retries when the switch is busy. Also cleans up empty |
     |                             | responses that are returned as errors when they are just empty lists.            |
     +-----------------------------+----------------------------------------------------------------------------------+
     | get_request()               | Fill out full URI and add debug wrapper around a GET before calling api_request()|
     +-----------------------------+----------------------------------------------------------------------------------+
+    | login()                     | Adds a wrapper around brcdapi.fos_auth.login()                                 |
+    +-----------------------------+----------------------------------------------------------------------------------+
+    | logout()                    | Adds a wrapper around brcdapi.pyfo_auth.logout()                                 |
+    +-----------------------------+----------------------------------------------------------------------------------+
     | send_request()              | Performs a Rest API request. Simplifies requests by pre-pending '/rest/running/' |
+    +-----------------------------+----------------------------------------------------------------------------------+
+    | set_url_options()           | Sets or clears the flag to issue an OPTIONS request prior to making any requests | 
     +-----------------------------+----------------------------------------------------------------------------------+
 
 Version Control::
@@ -76,16 +78,18 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.1.0     | 11 Feb 2023   | Added exception handling, http.client.RemoteDisconnected, to _api_request()       |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.1.1     | 26 Mar 2023   | Added set_url_options()                                                           |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2019, 2020, 2021, 2022, 2023 Jack Consoli'
-__date__ = '11 Feb 2023'
+__date__ = '26 Mar 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.1.0'
+__version__ = '3.1.1'
 
 import http.client
 import re
@@ -100,7 +104,7 @@ import brcdapi.log as brcdapi_log
 import brcdapi.util as brcdapi_util
 import brcdapi.gen_util as gen_util
 
-_DISABLE_OPTIONS_CHECK = True  # When False, makes sure OPTIONS was requested for each URI
+_OPTIONS_CHECK = True  # When True, makes sure OPTIONS was requested for each URI
 _MAX_RETRIES = 5  # Maximum number of times to retry a request
 _SVC_UNAVAIL_WAIT = 4  # Time, in seconds, to wait before retrying a request that returned 503, service unavaliable
 _FABRIC_BUSY_WAIT = 10  # Time, in seconds, to wait before retrying a request due to a fabric busy
@@ -109,7 +113,7 @@ _DEBUG = False
 # _DEBUG_MODE is only used when _DEBUG == True as follows:
 # 0 - Perform all requests normally. Write all responses to a file
 # 1 - Do not perform any I/O. Read all responses from file into response and fake a successful login
-_DEBUG_MODE = 0
+_DEBUG_MODE = 1
 # _DEBUG_PREFIX is only used when _DEBUG == True. Folder where all the json dumps of API requests are read/written.
 _DEBUG_PREFIX = 'raw_data_230127/'
 verbose_debug = False  # When True, prints data structures. Only useful for debugging. Can be set externally
@@ -144,8 +148,12 @@ def login(user_id, pw, ip_addr, https='none'):
         session = dict(_debug_name=ip_addr.replace('.', '_'), debug=True, uri_map=brcdapi_util.default_uri_map)
     else:
         session = fos_auth.login(user_id, pw, ip_addr, https)
-        if fos_auth.is_error(session):
-            return session
+        if isinstance(session, dict):
+            if fos_auth.is_error(session):
+                return session
+        else:
+            buf = 'Error. Additional info may be in the log. This typically occurs when the connection times out.'
+            return fos_auth.create_error(brcdapi_util.HTTP_NOT_FOUND, buf, brcdapi_util.mask_ip_addr(ip_addr))
         if _DEBUG:
             session.update(_debug_name=ip_addr.replace('.', '_'))
 
@@ -200,16 +208,18 @@ def _set_methods(session, uri, op):
         cntl_d.update(op=op)
 
 
-def _add_methods(session, http_response, uri):
+def _add_methods(session, http_response, in_uri):
     """Adds supported methods to the session
 
     :param session: FOS session object
     :type session: dict
     :param http_response: HTTPConnection.getresponse()
     :type http_response: HTTPResponse
-    :param uri: full URI
-    :type uri: str
+    :param in_uri: full URI
+    :type in_uri: str
     """
+    i = in_uri.find('?')
+    uri = in_uri[0:i].replace('/rest/', '') if i > 0 else in_uri.replace('/rest/', '')
     cntl_d = brcdapi_util.session_cntl(session, uri)
     if not isinstance(cntl_d, dict):
         return
@@ -224,21 +234,23 @@ def _add_methods(session, http_response, uri):
     cntl_d.update(op=brcdapi_util.op_not_supported)
 
 
-def _check_methods(session, uri):
+def _check_methods(session, in_uri):
     """Checks to see if the supported methods for the uri have been added and if not, captures and adds them
 
     :param session: FOS session object
     :type session: dict
-    :param uri: full URI
-    :type uri: str
+    :param in_uri: full URI
+    :type in_uri: str
     :return: True if supported methods should be checked.
     :rtype: bool
     """
-    global _DISABLE_OPTIONS_CHECK
+    global _OPTIONS_CHECK
 
-    if _DISABLE_OPTIONS_CHECK:
+    if not _OPTIONS_CHECK:
         return False
 
+    i = in_uri.find('?')
+    uri = in_uri[0:i].replace('/rest/', '') if i > 0 else in_uri.replace('/rest/', '')
     d = gen_util.get_key_val(session.get('uri_map'), uri)
     if d is None:
         d = gen_util.get_key_val(session.get('uri_map'), 'running/' + uri)  # The old way didn't include 'running/'
@@ -247,7 +259,7 @@ def _check_methods(session, uri):
         if isinstance(supported_methods, int):
             if supported_methods == brcdapi_util.op_no:
                 return True
-    else:
+    elif 'brocade-module-version' not in uri:  # We haven't built the map yet so 'brocade-module-version' won't be there
         brcdapi_log.log('UNKNOWN URI: ' + uri)
 
     return False
@@ -272,8 +284,8 @@ def _api_request(session, uri, http_method, content):
     if _DEBUG and _DEBUG_MODE == 1 and http_method == 'OPTIONS':
         return dict(_raw_data=dict(status=brcdapi_util.HTTP_NO_CONTENT, reason='OK'))
 
-    if http_method != 'OPTIONS' and _check_methods(session, uri.replace('/rest/', '')):
-        _api_request(session, uri, 'OPTIONS', dict())
+    if http_method != 'OPTIONS' and _check_methods(session, uri):
+        obj = _api_request(session, uri, 'OPTIONS', dict())
 
     if verbose_debug:
         buf = ['_api_request() - Send:', 'Method: ' + http_method, 'URI: ' + uri, 'content:', pprint.pformat(content)]
@@ -620,3 +632,16 @@ def control_c():
         _control_c_pend = True
     else:
         raise KeyboardInterrupt
+    
+    
+def set_url_options(flag):
+    """Enables of disables checking for URL OPTIONS
+    
+    :param flag: If True, OPTIONS for each URL are read before making any other requests
+    :type flag: bool
+    :rtype: None
+    """
+    global _OPTIONS_CHECK
+    
+    _OPTIONS_CHECK = False if flag else True
+    

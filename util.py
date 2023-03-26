@@ -1,4 +1,4 @@
-# Copyright 2019, 2020, 2021, 2022 Jack Consoli.  All rights reserved.
+# Copyright 2019, 2020, 2021, 2022, 2023 Jack Consoli.  All rights reserved.
 #
 # NOT BROADCOM SUPPORTED
 #
@@ -85,16 +85,18 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.9     | 24 Oct 2022   | Fixed area for brocade-fabric/access-gateway                                      |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.1.0     | 26 Mar 2023   | Added new branches and leaves for 9.2.x                                           |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2019, 2020, 2021, 2022 Jack Consoli'
-__date__ = '24 Oct 2022'
+__copyright__ = 'Copyright 2019, 2020, 2021, 2022, 2023 Jack Consoli'
+__date__ = '26 Mar 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.9'
+__version__ = '3.1.0'
 
 import pprint
 import copy
@@ -326,6 +328,7 @@ default_uri_map = {
             'backend-ports-history': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
             'gigabit-ethernet-ports-history': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
             'maps-device-login': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+            'maps-violation': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
         },
         'brocade-time': {
             'clock-server': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
@@ -532,7 +535,7 @@ def add_uri_map(session, rest_d):
     for mod_d in mod_l:
         to_process_l = list()
 
-        # Create a list of individual moduels that need to be parsed
+        # Create a list of individual modules that need to be parsed
         try:
             uri = mod_d['uri']
             # The running leaves all have individual requests while all else are 1:1 requests.
@@ -651,7 +654,10 @@ def uri_d(session, uri):
     :param uri: URI in slash notation
     :type uri: str
     """
-    return gen_util.get_struct_from_obj(session.get('uri_map'), uri)
+    d = gen_util.get_struct_from_obj(session.get('uri_map'), uri)
+    if not isinstance(d, dict) and gen_util.get_key_val(default_uri_map, uri) is None:
+        brcdapi_log.log('UNKNOWN URI: ' + uri)
+    return d
 
 
 def _get_uri(map_d):
@@ -692,5 +698,45 @@ def uris_for_method(session, http_method, uri_d_flag=False):
                 rl.append(d)
             else:
                 rl.append(uri)
+
+    return rl
+
+
+def _int_dict_to_uri(convert_dict):
+    """Converts a dictionary to a list of '/' separated strings. Assumes the first non-dict is the end
+
+    :param convert_dict: Dictionary to convert
+    :type convert_dict: None, str, list, tuple, int, float, dict
+    :return: List of str
+    :rtype: list
+    """
+    rl = list()
+    if isinstance(convert_dict, dict):
+        for k, v in convert_dict.items():
+            if isinstance(v, dict):
+                for l in dict_to_uri(v):
+                    rl.append(str(k) + '/' + '/'.join(l))
+            else:
+                rl.append('/' + str(k))
+
+    return rl
+
+
+def dict_to_uri(convert_dict):
+    """Converts a dictionary to a list of '/' separated strings. Assumes the first non-dict is the end
+
+    :param convert_dict: Dictionary to convert
+    :type convert_dict: None, str, list, tuple, int, float, dict
+    :return: List of str
+    :rtype: list
+    """
+    rl = list()
+    if isinstance(convert_dict, dict):
+        for k, v in convert_dict.items():
+            if isinstance(v, dict):
+                for buf in dict_to_uri(v):
+                    rl.append(str(k) + '/' + buf)
+            else:
+                rl.append(str(k))
 
     return rl
