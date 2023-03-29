@@ -116,16 +116,18 @@ Version Control::
     | 1.0.6     | 11 Feb 2023   | Modified is_error() to handle objects with good status and errors. Additional     |
     |           |               | error checking added to basic_api_parse()                                         |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 1.0.7     | 29 Mar 2023   | Added error message when there is no internet                                     |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2021, 2022, 2023 Jack Consoli'
-__date__ = '11 Feb 2023'
+__date__ = '29 Mar 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.6'
+__version__ = '1.0.7'
 
 import http.client as httplib
 import base64
@@ -175,7 +177,7 @@ def basic_api_parse(obj):
         try:
             json_data.update(_raw_data=dict(status=obj.status, reason=obj.reason))
         except AttributeError:
-            pass  # I think logout is the only time I get here. Logout returns type bytes.
+            pass  # Some responses don't contain anything (obj is an empty dict)
         except BaseException as e:
             http_buf = 'None' if http_response is None else \
                 http_response.decode(encoding=brcdapi_util.encoding_type, errors='ignore')
@@ -360,7 +362,7 @@ def login(user, password, ip_addr, in_http_access=None):
 
     try:
         conn.request('POST', _LOGIN_RESTCONF, '', credential)
-    except TimeoutError:
+    except (TimeoutError, OSError):
         return create_error(brcdapi_util.HTTP_NOT_FOUND, 'Not Found', '').update(ip_addr=ip_addr)
     except BaseException as e:
         e_buf = str(e, errors='ignore') if isinstance(e, (bytes, str)) else str(type(e))

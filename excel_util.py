@@ -68,16 +68,18 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 1.0.4     | 11 Feb 2023   | Added find_headers()                                                              |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 1.0.5     | 29 Mar 2023   | Removed unused imports.                                                           |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2022, 2023 Jack Consoli'
-__date__ = '11 Feb 2023'
+__date__ = '29 Mar 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.4'
+__version__ = '1.0.5'
 
 import openpyxl as xl
 import openpyxl.utils.cell as xl_util
@@ -87,9 +89,6 @@ import os
 import brcdapi.log as brcdapi_log
 import brcdapi.file as brcdapi_file
 import brcdapi.gen_util as gen_util
-import brcddb.brcddb_fabric as brcddb_fabric
-import brcddb.util.util as brcddb_util
-import brcddb.util.search as brcddb_search
 
 # Use this to create a sheet name that is not only valid for Excel but can have a link. Note when creating a link to a
 # sheet in Excel, there are additional restrictions on the sheet name. For example, it cannot contain a space. Sample
@@ -241,8 +240,8 @@ def cell_match_val(sheet, val, col=None, row=None, num=1):
     :rtype: str, list, None
     """
     col_list = [xl_util.get_column_letter(i) for i in range(1, sheet.max_column)] if col is None \
-        else brcddb_util.convert_to_list(col)
-    row_list = [i for i in range(1, sheet.max_row)] if row is None else brcddb_util.convert_to_list(row)
+        else gen_util.convert_to_list(col)
+    row_list = [i for i in range(1, sheet.max_row)] if row is None else gen_util.convert_to_list(row)
 
     class Found(Exception):
         pass
@@ -371,11 +370,10 @@ def cell_update(sheet, row, col, buf, font=None, align=None, fill=None, link=Non
 
 
 def read_workbook(file, dm=0, order='row', sheets=None, skip_sheets=None, echo=False):
-    """Reads a POS report and adds it to the POS database
+    """Reads an Excel workbook
 
-    Copied to this library from other scripts. For large workbooks that take a long time to read, it turned out to be
-    convienent to leave these debug modes in. Note that reading a workbook is very time consuming while reading a JSON
-    file is magnitudes of order faster.
+    For large workbooks that take a long time to read, it turned out to be convienent to leave these debug modes in.
+    Note that reading a workbook is very time consuming while reading a JSON file is magnitudes of order faster.
 
     +-------+-------------------------------------------------------------------------------------------------------|
     | dm    | Description                                                                                           |

@@ -92,15 +92,17 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.8     | 11 Feb 2023   | Modified comments only.                                                           |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.9     | 29 Mar 2023   | Removed import of unused library.                                                 |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2020, 2021, 2022, 2023 Jack Consoli'
-__date__ = '11 Feb 2023'
+__date__ = '29 Mar 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.8'
+__version__ = '3.0.9'
 
 import pprint
 import collections
@@ -109,7 +111,6 @@ import brcdapi.fos_auth as brcdapi_auth
 import brcdapi.log as brcdapi_log
 import brcdapi.port as brcdapi_port
 import brcdapi.util as brcdapi_util
-import brcddb.brcddb_switch as brcddb_switch
 
 # It takes about 10 sec + 500 msec per port to move per API request. MAX_PORTS_TO_MOVE defines the number of ports that
 # can be moved in any single Rest request so as not to encounter an HTTP connection timeout.
