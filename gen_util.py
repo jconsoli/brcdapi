@@ -27,8 +27,8 @@
   | add_to_obj                  | Adds a key value pair to obj using '/' notation in the key. If the key already    |
   |                             | exists, it is overwritten.                                                        |
   +-----------------------------+-----------------------------------------------------------------------------------|
-  | convert_to_list             | Converts an object to a list. Typically used to convert objects that may be None  |
-  |                             | or list.                                                                          |
+  | convert_to_list             | Converts an object to a list. Typically used to convert objects that may be None, |
+  |                             | str, int, float, dict, or list.                                                   |
   +-----------------------------+-----------------------------------------------------------------------------------|
   | date_to_epoch               | Converts a date and time string to epoch time.                                    |
   +-----------------------------+-----------------------------------------------------------------------------------|
@@ -62,7 +62,7 @@
   | paren_content               | Returns the contents of a string within matching parenthesis. First character     |
   |                             | must be '('                                                                       |
   +-----------------------------+-----------------------------------------------------------------------------------|
-  | range_to_list               | Converts a CSV list of integer to ranges as text.                                 |
+  | range_to_list               | Converts a CSV list of integer or hex numbers as ranges to a list                 |
   +-----------------------------+-----------------------------------------------------------------------------------|
   | ReGex & miscellaneous       | Compiled ReGex for filtered or converting common. Common multipliers and date     |
   |                             | conversion tables. Search for "ReGex matching" for details.                       |
@@ -121,15 +121,17 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 1.0.8     | 26 Mar 2023   | Added missing ^ and $ to valid zone names                                         |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 1.0.9     | 09 May 2023   | Updated comments only.                                                            |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2022, 2023 Jack Consoli'
-__date__ = '26 Mar 2023'
+__date__ = '09 May 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.8'
+__version__ = '1.0.9'
 
 import re
 import datetime
@@ -635,7 +637,7 @@ def range_to_list(num_range, hex_num=False, upper=False, sort=False, rsort=False
     example: "0-2, 9-0xb" is returned as ["0x0", "0x1", "0x2", "0x9", "0xa", "0xb"]. Note that a reverse range is
     permitted.
 
-    :param num_range: List of numeric values, int or float
+    :param num_range: CSV of numeric values, int or float
     :type num_range: str
     :param hex_num: If True, treat the input str num_range as hex
     :type hex_num: bool

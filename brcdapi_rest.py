@@ -30,23 +30,26 @@ such as the brcddb libraries, to control what gets printed to the log.
 
 Pupblic Methods::
 
-    +-----------------------------+----------------------------------------------------------------------------------+
-    | Method                      | Description                                                                      |
-    +=============================+==================================================================================+
-    | api_request()               | Single interface to the FOS REST API. Performs a Rest API request. Handles low   |
-    |                             | levels protocol errors and retries when the switch is busy. Also cleans up empty |
-    |                             | responses that are returned as errors when they are just empty lists.            |
-    +-----------------------------+----------------------------------------------------------------------------------+
-    | get_request()               | Fill out full URI and add debug wrapper around a GET before calling api_request()|
-    +-----------------------------+----------------------------------------------------------------------------------+
-    | login()                     | Adds a wrapper around brcdapi.fos_auth.login()                                 |
-    +-----------------------------+----------------------------------------------------------------------------------+
-    | logout()                    | Adds a wrapper around brcdapi.pyfo_auth.logout()                                 |
-    +-----------------------------+----------------------------------------------------------------------------------+
-    | send_request()              | Performs a Rest API request. Simplifies requests by pre-pending '/rest/running/' |
-    +-----------------------------+----------------------------------------------------------------------------------+
-    | set_url_options()           | Sets or clears the flag to issue an OPTIONS request prior to making any requests | 
-    +-----------------------------+----------------------------------------------------------------------------------+
+    +---------------------------+-----------------------------------------------------------------------------------+
+    | Method                    | Description                                                                       |
+    +===========================+===================================================================================+
+    | api_request()             | Single interface to the FOS REST API. Performs a Rest API request. Handles low    |
+    |                           | levels protocol errors and retries when the switch is busy. Also cleans up empty  |
+    |                           | responses that are returned as errors when they are just empty lists.             |
+    +---------------------------+-----------------------------------------------------------------------------------+
+    | get_request()             | Fill out full URI and add debug wrapper around a GET before calling api_request() |
+    +---------------------------+-----------------------------------------------------------------------------------+
+    | login()                   | Adds a wrapper around brcdapi.fos_auth.login()                                    |
+    +---------------------------+-----------------------------------------------------------------------------------+
+    | logout()                  | Adds a wrapper around brcdapi.pyfo_auth.logout()                                  |
+    +---------------------------+-----------------------------------------------------------------------------------+
+    | send_request()            | Performs a Rest API request. Use get_request() for GET. Use this for all other    |
+    |                           | '/rest/running/' requests                                                         |
+    +---------------------------+-----------------------------------------------------------------------------------+
+    | set_url_options()         | Sets or clears the flag to issue an OPTIONS request prior to making any requests  |
+    +---------------------------+-----------------------------------------------------------------------------------+
+    | operations_request()      | Performs an operations branch Rest API request and polls for status completion    |
+    +---------------------------+-----------------------------------------------------------------------------------+
 
 Version Control::
 
@@ -80,16 +83,18 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.1.1     | 26 Mar 2023   | Added set_url_options()                                                           |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.1.2     | 09 May 2023   | Added operations_request()                                                        |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2019, 2020, 2021, 2022, 2023 Jack Consoli'
-__date__ = '26 Mar 2023'
+__date__ = '09 May 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.1.1'
+__version__ = '3.1.2'
 
 import http.client
 import re
@@ -104,7 +109,7 @@ import brcdapi.log as brcdapi_log
 import brcdapi.util as brcdapi_util
 import brcdapi.gen_util as gen_util
 
-_OPTIONS_CHECK = True  # When True, makes sure OPTIONS was requested for each URI
+_OPTIONS_CHECK = False  # When True, makes sure OPTIONS was requested for each URI
 _MAX_RETRIES = 5  # Maximum number of times to retry a request
 _SVC_UNAVAIL_WAIT = 4  # Time, in seconds, to wait before retrying a request that returned 503, service unavaliable
 _FABRIC_BUSY_WAIT = 10  # Time, in seconds, to wait before retrying a request due to a fabric busy
@@ -113,9 +118,9 @@ _DEBUG = False
 # _DEBUG_MODE is only used when _DEBUG == True as follows:
 # 0 - Perform all requests normally. Write all responses to a file
 # 1 - Do not perform any I/O. Read all responses from file into response and fake a successful login
-_DEBUG_MODE = 1
+_DEBUG_MODE = 0
 # _DEBUG_PREFIX is only used when _DEBUG == True. Folder where all the json dumps of API requests are read/written.
-_DEBUG_PREFIX = 'raw_data_230127/'
+_DEBUG_PREFIX = 'FOS_9_2_0/'
 verbose_debug = False  # When True, prints data structures. Only useful for debugging. Can be set externally
 _req_pending = False  # When True, the script is waiting for a response from a switch
 _control_c_pend = False  # When True, a keyboard interrup is pending a request to complete
@@ -125,6 +130,42 @@ _control_c_pend = False  # When True, a keyboard interrup is pending a request t
 # timeout, _TIMEOUT, is too short, HTTP connect lib raises an exception but the session is not terminated on the switch.
 _TIMEOUT = 60   # Number of seconds to wait for a response from the API.
 _clean_debug_file = re.compile(r'[?=/]')
+
+
+def _format_op_status(obj):
+    """Formats an operations status response into a list of human readable text. Intended for error reporting
+
+    :param obj: Response from GET 'operations/show-status/message-id/'
+    :type obj: dict
+    :return error_l: List of object parameters (type str)
+    :rtype: list
+    """
+    rl = list()
+
+    # Get and validate the status response
+    try:
+        status_d = obj['show-status']
+    except KeyError:
+        rl.append('show-status missing in status response')
+    except (AttributeError, TypeError):
+        rl.append('Invalid status response type: ' + str(type(obj)))
+    if len(rl) > 0:
+        rl.append('Check the log for details')
+        brcdapi_log.exception(rl[0], pprint.pformat(obj))
+        return rl
+
+    for k0, v0 in status_d.items():
+        if isinstance(v0, dict):
+            for k1, v1 in v0.items():
+                if k1 == 'message':
+                    rl.extend(gen_util.convert_to_list(v1))
+                else:  # Future proofing or bug in FOS
+                    rl.append('Unknown key: ' + str(k1))
+                    rl.extend([b.rstrip() for b in pprint.pformat(v1).replace('\r\n', '\n').split('\n')])
+        else:
+            rl.append(str(k0) + str(v0))
+
+    return rl
 
 
 def login(user_id, pw, ip_addr, https='none'):
@@ -157,7 +198,7 @@ def login(user_id, pw, ip_addr, https='none'):
         if _DEBUG:
             session.update(_debug_name=ip_addr.replace('.', '_'))
 
-    # Build the URI map
+    # Build the URI map. This map is used to build a full URI.
     obj = get_request(session, 'brocade-module-version')
     if fos_auth.is_error(obj):
         brcdapi_log.exception(brcdapi_util.mask_ip_addr(ip_addr) + ' ERROR: ' + fos_auth.formatted_error_msg(obj),
@@ -359,7 +400,10 @@ def _api_request(session, uri, http_method, content):
     if fos_auth.is_error(json_data):
         msg = ''
         try:
-            msg = json_data['errors']['error']['error-message']
+            if isinstance(json_data['errors']['error'], list):
+                msg = '\n'.join([d['error-message'] for d in json_data['errors']['error']])
+            else:
+                msg = json_data['errors']['error']['error-message']
         except BaseException as e0:
             e0_buf = str(e0, errors='ignore') if isinstance(e0, (bytes, str)) else str(type(e0))
             if '_raw_data' not in json_data:  # Make sure it's not an error without any detail
@@ -523,11 +567,11 @@ def get_request(session, ruri, fid=None):
 
 
 def send_request(session, ruri, http_method, content, fid=None):
-    """Performs a Rest API request. Simplifies requests by pre-pending '/rest/running/'
+    """Performs a Rest API request. Use get_request() for GET. Use this for all other '/rest/running/' requests
 
     :param session: Session object returned from login()
     :type session: dict
-    :param ruri: URI less '/rest/running/'
+    :param ruri: URI less 'ip-addr/rest/'
     :type ruri: str
     :param http_method: Method (PATCH, POST, DELETE, PUT ...) for HTTP connect.
     :param content: The content, in Python dict, to be converted to JSON and sent to switch.
@@ -597,8 +641,8 @@ def check_status(session, fid, message_id, wait_time, num_check):
     :type num_check: int
     """
     obj = fos_auth.create_error(brcdapi_util.HTTP_REQUEST_CONFLICT,
-                                     'Invalid parameter',
-                                     'num_check must be greater than 0')
+                                'Invalid parameter',
+                                'num_check must be greater than 0')
     i = num_check
 
     while i > 0:
@@ -615,9 +659,17 @@ def check_status(session, fid, message_id, wait_time, num_check):
                 break
         except KeyError:
             return fos_auth.create_error(brcdapi_util.HTTP_INT_SERVER_ERROR,
-                                             brcdapi_util.HTTP_REASON_UNEXPECTED_RESP,
-                                             "Missing: ['show-status']['status']")
+                                         brcdapi_util.HTTP_REASON_UNEXPECTED_RESP,
+                                         "Missing: ['show-status']['status']")
         i -= 1
+
+    try:
+        if obj['show-status']['status'] != 'done':
+            obj = fos_auth.create_error(brcdapi_util.HTTP_REQUEST_TIMEOUT,
+                                        'Timeout',
+                                        _format_op_status(obj))
+    except:
+        pass
 
     return obj
 
@@ -644,4 +696,33 @@ def set_url_options(flag):
     global _OPTIONS_CHECK
     
     _OPTIONS_CHECK = False if flag else True
-    
+
+
+def operations_request(session, ruri, http_method, content_d, fid=None, wait_time=5, max_try=5):
+    """Performs an operations branch Rest API request and polls for status completion
+
+    :param session: Session object returned from login()
+    :type session: dict
+    :param ruri: URI less 'ip-addr/rest/'
+    :type ruri: str
+    :param http_method: Method (PATCH, POST, DELETE, PUT ...) for HTTP connect.
+    :param content_d: The content, in Python dict, to be converted to JSON and sent to switch.
+    :type content_d: dict, None
+    :param fid: Fabric ID
+    :type fid: int, None
+    :param wait_time: Time, in seconds, to wait before polling for status
+    :type wait_time: int
+    :param max_try: Maximum of times to poll for status before returning an error
+    :type max_try: int
+    :return: Response and status in is_error() and fos_auth.formatted_error_msg() friendly format
+    :rtype: dict
+    """
+    obj = send_request(session, ruri, http_method, content_d)
+    try:
+        message_id = obj['show-status']['message-id']
+        if obj['show-status']['status'] != 'done':
+            obj = check_status(session, None, message_id, max_try, wait_time)
+    except KeyError:  # Sometimes operations branches complete immediately or there may have been an error
+        pass
+
+    return obj

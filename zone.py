@@ -49,26 +49,28 @@
   +-----------------------------+-----------------------------------------------------------------------------------|
   | Method                      | Description                                                                       |
   +=============================+===================================================================================+
+  | checksum                    | Gets a zoning transaction checksum                                                |
+  +-----------------------------+-----------------------------------------------------------------------------------|
   | create_aliases              | Creates aliases                                                                   |
-  +-----------------------------+-----------------------------------------------------------------------------------|
-  | del_aliases                 | Delete aliases                                                                    |
-  +-----------------------------+-----------------------------------------------------------------------------------|
-  | create_zones                | Create zones                                                                      |
-  +-----------------------------+-----------------------------------------------------------------------------------|
-  | find_zone                   | Finds and returns the dictionary from the API for a specific zone in the return   |
-  |                             | from the API for 'running/brocade-zone/defined-configuration'                     |
-  +-----------------------------+-----------------------------------------------------------------------------------|
-  | del_zones                   | Delete zones                                                                      |
-  +-----------------------------+-----------------------------------------------------------------------------------|
-  | modify_zone                 | Add and remove members from a zone.                                               |
   +-----------------------------+-----------------------------------------------------------------------------------|
   | create_zonecfg              | Add a zone configuration.                                                         |
   +-----------------------------+-----------------------------------------------------------------------------------|
   | del_zonecfg                 | Delete a zone configuration                                                       |
   +-----------------------------+-----------------------------------------------------------------------------------|
-  | enable_zonecfg              | Enable a zone configuration.                                                      |
+  | create_zones                | Create zones                                                                      |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | del_aliases                 | Delete aliases                                                                    |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | del_zones                   | Delete zones                                                                      |
   +-----------------------------+-----------------------------------------------------------------------------------|
   | disable_zonecfg             | Disable a zone configuration.                                                     |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | enable_zonecfg              | Enable a zone configuration.                                                      |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | find_zone                   | Finds and returns the dictionary from the API for a specific zone in the return   |
+  |                             | from the API for 'running/brocade-zone/defined-configuration'                     |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | modify_zone                 | Add and remove members from a zone.                                               |
   +-----------------------------+-----------------------------------------------------------------------------------|
   | zonecfg_add                 | Add members to a zone configuration.                                              |
   +-----------------------------+-----------------------------------------------------------------------------------|
@@ -97,15 +99,17 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.6     | 26 Mar 2023   | Allow a list of aliases by name to delete del_aliases(). Added find_zone()        |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.7     | 09 May 2023   | Fixed error message when disabling a zone configuration.                          |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2020, 2021, 2022, 2023 Jack Consoli'
-__date__ = '26 Mar 2023'
+__date__ = '09 May 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.6'
+__version__ = '3.0.7'
 
 import pprint
 import brcdapi.brcdapi_rest as brcdapi_rest
@@ -441,7 +445,7 @@ def enable_zonecfg(session, check_sum, fid, zonecfg_name, echo=False):
     return obj
 
 
-def disable_zonecfg(session, check_sum, fid, zonecfg_name, echo=False):
+def disable_zonecfg(session, check_sum, fid, zonecfg_name=None, echo=False):
     """Disable a zone configuration.
 
     :param session: Session object returned from brcdapi.brcdapi_auth.login()
@@ -450,8 +454,8 @@ def disable_zonecfg(session, check_sum, fid, zonecfg_name, echo=False):
     :type check_sum: int
     :param fid: Logical FID number to be created. Valid FISs are 1-128. Will return an error if the FID already exists
     :type fid: int
-    :param zonecfg_name: Name of the zone configuration to enable
-    :type zonecfg_name: str
+    :param zonecfg_name: Not needed. This was a copy and paste mistake. Left as a parameter in case it's being used
+    :type zonecfg_name: str, None
     :param echo: If True, echoes any error messages to STD_OUT
     :type echo: bool
     :return: brcdapi_rest status object
@@ -464,7 +468,7 @@ def disable_zonecfg(session, check_sum, fid, zonecfg_name, echo=False):
         }
     }
     obj = brcdapi_rest.send_request(session, 'running/brocade-zone/effective-configuration', 'PATCH', content, fid)
-    _is_error(obj, 'Failed to enable zone configuration ' + zonecfg_name, echo)
+    _is_error(obj, 'Failed to disable zone configuration', echo)
     return obj
 
 

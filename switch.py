@@ -27,17 +27,21 @@
     +-----------------------+---------------------------------------------------------------------------------------+
     | Method                | Description                                                                           |
     +=======================+=======================================================================================+
-    | switch_wwn            | Reads and returns the logical switch WWN from the API. I needed this method for       |
-    |                       | fibrechannel_switch() so I figured I may as well make it public.                      |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | logical_switches      | Returns a list of logical switches with the default switch first. It's fairly common  |
-    |                       | to need a list of logical switches with the ability to discern which one is the       |
-    |                       | default so this method is provided as a convienence.                                  |
-    +-----------------------+---------------------------------------------------------------------------------------+
     | add_ports             | Move ports to a logical switch. Ports cannot be moved if they have any special        |
     |                       | configurations so this method automatically sets all ports to be moved back to the    |
     |                       | factory default setting. Furthermore, moving ports takes a long time. So as not to    |
     |                       | incur an HTTP session timeout, this method breaks up port moves into smaller chunks.  |
+    +-----------------------+---------------------------------------------------------------------------------------+
+    | create_switch         | Create a logical switch. Creating a logical switch requires that the chassis be VF    |
+    |                       | enabled and it's easier to set the switch type at switch creation time. This method   |
+    |                       | is a little more convenient to use.                                                   |
+    +-----------------------+---------------------------------------------------------------------------------------+
+    | delete_switch         | Sets all ports to their default configuration, moves those ports to the default       |
+    |                       | switch and then deletes the switch.                                                   |
+    +-----------------------+---------------------------------------------------------------------------------------+
+    | disable_switch        | Disable a logical switch                                                              |
+    +-----------------------+---------------------------------------------------------------------------------------+
+    | enable_switch         | Enable a logical switch                                                               |
     +-----------------------+---------------------------------------------------------------------------------------+
     | fibrechannel_switch   | Set switch configuration parameters for                                               |
     |                       | brocade-fibrechannel-switch/fibrechannel-switch. Some requests require the WWN and    |
@@ -47,12 +51,12 @@
     |                       | needed a WWN, since I have this method I use it for everything except enabling and    |
     |                       | disabling switches.                                                                   |
     +-----------------------+---------------------------------------------------------------------------------------+
-    | create_switch         | Create a logical switch. Creating a logical switch requires that the chassis be VF    |
-    |                       | enabled and it's easier to set the switch type at switch creation time. This method   |
-    |                       | is a little more convenient to use.                                                   |
+    | logical_switches      | Returns a list of logical switches with the default switch first. It's fairly common  |
+    |                       | to need a list of logical switches with the ability to discern which one is the       |
+    |                       | default so this method is provided as a convienence.                                  |
     +-----------------------+---------------------------------------------------------------------------------------+
-    | delete_switch         | Sets all ports to their default configuration, moves those ports to the default       |
-    |                       | switch and then deletes the switch.                                                   |
+    | switch_wwn            | Reads and returns the logical switch WWN from the API. I needed this method for       |
+    |                       | fibrechannel_switch() so I figured I may as well make it public.                      |
     +-----------------------+---------------------------------------------------------------------------------------+
 
 **WARNING**
@@ -94,15 +98,17 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.9     | 29 Mar 2023   | Removed import of unused library.                                                 |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.1.0     | 09 May 2023   | Added enable_switch() and disable_switch                                          |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2020, 2021, 2022, 2023 Jack Consoli'
-__date__ = '29 Mar 2023'
+__date__ = '09 May 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.9'
+__version__ = '3.1.0'
 
 import pprint
 import collections
@@ -118,6 +124,63 @@ MAX_PORTS_TO_MOVE = 32
 
 _FC_SWITCH = 'running/brocade-fibrechannel-switch/fibrechannel-switch'
 _FC_LS = 'running/brocade-fibrechannel-logical-switch/fibrechannel-logical-switch'
+
+
+def fibrechannel_configuration(session, fid, parms, echo=False):
+    """Sets the fabric parameters for 'brocade-fibrechannel-configuration'.
+
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
+    :type session: dict
+    :param fid: Logical FID number to be created.
+    :type fid: int
+    :param parms: Content for brocade-fibrechannel-configuration/fabric
+    :type parms: dict
+    :param echo: If True, step-by-step activity (each request) is echoed to STD_OUT
+    :type echo: bool
+    :return: Return from last request or first error encountered
+    :rtype: dict
+    """
+    brcdapi_log.log('brocade-fibrechannel-configuration/fabric FID ' + str(fid) + ' with parms: ' +
+                    ', '.join([str(buf) for buf in parms.keys()]), echo=echo)
+    if len(parms.keys()) == 0:
+        return brcdapi_util.GOOD_STATUS_OBJ
+
+    # Configure the switch
+    return brcdapi_rest.send_request(session,
+                                     'running/brocade-fibrechannel-configuration/fabric',
+                                     'PATCH',
+                                     dict(fabric=parms),
+                                     fid)
+
+
+def enable_switch(session, fid, echo=False):
+    """Enable a logical switch
+
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
+    :type session: dict
+    :param fid: Logical FID number to be created.
+    :type fid: int
+    :param echo: If True, step-by-step activity (each request) is echoed to STD_OUT
+    :type echo: bool
+    :return: Return from create switch operation or first error encountered
+    :rtype: dict
+    """
+    return fibrechannel_switch(session, fid, {'is-enabled-state': True}, None, echo=echo)
+
+
+def disable_switch(session, fid, echo=False):
+    """Disable a logical switch
+
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
+    :type session: dict
+    :param fid: Logical FID number to be created.
+    :type fid: int
+    :param echo: If True, step-by-step activity (each request) is echoed to STD_OUT
+    :type echo: bool
+    :return: Return from create switch operation or first error encountered
+    :rtype: dict
+    """
+    return fibrechannel_switch(session, fid, {'is-enabled-state': False}, None, echo=echo)
 
 
 def switch_wwn(session, fid, echo=False):
@@ -230,33 +293,6 @@ def fibrechannel_switch(session, fid, parms, wwn=None, echo=False):
                                      fid)
 
 
-def fibrechannel_configuration(session, fid, parms, echo=False):
-    """Sets the fabric parameters for 'brocade-fibrechannel-configuration'.
-
-    :param session: Session object returned from brcdapi.brcdapi_auth.login()
-    :type session: dict
-    :param fid: Logical FID number to be created.
-    :type fid: int
-    :param parms: Content for brocade-fibrechannel-configuration/fabric
-    :type parms: dict
-    :param echo: If True, step-by-step activity (each request) is echoed to STD_OUT
-    :type echo: bool
-    :return: Return from last request or first error encountered
-    :rtype: dict
-    """
-    brcdapi_log.log('brocade-fibrechannel-configuration/fabric FID ' + str(fid) + ' with parms: ' +
-                    ', '.join([str(buf) for buf in parms.keys()]), echo=echo)
-    if len(parms.keys()) == 0:
-        return brcdapi_util.GOOD_STATUS_OBJ
-
-    # Configure the switch
-    return brcdapi_rest.send_request(session,
-                                     'running/brocade-fibrechannel-configuration/fabric',
-                                     'PATCH',
-                                     dict(fabric=parms),
-                                     fid)
-
-
 def add_ports(session, to_fid, from_fid, i_ports=None, i_ge_ports=None, echo=False):
     """Move ports to a logical switch. Ports are set to the default configuration and disabled before moving them
 
@@ -340,6 +376,7 @@ def create_switch(session, fid, base, ficon, echo=False):
     :param base: If Ture - set switch as base switch
     :type base: bool
     :param ficon: If True - set switch as a FICON switch
+    :type ficon: bool
     :param echo: If True, step-by-step activity (each request) is echoed to STD_OUT
     :type echo: bool
     :return: Return from create switch operation or first error encountered
@@ -375,9 +412,7 @@ def create_switch(session, fid, base, ficon, echo=False):
         return obj
 
     # Disable the switch
-    fibrechannel_switch(session, fid, {'is-enabled-state': False}, wwn=None, echo=echo)
-
-    return obj
+    return disable_switch(session, fid, echo=echo)
 
 
 def delete_switch(session, fid, echo=False):

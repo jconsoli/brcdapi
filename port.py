@@ -59,6 +59,8 @@ Public Methods & Data::
     | sort_ports            | Sorts a list of ports. This is useful because if port_l is a list of ports in 's/p'   |
     |                       | notation, .sort() performs an ASCII sort which does not return the desired results.   |
     +-----------------------+---------------------------------------------------------------------------------------+
+    | is_port               | Tests a value to determine if it is a valid port                                      |
+    +-----------------------+---------------------------------------------------------------------------------------+
 
 Version Control::
 
@@ -85,15 +87,17 @@ Version Control::
     | 3.0.8     | 01 Jan 2023   | Added reserve_pod(), release_pod(), port_range_to_list(), set_mode(), and         |
     |           |               | bind_addresses().                                                                 |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.9     | 09 May 2023   | used brcdapi_rest.operations_request() in decommission_port()                     |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2020, 2021, 2022, 2023 Jack Consoli'
-__date__ = '01 Jan 2023'
+__date__ = '09 May 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.8'
+__version__ = '3.0.9'
 
 import collections
 import time
@@ -155,7 +159,7 @@ def clear_stats(session, fid, ports_l):
     :type session: dict
     :param fid: Logical FID number for switch with ports. Use None if switch is not VF enabled.
     :type fid: int
-    :param ports_l: Port or list of FC ports for stats to be cleared on
+    :param ports_l: Port or list of FC ports for stats to be cleared on in s/p notation
     :type ports_l: list
     :return: brcdapi_rest status object
     :rtype: dict
@@ -398,22 +402,12 @@ def decommission_port(session, fid, i_port_l, port_type, echo=False):
     port_d_l = list()
     for port in port_l:
         port_d_l.append({'slot-port': port, 'port-decommission-type': port_type})
-    # WARNING: As of 11 July 2022 there is a misprint in the API Guide that indicates that 'input' is required.
-    obj = brcdapi_rest.send_request(session,
-                                    '/operations/port-decommission',
-                                    'POST',
-                                    {'port-decommission-parameters': port_d_l},
-                                    fid)
-    if brcdapi_auth.is_error(obj):
-        return obj  # Let the calling application deal with device issues
-    try:
-        message_id = obj['show-status']['message-id']
-        status = obj['show-status']['status']
-    except KeyError:
-        return obj  # Sometimes operations branches complete immediately
-
-    # Check to see if it completed
-    return obj if status == 'done' else brcdapi_rest.check_status(session, fid, message_id, _MAX_CHECK, _WAIT)
+    # WARNING: As of 11 July 2022, the API Guide describes the internal data structure for an RPC call.
+    return brcdapi_rest.operations_request(session,
+                                           'operations/port-decommission',
+                                           'POST',
+                                           {'port-decommission-parameters': port_d_l},
+                                           fid=fid)
 
 
 def reserve_pod(session, fid, ports_l):
