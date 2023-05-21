@@ -87,16 +87,20 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.1.0     | 26 Mar 2023   | Added new branches and leaves for 9.2.x                                           |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.1.1     | 09 May 2023   | Fixed bug in show-status and missed 9.2.x branch                                  |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.1.2     | 21 May 2023   | Documentation updates.                                                            |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2019, 2020, 2021, 2022, 2023 Jack Consoli'
-__date__ = '26 Mar 2023'
+__date__ = '21 May 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.1.0'
+__version__ = '3.1.2'
 
 import pprint
 import copy
@@ -308,6 +312,7 @@ default_uri_map = {
             'management-port-track-configuration':  dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
             'management-port-connection-statistics': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
             'sn-chassis': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
+            'version': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
         },
         'brocade-maps': {
             'maps-config': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
@@ -329,6 +334,7 @@ default_uri_map = {
             'gigabit-ethernet-ports-history': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
             'maps-device-login': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
             'maps-violation': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+            'quarantined-devices': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
         },
         'brocade-time': {
             'clock-server': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
@@ -443,6 +449,7 @@ default_uri_map = {
         },
     },
     'operations': {
+        'brocade-diagnostics': dict(area=NULL_OBJ, fid=False, methods=('POST', 'OPTIONS')),
         'configdownload': dict(area=NULL_OBJ, fid=False, methods=('POST', 'OPTIONS')),
         'configupload': dict(area=NULL_OBJ, fid=False, methods=('POST', 'OPTIONS')),
         'date': dict(area=NULL_OBJ, fid=False, methods=('POST', 'OPTIONS')),
@@ -457,7 +464,10 @@ default_uri_map = {
         'port': dict(area=NULL_OBJ, fid=True, methods=('POST', 'OPTIONS')),
         'port-decommission': dict(area=NULL_OBJ, fid=True, methods=('POST', 'OPTIONS')),
         'reboot': dict(area=NULL_OBJ, fid=False, methods=('POST', 'OPTIONS')),
+        'restart': dict(area=NULL_OBJ, fid=False, methods=('POST', 'OPTIONS')),
+        'sdd-quarantine': dict(area=NULL_OBJ, fid=True, methods=('POST', 'OPTIONS')),
         'security-acl-policy': dict(area=NULL_OBJ, fid=True, methods=('POST', 'OPTIONS')),
+        'security-ipfilter': dict(area=NULL_OBJ, fid=True, methods=('POST', 'OPTIONS')),
         'security-reset-violation-statistics': dict(area=NULL_OBJ, fid=False, methods=('POST', 'OPTIONS')),
         'security-policy-distribute': dict(area=NULL_OBJ, fid=True, methods=('POST', 'OPTIONS')),
         'security-policy-chassis-distribute': dict(area=NULL_OBJ, fid=False, methods=('POST', 'OPTIONS')),
@@ -466,7 +476,8 @@ default_uri_map = {
         'security-authentication-configuration': dict(area=NULL_OBJ, fid=False, methods=('POST', 'OPTIONS')),
         'security-role-clone': dict(area=NULL_OBJ, fid=False, methods=('POST', 'OPTIONS')),
         'security-certificate': dict(area=NULL_OBJ, fid=False, methods=('POST', 'OPTIONS')),
-        'show-status': dict(area=NULL_OBJ, fid=False, methods=('POST',)),
+        'show-status': {'area': NULL_OBJ, 'fid': False, 'methods': ('POST',),
+                        'message-id': dict(area=NULL_OBJ, fid=False, methods=('POST',))},
         'supportsave': dict(area=NULL_OBJ, fid=False, methods=('POST', 'OPTIONS')),
         'traffic-optimizer': dict(area=NULL_OBJ, fid=True, methods=('POST', 'OPTIONS')),
         'device-management': dict(area=NULL_OBJ, fid=False, methods=('POST', 'OPTIONS')),
@@ -572,7 +583,7 @@ def add_uri_map(session, rest_d):
                 if isinstance(default_d, dict):
                     new_mod_d.update(area=default_d.get('area'),
                                      fid=default_d.get('fid'),
-                                     methods=list(default_d.get('methods')),
+                                     methods=gen_util.convert_to_list(default_d.get('methods')),
                                      op=op_no)
                     new_mod_d['uri'] = new_uri
                     last_d.update(new_mod_d)
@@ -594,8 +605,8 @@ def split_uri(uri, run_op_out=False):
     :type uri: str
     :param run_op_out: If True, also remove 'running' and 'operations'
     :type run_op_out: bool
-    :return: URI with leading '/rest/' stipped out
-    :rtype: str
+    :return: URI split into a list with leading '/rest/' stipped out
+    :rtype: list
     """
     l = uri.split('/')
     if len(l) > 0 and l[0] == '':

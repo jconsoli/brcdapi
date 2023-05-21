@@ -1,4 +1,4 @@
-# Copyright 2022 Jack Consoli.  All rights reserved.
+# Copyright 2022, 2023 Jack Consoli.  All rights reserved.
 #
 # NOT BROADCOM SUPPORTED
 #
@@ -26,7 +26,7 @@ Public Methods & Data::
     +=======================+=======================================================================================+
     | write_dump            | Converts a Python object to JSON and writes it to a file.                             |
     +-----------------------+---------------------------------------------------------------------------------------+
-    | read_dump             | Reads in a file with JSON formated data and loads into a Python object.               |
+    | read_dump             | Reads in a file with JSON formatted data and loads into a Python object.              |
     +-----------------------+---------------------------------------------------------------------------------------+
     | read_directory        | Reads in the contents of a folder (directory) and return the list of files only (no   |
     |                       | directories) in that folder                                                           |
@@ -55,17 +55,18 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 1.0.3     | 14 Oct 2022   | Fixed missing new line when line end is just '\r' in file()                       |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 1.0.4     | 21 May 2023   | Updated comments and removed unused imports.                                      |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2022 Jack Consoli'
-__date__ = '14 Oct 2022'
+__copyright__ = 'Copyright 2022, 2023 Jack Consoli'
+__date__ = '21 May 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.3'
+__version__ = '1.0.4'
 
-import brcdapi.log as brcdapi_log
 import json
 import os
 
@@ -85,7 +86,7 @@ def write_dump(obj, file):
 
 
 def read_dump(file):
-    """Reads in a file with JSON formated data and loads into a Python object.
+    """Reads in a file with JSON formatted data and loads into a Python object.
 
     :param file: Name of JSON file to read
     :type file: str

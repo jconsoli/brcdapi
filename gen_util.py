@@ -17,7 +17,7 @@
 
 **Description**
 
-  Contains miscelleneous utility methods not specific to FOS
+  Contains miscellaneous utility methods not specific to FOS
 
 **Public Methods & Data**
 
@@ -69,7 +69,7 @@
   +-----------------------------+-----------------------------------------------------------------------------------|
   | remove_duplicate_char       | Removes duplicate characters                                                      |
   +-----------------------------+-----------------------------------------------------------------------------------|
-  | remove_duplicate_space      | Depracated. Use remove_duplicate_char                                             |
+  | remove_duplicate_space      | Deprecated. Use remove_duplicate_char                                             |
   +-----------------------------+-----------------------------------------------------------------------------------|
   | remove_duplicates           | Removes duplicate entries in a list                                               |
   +-----------------------------+-----------------------------------------------------------------------------------|
@@ -78,7 +78,7 @@
   | resolve_multiplier          | Converts an str representation of a number. Supported conversions are K, k, M, m, |
   |                             | G, g, T, and t.                                                                   |
   +-----------------------------+-----------------------------------------------------------------------------------|
-  | slot_port                   | Seperate the slot and port number from a s/p port reference. Can also be used to  |
+  | slot_port                   | Separate the slot and port number from a s/p port reference. Can also be used to  |
   |                             | validate s/p notation.                                                            |
   +-----------------------------+-----------------------------------------------------------------------------------|
   | sort_obj_num                | Sorts a list of dictionaries based on the value for a key. Value must be a        |
@@ -87,7 +87,7 @@
   | sort_obj_str                | Sorts a list of dictionaries based on the value for a key or list of keys. Value  |
   |                             | must be a string.                                                                 |
   +-----------------------------+-----------------------------------------------------------------------------------|
-  | slot_port                   | Seperate the slot and port number from a s/p port reference. Can also be used to  |
+  | slot_port                   | Separate the slot and port number from a s/p port reference. Can also be used to  |
   |                             | validate s/p notation.                                                            |
   +-----------------------------+-----------------------------------------------------------------------------------|
   | str_to_num                  | Converts an str to an int if it can be represented as an int, otherwise float.    |
@@ -112,10 +112,10 @@ Version Control::
     | 1.0.4     | 09 Sep 2022   | Fixed bug in get_key_val() when an interim key was not found. The user reported   |
     |           |               | error was an exception returned from api_get_examples.py.                         |
     +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 1.0.5     | 14 Oct 2022   | Depracated remove_duplicate_space() and added remove_duplicate_char()             |
+    | 1.0.5     | 14 Oct 2022   | Deprecated remove_duplicate_space() and added remove_duplicate_char()             |
     |           |               | Added , range_to_list()                                                           |
     +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 1.0.6     | 01 Jan 2023   | Fixed zone obect in is_valid_zone_name()                                          |
+    | 1.0.6     | 01 Jan 2023   | Fixed zone object in is_valid_zone_name()                                         |
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 1.0.7     | 11 Feb 2023   | Added uwatts_to_dbm()                                                             |
     +-----------+---------------+-----------------------------------------------------------------------------------+
@@ -123,15 +123,17 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 1.0.9     | 09 May 2023   | Updated comments only.                                                            |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 1.1.0     | 21 May 2023   | Removed unused code.                                                              |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2022, 2023 Jack Consoli'
-__date__ = '09 May 2023'
+__date__ = '21 May 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.9'
+__version__ = '1.1.0'
 
 import re
 import datetime
@@ -188,7 +190,7 @@ def remove_duplicate_char(buf, char):
 
 
 def remove_duplicate_space(buf):
-    """Removes duplicate spaces - Depracated
+    """Removes duplicate spaces - Deprecated
 
     :param buf: Text to remove duplicate spaces from
     :type buf: str
@@ -428,19 +430,6 @@ def is_di(di):
         return True if len(temp) == 2 else False
     except ValueError:
         return False
-
-
-def remove_duplicate_space(buf):
-    """Removes duplicate spaces
-
-    :param buf: Text to remove duplicate spaces from
-    :type buf: str
-    :return: Input text with duplicate spaces removed
-    :rtype: str
-    """
-    buf = 'x' + buf
-    temp_l = [buf[i] for i in range(1, len(buf)) if buf[i] != ' ' or (buf[i] == ' ' and buf[i-1] != ' ')]
-    return ''.join(temp_l)
 
 
 def str_to_num(buf):
@@ -715,9 +704,9 @@ def date_to_epoch(date_time, fmt=0, utc=False):
     +-------+-------------------------------------------+-----------------------------------------------------------+
     |  4    | Tue Dec 31 hh:mm:ss.msec EDT 2021         | (CLI) date                                                |
     +-------+-------------------------------------------+-----------------------------------------------------------+
-    |  5    | Tue Dec  3 hh:mm:ss 2020                  | (CLI)clihistory                                           |
+    |  5    | Tue Dec  3 hh:mm:ss 2020                  | (CLI) clihistory                                          |
     +-------+-------------------------------------------+-----------------------------------------------------------+
-    |  6    | 2021/12/31-hh:mm:ss                       | (CLI)errdump                                              |
+    |  6    | 2021/12/31-hh:mm:ss                       | (CLI) errdump                                             |
     +-------+-------------------------------------------+-----------------------------------------------------------+
     |  7    | Dec 31 hh:mm:ss.msec 2021 EDT             | (OpenSSL) certs                                           |
     +-------+-------------------------------------------+-----------------------------------------------------------+
@@ -735,6 +724,8 @@ def date_to_epoch(date_time, fmt=0, utc=False):
     :rtype: float
     """
     global month_to_num, _fmt_map
+
+    year, month, day, time_l = 0, 0, 0, list()  # Just to keep the IDE analyzer from whining
 
     # Get and validate the input string.
     ml = list()

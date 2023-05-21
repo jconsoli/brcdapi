@@ -45,7 +45,7 @@
     +-----------------------+---------------------------------------------------------------------------------------+
     | fibrechannel_switch   | Set switch configuration parameters for                                               |
     |                       | brocade-fibrechannel-switch/fibrechannel-switch. Some requests require the WWN and    |
-    |                       | some require an ordered dictionary. This method automitically finds the switch WWN if |
+    |                       | some require an ordered dictionary. This method automatically finds the switch WWN if |
     |                       | it's not already known and handles the ordered dictionary. I'm sure I went over board |
     |                       | with the ordered list but rather than figure out what needed the ordered list and     |
     |                       | needed a WWN, since I have this method I use it for everything except enabling and    |
@@ -53,7 +53,7 @@
     +-----------------------+---------------------------------------------------------------------------------------+
     | logical_switches      | Returns a list of logical switches with the default switch first. It's fairly common  |
     |                       | to need a list of logical switches with the ability to discern which one is the       |
-    |                       | default so this method is provided as a convienence.                                  |
+    |                       | default so this method is provided as a convenience.                                  |
     +-----------------------+---------------------------------------------------------------------------------------+
     | switch_wwn            | Reads and returns the logical switch WWN from the API. I needed this method for       |
     |                       | fibrechannel_switch() so I figured I may as well make it public.                      |
@@ -64,7 +64,7 @@
       Testing with GE ports was minimal
     * When enabling or disabling a switch, brocade-fibrechannel-switch/fibrechannel-switch/is-enabled-state, other
       actions may not take effect. The methods herein take this into account but programmers hacking this script cannot
-      improve on effeciency by combining these operations. I think that if you put the enable action last, it will get
+      improve on efficiency by combining these operations. I think that if you put the enable action last, it will get
       processed last but I stopped experimenting with ordered dictionaries and just broke the two operations out. I left
       all the ordered dictionaries in because once I got everything working, I did not want to change anything.
     * The address of a port in a FICON logical switch must be bound. As of FOS 9.0.b, there was no ability to bind the
@@ -100,15 +100,17 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.1.0     | 09 May 2023   | Added enable_switch() and disable_switch                                          |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.1.1     | 21 May 2023   | Updated comments only.                                                            |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2020, 2021, 2022, 2023 Jack Consoli'
-__date__ = '09 May 2023'
+__date__ = '21 May 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.1.0'
+__version__ = '3.1.1'
 
 import pprint
 import collections
@@ -127,7 +129,7 @@ _FC_LS = 'running/brocade-fibrechannel-logical-switch/fibrechannel-logical-switc
 
 
 def fibrechannel_configuration(session, fid, parms, echo=False):
-    """Sets the fabric parameters for 'brocade-fibrechannel-configuration'.
+    """Sets the fabric parameters for 'brocade-fibrechannel-configuration/fabric'.
 
     :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
@@ -475,6 +477,8 @@ def bind_addresses(session, fid, port_d, echo=False):
 
     :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
+    :param fid: Fabric ID
+    :type fid: None, int
     :param port_d: Key is the port number. Value is the port address in hex (str).
     :type port_d: dict
     :param echo: If True, the list of ports for each move is echoed to STD_OUT

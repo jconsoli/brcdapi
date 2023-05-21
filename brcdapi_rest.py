@@ -28,7 +28,7 @@ Methods in this module are used to establish, modify, send requests, and termina
 This is a thin interface. Logging is only performed in debug mode. It is the responsibility of the next higher layer,
 such as the brcddb libraries, to control what gets printed to the log.
 
-Pupblic Methods::
+Public Methods::
 
     +---------------------------+-----------------------------------------------------------------------------------+
     | Method                    | Description                                                                       |
@@ -41,7 +41,7 @@ Pupblic Methods::
     +---------------------------+-----------------------------------------------------------------------------------+
     | login()                   | Adds a wrapper around brcdapi.fos_auth.login()                                    |
     +---------------------------+-----------------------------------------------------------------------------------+
-    | logout()                  | Adds a wrapper around brcdapi.pyfo_auth.logout()                                  |
+    | logout()                  | Adds a wrapper around brcdapi.fos_auth.logout()                                   |
     +---------------------------+-----------------------------------------------------------------------------------+
     | send_request()            | Performs a Rest API request. Use get_request() for GET. Use this for all other    |
     |                           | '/rest/running/' requests                                                         |
@@ -85,22 +85,22 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.1.2     | 09 May 2023   | Added operations_request()                                                        |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.1.3     | 21 May 2023   | Fixed error message and updated comments.                                         |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2019, 2020, 2021, 2022, 2023 Jack Consoli'
-__date__ = '09 May 2023'
+__date__ = '21 May 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.1.2'
+__version__ = '3.1.3'
 
 import http.client
 import re
-import http.client as httplib
 import json
-import ssl
 import time
 import pprint
 import os
@@ -111,7 +111,7 @@ import brcdapi.gen_util as gen_util
 
 _OPTIONS_CHECK = False  # When True, makes sure OPTIONS was requested for each URI
 _MAX_RETRIES = 5  # Maximum number of times to retry a request
-_SVC_UNAVAIL_WAIT = 4  # Time, in seconds, to wait before retrying a request that returned 503, service unavaliable
+_SVC_UNAVAIL_WAIT = 4  # Time, in seconds, to wait before retrying a request that returned 503, service unavailable
 _FABRIC_BUSY_WAIT = 10  # Time, in seconds, to wait before retrying a request due to a fabric busy
 
 _DEBUG = False
@@ -123,7 +123,7 @@ _DEBUG_MODE = 0
 _DEBUG_PREFIX = 'FOS_9_2_0/'
 verbose_debug = False  # When True, prints data structures. Only useful for debugging. Can be set externally
 _req_pending = False  # When True, the script is waiting for a response from a switch
-_control_c_pend = False  # When True, a keyboard interrup is pending a request to complete
+_control_c_pend = False  # When True, a keyboard interrupt is pending a request to complete
 
 # Programmer's Tip: If there is significant activity on the switch from other sources (AMP, BNA, SANNav, ...) it may
 # take a long time for a response. Also, some operations, such as logical switch creation, can take 20-30 sec. If the
@@ -151,7 +151,7 @@ def _format_op_status(obj):
         rl.append('Invalid status response type: ' + str(type(obj)))
     if len(rl) > 0:
         rl.append('Check the log for details')
-        brcdapi_log.exception(rl[0], pprint.pformat(obj))
+        brcdapi_log.exception([rl[0], pprint.pformat(obj)])
         return rl
 
     for k0, v0 in status_d.items():
@@ -225,7 +225,7 @@ def logout(session):
 
 
 def vfid_to_str(vfid):
-    """Depracated. Use brcdapi.util.vfid_to_str
+    """Deprecated. Use brcdapi.util.vfid_to_str
 
     :param vfid: FOS session object
     :type vfid: int
@@ -326,7 +326,7 @@ def _api_request(session, uri, http_method, content):
         return dict(_raw_data=dict(status=brcdapi_util.HTTP_NO_CONTENT, reason='OK'))
 
     if http_method != 'OPTIONS' and _check_methods(session, uri):
-        obj = _api_request(session, uri, 'OPTIONS', dict())
+        _api_request(session, uri, 'OPTIONS', dict())
 
     if verbose_debug:
         buf = ['_api_request() - Send:', 'Method: ' + http_method, 'URI: ' + uri, 'content:', pprint.pformat(content)]
@@ -379,13 +379,17 @@ def _api_request(session, uri, http_method, content):
         return fos_auth.create_error(brcdapi_util.HTTP_REQUEST_TIMEOUT, buf, '')
     except BaseException as e:
         e_buf = str(e, errors='ignore') if isinstance(e, (bytes, str)) else str(type(e))
+        http_buf = 'http_response: '
+        http_buf += 'None' if http_response is None else \
+            http_response.decode(encoding=brcdapi_util.encoding_type, errors='ignore')
+        json_buf = 'json_data: '
+        json_buf += 'None' if json_data is None else \
+            json_data.decode(encoding=brcdapi_util.encoding_type, errors='ignore')
         ml = ['Unexpected error:',
               'Exception: ' + e_buf,
               'Unexpected error, ' + e_buf,
-              'http_response: ' + 'None' if http_response is None else \
-                  http_response.decode(encoding=brcdapi_util.encoding_type, errors='ignore'),
-              'json_data: ' + 'None' if json_data is None else \
-                  json_data.decode(encoding=brcdapi_util.encoding_type, errors='ignore')]
+              http_buf,
+              json_buf]
         brcdapi_log.exception(ml, echo=True)
         return fos_auth.create_error(brcdapi_util.HTTP_REQUEST_TIMEOUT, 'Unexpected error:', e_buf.split('\n'))
     
@@ -632,7 +636,7 @@ def check_status(session, fid, message_id, wait_time, num_check):
     :param session: Session object returned from login()
     :type session: dict
     :param fid: Fabric ID
-    :type fid: int
+    :type fid: int, None
     :param message_id: Message ID returned in the response to the operation that is being checked
     :type message_id: str, int
     :param wait_time: The length of time in seconds to wait before polling the switch for status
@@ -668,7 +672,7 @@ def check_status(session, fid, message_id, wait_time, num_check):
             obj = fos_auth.create_error(brcdapi_util.HTTP_REQUEST_TIMEOUT,
                                         'Timeout',
                                         _format_op_status(obj))
-    except:
+    except KeyError:
         pass
 
     return obj

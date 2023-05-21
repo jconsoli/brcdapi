@@ -30,7 +30,7 @@ Public Methods & Data::
     +-----------------------+---------------------------------------------------------------------------------------+
     | clear_stats           | Clear all statistical counters associated with a port or list of ports.               |
     +-----------------------+---------------------------------------------------------------------------------------+
-    | decommission_port     | Decomissions a port or list of ports                                                  |
+    | decommission_port     | Decommissions a port or list of ports                                                 |
     +-----------------------+---------------------------------------------------------------------------------------+
     | default_port_config   | Disables and sets an FC port or list of FC ports to their factory default state.      |
     +-----------------------+---------------------------------------------------------------------------------------+
@@ -46,7 +46,7 @@ Public Methods & Data::
     |                       | integer. The API always wants to see ports in 's/p' notation.                         |
     +-----------------------+---------------------------------------------------------------------------------------+
     | port_range_to_list    | Converts a CSV list of ports to ranges as text. Ports are converted to standard s/p   |
-    |                       | notation and sorted by slot. The orginal order may not be preserved. For example:     |
+    |                       | notation and sorted by slot. The original order may not be preserved. For example:    |
     |                       | "5/0-2, 9, 2/6-5, 5/6-8" is returned as:                                              |
     |                       | ['5/0', '5/1', '5/2', '5/6', '5/7', '5/8', '0/9', '2/5', '2/6']                       |
     +-----------------------+---------------------------------------------------------------------------------------+
@@ -89,25 +89,26 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.9     | 09 May 2023   | used brcdapi_rest.operations_request() in decommission_port()                     |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.1.0     | 21 May 2023   | Updated comments and removed unused import                                        |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2020, 2021, 2022, 2023 Jack Consoli'
-__date__ = '09 May 2023'
+__date__ = '21 May 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.9'
+__version__ = '3.1.0'
 
 import collections
-import time
 import brcdapi.util as brcdapi_util
 import brcdapi.brcdapi_rest as brcdapi_rest
 import brcdapi.fos_auth as brcdapi_auth
 import brcdapi.log as brcdapi_log
 import brcdapi.gen_util as gen_util
 
-_MAX_CHECK = 3  # Port decommision maximum number of times to poll the switch for completion status
+_MAX_CHECK = 3  # Port decommission maximum number of times to poll the switch for completion status
 _WAIT = 1  # Port decommission wait time before each status poll check
 
 
@@ -176,12 +177,12 @@ def clear_stats(session, fid, ports_l):
     return brcdapi_util.GOOD_STATUS_OBJ  # If we get here, the port list, ports_l, was empty.
 
 
-# default_port_config_d is used in default_port_config(). I made it public so that it could be programitically altered
+# default_port_config_d is used in default_port_config(). I made it public so that it could be programmatically altered
 # or be used by other customer created scripts that do not use default_port_config().
 default_port_config_d = collections.OrderedDict()  # This may not need to be ordered.
 default_port_config_d['is-enabled-state'] = False
 default_port_config_d['user-friendly-name'] = ''
-default_port_config_d['speed'] = 0  # Autonegotiate
+default_port_config_d['speed'] = 0  # Auto-negotiate
 default_port_config_d['g-port-locked'] = 0  # Unlocked
 default_port_config_d['e-port-disable'] = 0  # Enables the port as an E_Port
 default_port_config_d['n-port-enabled'] = 1  # Port may operate as an N-Port. Only relevant in Access Gateway mode
@@ -261,10 +262,10 @@ def default_port_config(session, fid, i_port_l):
                     if d.get('auto-negotiate') is not None and d['auto-negotiate'] == 0:
                         port_content[k] = 0
                 elif k == 'user-friendly-name':
-                    l = port.split('/')
-                    port_name = 'port' + l[1]
-                    if l[0] != '0':
-                        port_name = 'slot' + l[0] + ' ' + port_name
+                    temp_l = port.split('/')
+                    port_name = 'port' + temp_l[1]
+                    if temp_l[0] != '0':
+                        port_name = 'slot' + temp_l[0] + ' ' + port_name
                     if 'user-friendly-name' in d:
                         if d['user-friendly-name'] != port_name:
                             port_content[k] = port_name
@@ -327,12 +328,13 @@ def port_enable_disable(session, fid, enable_flag, i_port_l, persistent=False, e
         return obj
 
     if persistent and enable_flag:
-        # FOS does not permit clearning the persistent disable bit and enabling the port in the same request
+        # FOS does not permit cleaning the persistent disable bit and enabling the port in the same request
+        content_d = dict(fibrechannel=[{'name': p, 'is-enabled-state': enable_flag} for p in port_l])
         obj = brcdapi_rest.send_request(session,
-                                    'running/brocade-interface/fibrechannel',
-                                    'PATCH',
-                                    {'fibrechannel': [{'name': p, 'is-enabled-state': enable_flag} for p in port_l]},
-                                    fid)
+                                        'running/brocade-interface/fibrechannel',
+                                        'PATCH',
+                                        content_d,
+                                        fid)
 
     return obj
 
@@ -376,7 +378,7 @@ def disable_port(session, fid, i_port_l, persistent=False, echo=False):
 
 
 def decommission_port(session, fid, i_port_l, port_type, echo=False):
-    """Decomissions a port or list of ports.
+    """Decommissions a port or list of ports.
 
     :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
@@ -397,7 +399,7 @@ def decommission_port(session, fid, i_port_l, port_type, echo=False):
     if len(port_l) == 0:
         return brcdapi_util.GOOD_STATUS_OBJ
 
-    # Now decommision the port(s)
+    # Now decommission the port(s)
     brcdapi_log.log('Decommissioning ' + str(len(port_l)) + ' ports.', echo)
     port_d_l = list()
     for port in port_l:
@@ -488,7 +490,7 @@ def e_port(session, fid, ports_l, mode):
     :type fid: int
     :param ports_l: List of ports to enable or disable
     :type ports_l: tuple, list, str, int
-    :param mode: If True, enable E-Port capabilitiy. If False, disable E-Port capability
+    :param mode: If True, enable E-Port capability. If False, disable E-Port capability
     :type mode: bool
     :return: The object returned from the API. If port_l is an empty list, a made up good status is returned.
     :rtype: dict
@@ -515,7 +517,7 @@ def n_port(session, fid, ports_l, mode):
     :type ports_l: tuple, list, str, int
     :param mode: If True, enable N-Port capability. If False, disable N-Port capability
     :type mode: bool
-    :param mode: If True, enable E-Port capabilitiy. If False, disable E-Port capability
+    :param mode: If True, enable E-Port capability. If False, disable E-Port capability
     :type mode: bool
     :return: The object returned from the API. If port_l is an empty list, a made up good status is returned.
     :rtype: dict
@@ -533,7 +535,7 @@ def n_port(session, fid, ports_l, mode):
 
 def port_range_to_list(num_range):
     """Converts a CSV list of ports to ranges as text. Ports are converted to standard s/p notation and sorted by slot.
-    The orginal order may not be preserved. For example: "5/0-2, 9, 2/6-5, 5/6-8" is returned as:
+    The original order may not be preserved. For example: "5/0-2, 9, 2/6-5, 5/6-8" is returned as:
     ['5/0', '5/1', '5/2', '5/6', '5/7', '5/8', '0/9', '2/5', '2/6']
 
     :param num_range: List of numeric values, int or float
@@ -563,6 +565,8 @@ def bind_addresses(session, fid, port_d, echo=False):
 
     :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
+    :param fid: Fabric ID
+    :type fid: None, int
     :param port_d: Key is the port number. Value is the port address in hex (str).
     :type port_d: dict
     :param echo: If True, the list of ports for each move is echoed to STD_OUT

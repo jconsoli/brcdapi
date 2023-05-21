@@ -101,15 +101,17 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.0.7     | 09 May 2023   | Fixed error message when disabling a zone configuration.                          |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.0.8     | 21 May 2023   | Updated comments.                                                                 |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2020, 2021, 2022, 2023 Jack Consoli'
-__date__ = '09 May 2023'
+__date__ = '21 May 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.7'
+__version__ = '3.0.8'
 
 import pprint
 import brcdapi.brcdapi_rest as brcdapi_rest
@@ -206,6 +208,8 @@ def find_zone(obj, zone):
 
     :param obj: Return from brcdapi_rest.get_request(session, 'running/brocade-zone/defined-configuration', fid)
     :type obj: dict
+    :param zone: Zone name
+    :type zone: str
     :return: Zone dictionary for the specific zone
     :rtype: dict, None
     """
@@ -290,13 +294,13 @@ def modify_zone(session, fid, zone, add_members, del_members, in_add_pmembers=No
     :param zone: Name of zone to be modified
     :type zone: str
     :param add_members: Members to add to the zone
-    :type add_members: list, None
+    :type add_members: str, list, None
     :param del_members: Members to delete from the zone
-    :type del_members: list, None
+    :type del_members: str, list, None
     :param in_add_pmembers: Principal members to add to zone. Only relevant for peer zones
-    :type in_add_pmembers: list, None
+    :type in_add_pmembers: str, list, None
     :param in_del_pmembers: Principal members to delete from a zone. Only relevant for peer zones
-    :type in_del_pmembers: list, None
+    :type in_del_pmembers: str, list, None
     :param echo: If True, echoes any error messages to STD_OUT
     :type echo: bool
     :return: brcdapi_rest status object
