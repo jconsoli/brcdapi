@@ -51,7 +51,7 @@ Public Methods::
     +=============================+==================================================================================+
     | basic_api_parse()           | Performs a read and basic parse of the conn.getresponse().                       |
     +-----------------------------+----------------------------------------------------------------------------------+
-    | create_error()              | Intended for use within this module and brcdbapi.brcdapi_rest only. Creates a    |
+    | create_error()              | Intended for use within this module and brcdapi.brcdapi_rest only. Creates a     |
     |                             | standard error object                                                            |
     +-----------------------------+----------------------------------------------------------------------------------+
     | obj_status()                | Returns the status from API object.                                              |
@@ -86,7 +86,7 @@ Login Session::
     +-------------------+-------------------------------------------------------------------------------------------+
     | ishttps           | bool: Connection type. True - HTTPS. False: HTTP                                          |
     +-------------------+-------------------------------------------------------------------------------------------+
-    | supported_uris    | dict: See brcda.util.uri_map                                                              |
+    | supported_uris    | dict: See brcdapi.util.uri_map                                                            |
     +-------------------+-------------------------------------------------------------------------------------------+
     | ssh               | SSH login session from paramiko - CLI login                                               |
     +-------------------+-------------------------------------------------------------------------------------------+
@@ -118,16 +118,18 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 1.0.7     | 29 Mar 2023   | Added error message when there is no internet                                     |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 1.0.8     | 27 May 2023   | Updated comments only                                                             |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2021, 2022, 2023 Jack Consoli'
-__date__ = '29 Mar 2023'
+__date__ = '27 May 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.7'
+__version__ = '1.0.8'
 
 import http.client as httplib
 import base64
@@ -150,7 +152,7 @@ def basic_api_parse(obj):
     :return: Standard object used in all brcdapi and brcddb libraries
     :rtype: dict
     """
-    http_response, json_data = None, dict()  # If Control-C before comleting read, http_response is never initialialized
+    http_response, json_data = None, dict()  # http_response is returned so initialize in case Control-C out
     try:
         http_response = obj.read()
         if isinstance(http_response, bytes) and len(http_response) > 0:
@@ -166,7 +168,7 @@ def basic_api_parse(obj):
                         http_response.decode(encoding=brcdapi_util.encoding_type, errors='ignore')
                 except BaseException as e0:
                     http_buf = 'Could not decode http_response. Exception is: ' + str(e, errors='ignore') if \
-                        isinstance(e, (bytes, str)) else str(type(e))
+                        isinstance(e, (bytes, str)) else str(type(e0))
                 brcdapi_log.exception(['Invalid data returned from FOS. Error code:',
                                        str(e, errors='ignore') if isinstance(e, (bytes, str)) else str(type(e)),
                                        '',
@@ -191,7 +193,8 @@ def basic_api_parse(obj):
         pass  # I think logout is the only time I get here.
     except BaseException as e:
         buf = 'Undetermined error parsing response'
-        brcdapi_log.exception([str(e,errors='ignore') if isinstance(e,(bytes, str)) else str(type(e)), buf], echo=True)
+        brcdapi_log.exception([str(e, errors='ignore') if isinstance(e, (bytes, str)) else str(type(e)), buf],
+                              echo=True)
         return create_error(brcdapi_util.HTTP_INT_SERVER_ERROR, buf, '')
 
     return json_data
@@ -320,7 +323,7 @@ def formatted_error_msg(obj):
         buf = 'Status: ' + str(obj_status(obj)) + '\nReason: ' + obj_reason(obj) + '\n' + obj_error_detail(obj)
     else:
         buf = 'Expected type dict. Received type: ', str(type(obj))
-        brcdapi_log.exception(buf , echo=True)
+        brcdapi_log.exception(buf, echo=True)
     return buf
 
 
@@ -379,11 +382,11 @@ def login(user, password, ip_addr, in_http_access=None):
     else:
         json_data.update({'content-type': content, 'content-version': None})
     credential.update({'Authorization': resp.getheader('authorization')})
-    json_data.update(conn = conn,
-                     credential = credential,
-                     ip_addr = ip_addr,
-                     ishttps = False if http_access == 'none' else True,
-                     debug = False)
+    json_data.update(conn=conn,
+                     credential=credential,
+                     ip_addr=ip_addr,
+                     ishttps=False if http_access == 'none' else True,
+                     debug=False)
 
     return json_data
 
