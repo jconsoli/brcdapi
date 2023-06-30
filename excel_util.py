@@ -70,16 +70,18 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 1.0.5     | 29 Mar 2023   | Removed unused imports.                                                           |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 1.0.6     | 30 Jun 2023   | Documentation updates only.                                                       |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2022, 2023 Jack Consoli'
-__date__ = '29 Mar 2023'
+__date__ = '30 Jun 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.5'
+__version__ = '1.0.6'
 
 import openpyxl as xl
 import openpyxl.utils.cell as xl_util
@@ -218,7 +220,7 @@ def col_to_num(cell):
         x = ord(cell[i].upper()) - 64
         if x < 1 or x > 26:
             break
-        r = (r * 26) + x  # Python should understand algabraic heiracrch but I'm not leaving anything to chance.
+        r = (r * 26) + x  # Python should understand algabraic heiracrchy but I'm not leaving anything to chance.
 
     return r
 
@@ -550,7 +552,7 @@ def find_headers(hdr_row_l, hdr_l=None, warn=False):
     :type warn: bool
     :return: Dictionary of headers. Key is the header in hdr_l. The value is the index into hdr_row where it was found.
              if not found, the value is None
-    :rtype: dict
+    :rtype: dict, None
     """
     rd = dict()
 
