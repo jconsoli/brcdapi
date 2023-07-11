@@ -91,15 +91,17 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 3.1.0     | 21 May 2023   | Updated comments and removed unused import                                        |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 3.1.1     | 11 Jul 2023   | Added support for ge ports in sort_ports()                                        |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2020, 2021, 2022, 2023 Jack Consoli'
-__date__ = '21 May 2023'
+__date__ = '11 Jul 2023'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack.consoli@broadcom.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.1.0'
+__version__ = '3.1.1'
 
 import collections
 import brcdapi.util as brcdapi_util
@@ -138,17 +140,20 @@ def sort_ports(i_port_l):
     for port in ports_to_list(i_port_l):
         t = port.split('/')
         if int(t[0]) not in wd:
-            wd.update({int(t[0]): dict()})
-        wd[int(t[0])].update({int(t[1]): port})
-
+            wd.update({int(t[0]): dict(p=dict(), ge=dict())})
+        try:
+            wd[int(t[0])]['p'].update({int(t[1]): port})
+        except ValueError:
+            wd[int(t[0])]['ge'].update({t[1]: port})  # It's a ge port
     # Now sort them and create the return list
     rl = list()
     slot_l = list(wd.keys())
     slot_l.sort()
     for slot in slot_l:
-        port_l = list(wd[slot].keys())
-        port_l.sort()
-        rl.extend([wd[slot][port] for port in port_l])
+        for key in ('p', 'ge'):
+            port_l = list(wd[slot][key].keys())
+            port_l.sort()
+            rl.extend([wd[slot][key][port] for port in port_l])
 
     return rl
 
