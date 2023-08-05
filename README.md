@@ -1,5 +1,13 @@
 # brcdapi
 
+Consoli Solutions, LLC
+jack_consoli@yahoo.com
+
+**Updates 04 Aug 2023**
+
+* Added support for URIs added in FOS 9.2.0
+* Re-launched as Consoli Solutions
+
 **Updates 01 Jan 2023**
 
 * Added ability to bind addresses in switch.py
