@@ -1,18 +1,17 @@
-# Copyright 2020, 2021, 2022 Jack Consoli.  All rights reserved.
-#
-# NOT BROADCOM SUPPORTED
-#
-# Licensed under the Apahche License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may also obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 """
+Copyright 2023, 2024 Consoli Solutions, LLC.  All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+the License. You may also obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific
+language governing permissions and limitations under the License.
+
+The license is free for single customer use (internal applications). Use of this module in the production,
+redistribution, or service delivery for commerce requires an additional license. Contact jack@consoli-solutions.com for
+details.
+
 :mod:`brcdapi.log` - Methods to create and manage logging content.
 
 Automatically creates a log as soon as it is imported with a time stamp in the log file name if not already open.
@@ -42,7 +41,7 @@ suppressed for all log messages except the final completion message.
     +-----------------------+-----------------------------------------------------------------------------------+
     | clear_suppress_all    | Clears suppress all flag. See set_suppress_all()                                  |
     +-----------------------+-----------------------------------------------------------------------------------+
-    | is_prog_suppress_all  | Returns the status of the suppress all flag                                       |
+    | is_prog_suppress_all  | Returns the status of the "suppress all" flag                                     |
     +-----------------------+-----------------------------------------------------------------------------------+
 
 Version Control::
@@ -50,24 +49,20 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | Version   | Last Edit     | Description                                                                       |
     +===========+===============+===================================================================================+
-    | 3.0.0     | 15 Jul 2020   | Initial Launch                                                                    |
+    | 4.0.0     | 04 Aug 2023   | Re-Launch                                                                         |
     +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.1-5   | 17 Apr 2021   | Miscellaneous bug fixes and removed automatic log creation.                       |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.6     | 31 Dec 2021   | Improved comments. No functional changes.                                         |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.7     | 28 Apr 2022   | Documentation updates only                                                        |
+    | 4.0.1     | 06 Mar 2024   | Documentation updates only.                                                       |
     +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2020, 2021, 2022 Jack Consoli'
-__date__ = '28 Apr 2022'
+__copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
+__date__ = '06 Mar 2024'
 __license__ = 'Apache License, Version 2.0'
-__email__ = 'jack.consoli@broadcom.com'
+__email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.7'
+__version__ = '4.0.1'
 
 import traceback
 import datetime
@@ -91,7 +86,7 @@ def clear_suppress_all():
 
 
 def is_prog_suppress_all():
-    """Returns the status of the suppress all flag
+    """Returns the status of the "suppress all" flag
 
     :return: Flag state for _local_suppress_all
     :rtype: bool
@@ -113,7 +108,8 @@ def log(msg, echo=False, force=False):
     """
     global _log_obj
 
-    buf = '\n'.join(msg) if isinstance(msg, list) else msg
+    ml = msg if isinstance(msg, list) else [msg]
+    buf = '\n'.join([str(b) for b in ml])
     if _log_obj is not None:
         _log_obj.write('\n# Log date: ' + datetime.datetime.now().strftime('%Y-%m-%d time: %H:%M:%S') + '\n' + buf)
     if echo and (not is_prog_suppress_all() or force):
@@ -165,19 +161,54 @@ def close_log(msg=None, echo=False, force=False):
         _log_obj = None
 
 
-def open_log(folder=None):
+def open_log(folder=None, supress=False, no_log=False):
     """Creates a log file. If the log file is already open, it is closed and a new one created.
 
     :param folder: Directory for the log file.
     :type folder: str, None
+    :param supress: If True, suppresses all output to STD_IO
+    :type supress: bool
+    :param no_log: If True, do not open the log file
+    :type no_log: bool
+    :rtype: None
     """
     global _log_obj
 
     # Figure out what the log file name is
-    file_name = '' if folder is None else folder + '/'
-    file_name += 'Log_' + datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S_%f') + '.txt'
+    log_file = 'Log_' + datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S_%f') + '.txt'
+    folder_name = '' if folder is None else folder + '/'
+    file_name = folder_name + log_file
 
-    # Get a handle for the log file. If the log file is already open, close it
+    if supress:
+        set_suppress_all()
+    if no_log:
+        return
+
+    # Get a handle for the log file. If the log file is already open, close it and open a new one
     if _log_obj is not None:
         close_log('Closing this file and opening a new log file: ' + file_name, False, False)
-    _log_obj = open(file_name, 'w')
+
+    el = list()  # Error messages
+    try:
+        _log_obj = open(file_name, 'w')
+        return
+    except FileNotFoundError:
+        el.append(folder + ' Does not exist.')
+    except PermissionError:
+        el.append('You do not have access to the log folder, ' + folder + '.')
+
+    # Opening the log file failed if the script ran this far. Try opening the log file in the current directory.
+    if len(folder_name) > 0:
+        el.append('Attempting to open log file in local directory.')
+        try:
+            _log_obj = open(log_file, 'w')
+            el.append('Successfully opened log file in local directory')
+            log(el, echo=True)
+            return
+        except PermissionError:
+            el.append('Write access permission was not granted. All processing terminated.')
+
+    # The log file couldn't be opened if the script ran this far.
+    for buf in el:
+        print(buf)
+    exit(0)

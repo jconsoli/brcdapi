@@ -1,18 +1,16 @@
-# Copyright 2022, 2023 Jack Consoli.  All rights reserved.
-#
-# NOT BROADCOM SUPPORTED
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may also obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 """
+Copyright 2023, 2024 Consoli Solutions, LLC.  All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+the License. You may also obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific
+language governing permissions and limitations under the License.
+
+The license is free for single customer use (internal applications). Use of this module in the production,
+redistribution, or service delivery for commerce requires an additional license. Contact jack@consoli-solutions.com for
+details.
 
 :mod:`brcdapi.excel_util` - Contains miscellaneous Excel workbook utilitarian methods.
 
@@ -23,10 +21,10 @@ Public Methods & Data::
     +=======================+=======================================================================================+
     | cell_match_val        | Finds the cell matching a value                                                       |
     +-----------------------+---------------------------------------------------------------------------------------+
-    | cell_update           | A convinent way to set cell properties and the cell value in a single call.           |
+    | cell_update           | A convenient way to set cell properties and the cell value in a single call.          |
     +-----------------------+---------------------------------------------------------------------------------------+
     | col_to_num            | Converts a cell reference to a column number. I'm pretty sure the openpyxl library    |
-    |                       | has an equivalent. If so, I never should have wrote this.                             |
+    |                       | has an equivalent. I couldn't find it so this was an expedient                        |
     +-----------------------+---------------------------------------------------------------------------------------+
     | copy_worksheet        | Typically used to copy a worksheet from one workbook to another                       |
     +-----------------------+---------------------------------------------------------------------------------------+
@@ -57,31 +55,20 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | Version   | Last Edit     | Description                                                                       |
     +===========+===============+===================================================================================+
-    | 1.0.0     | 28 Apr 2022   | Initial Launch                                                                    |
+    | 4.0.0     | 04 Aug 2023   | Re-Launch                                                                         |
     +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 1.0.1     | 04 sep 2022   | Added read_workbook() and automatically append .xlsx in save_report()             |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 1.0.2     | 24 Oct 2022   | Improved error messaging                                                          |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 1.0.3     | 01 Jan 2023   | Added ability to accept wild cards in sheets to read and skip in read_workbook(). |
-    |           |               | Added copy_worksheet()                                                            |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 1.0.4     | 11 Feb 2023   | Added find_headers()                                                              |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 1.0.5     | 29 Mar 2023   | Removed unused imports.                                                           |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 1.0.6     | 30 Jun 2023   | Documentation updates only.                                                       |
+    | 4.0.1     | 06 Mar 2024   | Documentation updates only.                                                       |
     +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2022, 2023 Jack Consoli'
-__date__ = '30 Jun 2023'
+__copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
+__date__ = '06 Mar 2024'
 __license__ = 'Apache License, Version 2.0'
-__email__ = 'jack.consoli@broadcom.com'
+__email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.6'
+__version__ = '4.0.1'
 
 import openpyxl as xl
 import openpyxl.utils.cell as xl_util
@@ -97,8 +84,12 @@ import brcdapi.gen_util as gen_util
 # use: good_sheet_name = valid_sheet_name.sub('_', bad_sheet_name)
 valid_sheet_name = re.compile(r'[^\d\w_]')
 
-# Using excel_datetime is clumsy. This is easier. Not that I need speed, but its also faster. Used in excel_datetime
+# Using excel_datetime is clumsy. This is easier. Not that I need speed, but it's also faster. Used in excel_datetime
 _num_to_month = ('Inv', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec')
+
+
+class Found(Exception):
+    pass
 
 
 def excel_datetime(v, granularity):
@@ -142,8 +133,8 @@ def parse_parameters(in_wb=None, sheet_name='parameters', hdr_row=0, wb_name=Non
     |           |       | matching cell value. The list order is in row order.                                      |
     +-----------+-------+-------------------------------------------------------------------------------------------+
     | col_width | list  | List of column widths (float). Index into the list is the zero relative column number.    |
-    |           |       | For example, the wdith of column A is col_width[0]. WARNING: this is taken from           |
-    |           |       | column_dimensions() which doesn't always return a column dimenson so the entry in this    |
+    |           |       | For example, the width of column A is col_width[0]. WARNING: this is taken from           |
+    |           |       | column_dimensions() which doesn't always return a column dimension so the entry in this   |
     |           |       | list may be None.                                                                         |
     +-----------+-------+-------------------------------------------------------------------------------------------+
 
@@ -166,7 +157,7 @@ def parse_parameters(in_wb=None, sheet_name='parameters', hdr_row=0, wb_name=Non
     try:
         sheet = wb[sheet_name]
     except BaseException as e:
-        e_buf = str(e) if isinstance(e, (bytes, str)) else str(type(e))
+        e_buf = str(type(e)) + ': ' + str(e)
         brcdapi_log.exception(['sheet ' + sheet_name + ' does not exist.', 'Exception is: ' + e_buf], echo=True)
         return rd
     sl, al = read_sheet(sheet, 'row')
@@ -207,8 +198,7 @@ def save_report(wb, file_name='Report.xlsx'):
 
 
 def col_to_num(cell):
-    """Converts a cell reference to a column number. I'm pretty sure the openpyxl library has an equivalent. If so, \
-    I never should have wrote this.
+    """Converts a cell reference to a column number.
 
     :param cell: Excel spreadsheet cell reference. Example: 'AR20' or just 'AR'
     :type cell: str
@@ -220,7 +210,7 @@ def col_to_num(cell):
         x = ord(cell[i].upper()) - 64
         if x < 1 or x > 26:
             break
-        r = (r * 26) + x  # Python should understand algabraic heiracrchy but I'm not leaving anything to chance.
+        r = (r * 26) + x  # Python should understand algebraic hierarchy, but I'm not leaving anything to chance.
 
     return r
 
@@ -241,12 +231,12 @@ def cell_match_val(sheet, val, col=None, row=None, num=1):
     :return: List of cell references where value found. If num == 1: just one str is returned. None if not found
     :rtype: str, list, None
     """
+    global Found
+    
     col_list = [xl_util.get_column_letter(i) for i in range(1, sheet.max_column)] if col is None \
         else gen_util.convert_to_list(col)
     row_list = [i for i in range(1, sheet.max_row)] if row is None else gen_util.convert_to_list(row)
 
-    class Found(Exception):
-        pass
     ret = list()
     try:
         for c in col_list:
@@ -288,9 +278,9 @@ def read_sheet(sheet, order='col', granularity=2):
     :type order: str
     :param granularity: See description of granularity with excel_datetime()
     :type granularity: int
-    :return sl: List of dict as noted above
+    :return sl: Dictionaries as noted above
     :rtype sl: list
-    :return al: List of lists. Contents of the worksheet referenced by al[col-1][row-1] if order is 'col' or
+    :return al: Contents of the worksheet referenced by al[col-1][row-1] if order is 'col' or
                 al[row-1][col-1] if order is 'row'
     :rtype al: list
     """
@@ -335,7 +325,7 @@ def read_sheet(sheet, order='col', granularity=2):
 
 
 def cell_update(sheet, row, col, buf, font=None, align=None, fill=None, link=None, border=None):
-    """A convinent way to set cell properties and the cell value in a single call.
+    """A convenient way to set cell properties and the cell value in a single call.
 
     :param sheet: openpyxl worksheet
     :type sheet: Worksheet
@@ -374,8 +364,8 @@ def cell_update(sheet, row, col, buf, font=None, align=None, fill=None, link=Non
 def read_workbook(file, dm=0, order='row', sheets=None, skip_sheets=None, echo=False):
     """Reads an Excel workbook
 
-    For large workbooks that take a long time to read, it turned out to be convienent to leave these debug modes in.
-    Note that reading a workbook is very time consuming while reading a JSON file is magnitudes of order faster.
+    For large workbooks that take a long time to read, it turned out to be convenient to leave these debug modes in.
+    Note that reading a workbook is very time-consuming while reading a JSON file is magnitudes of order faster.
 
     +-------+-------------------------------------------------------------------------------------------------------|
     | dm    | Description                                                                                           |
@@ -389,7 +379,7 @@ def read_workbook(file, dm=0, order='row', sheets=None, skip_sheets=None, echo=F
     |       | ignored.                                                                                              |
     +-------+-------------------------------------------------------------------------------------------------------|
     | 3     | If the equivalent JSON file exists and the last modification time stamp is more recent than the Excel |
-    |       | file continue as mode 2. Otherwise continue as mode 1.                                                |
+    |       | file continue as mode 2. Otherwise, continue as mode 1.                                               |
     +-------+-------------------------------------------------------------------------------------------------------|
 
     :param file: Name of Excel workbook to read
@@ -404,10 +394,12 @@ def read_workbook(file, dm=0, order='row', sheets=None, skip_sheets=None, echo=F
     :type skip_sheets: None, list, tuple, str
     :param echo: If True, print read/write status to STD_OUT
     :type echo: bool
-    :return: List of dictionaries, one for each sheet, with the file, sheet name, and excel_util.read_sheet() output.
-    :rtype: list
+    :return el: Errors. Empty if no errors.
+    :rtype el: list
+    :return sl: List of dictionaries, one for each sheet, with the file, sheet name, and excel_util.read_sheet() output.
+    :rtype sl: list
     """
-    rl = list()
+    el, rl = list(), list()
     json_file = file.replace('.xlsx', '.json')
 
     if dm >= 2:
@@ -419,35 +411,35 @@ def read_workbook(file, dm=0, order='row', sheets=None, skip_sheets=None, echo=F
         try:
             if excel_file_time < os.path.getmtime(json_file):
                 brcdapi_log.log('Reading: ' + json_file, echo=echo)
-                return brcdapi_file.read_dump(json_file)
+                return el, brcdapi_file.read_dump(json_file)
         except FileNotFoundError:
             pass
         except FileExistsError:
-            brcdapi_log.log(['', 'The folder in ' + file + ' does not exist.'], echo=True)
-            return rl
+            el.append('The folder in ' + file + ' does not exist.')
+            return el, rl
 
     # Read the workbook
     brcdapi_log.log('Reading ' + file, echo=echo)
     try:
         wb = xl.load_workbook(file, data_only=True)  # Read the Workbook
     except FileNotFoundError:
-        brcdapi_log.log(['', 'File not found: ' + file, ''], echo=True)
-        return rl
+        el.append('File not found: ' + file)
+        return el, rl
     except FileExistsError:
-        brcdapi_log.log(['', 'The folder in ' + file + ' does not exist.'], echo=True)
-        return rl
+        el('The folder in ' + file + ' does not exist.')
+        return el, rl
     except TypeError:
         buf = 'Encountered a TypeError reading ' + file + '. This typically occurs when there is a sheet name '
         buf += 'with special characters. To fix this, rename the sheet name (sheet tab).'
-        brcdapi_log.log(['', buf, ''], echo=True)
-        return rl
+        el.append(buf)
+        return el, rl
 
     # Figure out which sheets to skip
     skip_sheet_d = dict()
     for sheet_name in gen_util.convert_to_list(skip_sheets):
         if '*' in sheet_name or '?' in sheet_name:
-            for sheet_name in fnmatch.filter(wb.sheetnames, sheet_name):
-                skip_sheet_d.update({sheet_name: True})
+            for x_sheet_name in fnmatch.filter(wb.sheetnames, sheet_name):
+                skip_sheet_d.update({x_sheet_name: True})
         else:
             skip_sheet_d.update({sheet_name: True})
 
@@ -480,7 +472,7 @@ def read_workbook(file, dm=0, order='row', sheets=None, skip_sheets=None, echo=F
         brcdapi_file.write_dump(rl, json_file)
         brcdapi_log.log('  Write complete', echo=echo)
 
-    return rl
+    return el, rl
 
 
 def copy_worksheet(wb, sheet_index, sheet_name, sheet_l, col_width_l=None, font=None, align=None, fill=None,
@@ -493,9 +485,9 @@ def copy_worksheet(wb, sheet_index, sheet_name, sheet_l, col_width_l=None, font=
     :type sheet_index: int
     :param sheet_name: Name of worksheet
     :type sheet_name: str
-    :param sheet_l: Sheet list returned from excel_util.read_workbook
+    :param sheet_l: Sheets list returned from excel_util.read_workbook
     :type sheet_l: list
-    :param col_width_l: List of column widths. First entry is for 'A', next is for 'B', etc.
+    :param col_width_l: Column widths. First entry is for 'A', next is for 'B', etc.
     :type col_width_l: list, tuple, int, None
     :param font: Font type
     :type font: None, xl_styles
@@ -508,7 +500,7 @@ def copy_worksheet(wb, sheet_index, sheet_name, sheet_l, col_width_l=None, font=
     :return: List of error messages
     :rtype: list
     """
-    el = list()
+    el, sheet_d = list(), dict()
 
     # Find the sheet to copy
     for sheet_d in sheet_l:
@@ -544,7 +536,7 @@ def copy_worksheet(wb, sheet_index, sheet_name, sheet_l, col_width_l=None, font=
 def find_headers(hdr_row_l, hdr_l=None, warn=False):
     """Match columns to headers. Duplicate headers are ignored. Optionally warn if a duplicate is encountered.
 
-    :param hdr_row_l: Typically al[0] from sl, al = excel_util.read_sheet(sheet, 'row')
+    :param hdr_row_l: Typically, al[0] from sl, al = excel_util.read_sheet(sheet, 'row')
     :type hdr_row_l: list
     :param hdr_l: Header or list of headers to find. Find all headers if None
     :type hdr_l: str, list, tuple, None

@@ -1,18 +1,17 @@
-# Copyright 2019, 2020, 2021, 2022, 2023 Jack Consoli.  All rights reserved.
-#
-# NOT BROADCOM SUPPORTED
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may also obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 """
+Copyright 2023, 2024 Consoli Solutions, LLC.  All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+the License. You may also obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific
+language governing permissions and limitations under the License.
+
+The license is free for single customer use (internal applications). Use of this module in the production,
+redistribution, or service delivery for commerce requires an additional license. Contact jack@consoli-solutions.com for
+details.
+
 :mod:`brcdapi_rest` - Provides a single interface, _api_request(), to the RESTConf API in FOS.
 
 Methods in this module are used to establish, modify, send requests, and terminate sessions. Also does the following:
@@ -22,7 +21,7 @@ Methods in this module are used to establish, modify, send requests, and termina
     * Service unavailable - sleep 4 seconds and retry request up to 5 times
     * Fabric busy - wait 10 seconds and retry request up to 5 times
     * Service unavailable - wait 30 seconds and retry request
-    * Debug mode allows for off line work. Used with GET only
+    * Debug mode allows for off-line work. Used with GET only
     * Raise KeyboardInterrupt, wait for requests to complete first if any
 
 This is a thin interface. Logging is only performed in debug mode. It is the responsibility of the next higher layer,
@@ -56,47 +55,20 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | Version   | Last Edit     | Description                                                                       |
     +===========+===============+===================================================================================+
-    | 1.x.x     | 03 Jul 2019   | Experimental                                                                      |
-    | 2.x.x     |               |                                                                                   |
+    | 4.0.0     | 04 Aug 2023   | Re-Launch                                                                         |
     +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.0     | 19 Jul 2020   | Initial Launch                                                                    |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.1     | 02 Aug 2020   | PEP8 Clean up                                                                     |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.2     | 22 Aug 2020   | Added verbose debug when debug mode is to read file                               |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.3     | 09 Jan 2021   | Updated comments and some PEP8 cleanup                                            |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.4     | 13 Feb 2021   | Removed the shebang line                                                          |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.5     | 14 Nov 2021   | Deprecated pyfos_auth. Added set_debug()                                          |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.6     | 31 Dec 2021   | Improved error messages and comments. No functional changes                       |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.7     | 28 Apr 2022   | Automated build of brcdapi.uri_map                                                |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.8     | 25 Jul 2022   | Added check_status()                                                              |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.9     | 24 Oct 2022   | Improved error messaging and add Control-C to exit                                |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.1.0     | 11 Feb 2023   | Added exception handling, http.client.RemoteDisconnected, to _api_request()       |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.1.1     | 26 Mar 2023   | Added set_url_options()                                                           |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.1.2     | 09 May 2023   | Added operations_request()                                                        |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.1.3     | 21 May 2023   | Fixed error message and updated comments.                                         |
+    | 4.0.1     | 06 Mar 2024   | Removed deprecated vfid_to_str()                                                  |
     +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2019, 2020, 2021, 2022, 2023 Jack Consoli'
-__date__ = '21 May 2023'
+__copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
+__date__ = '06 Mar 2024'
 __license__ = 'Apache License, Version 2.0'
-__email__ = 'jack.consoli@broadcom.com'
+__email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.1.3'
+__version__ = '4.0.1'
 
 import http.client
 import re
@@ -104,6 +76,7 @@ import json
 import time
 import pprint
 import os
+import brcdapi.fos_cli as fos_cli
 import brcdapi.fos_auth as fos_auth
 import brcdapi.log as brcdapi_log
 import brcdapi.util as brcdapi_util
@@ -118,10 +91,10 @@ _DEBUG = False
 # _DEBUG_MODE is only used when _DEBUG == True as follows:
 # 0 - Perform all requests normally. Write all responses to a file
 # 1 - Do not perform any I/O. Read all responses from file into response and fake a successful login
-_DEBUG_MODE = 0
+_DEBUG_MODE = 1
 # _DEBUG_PREFIX is only used when _DEBUG == True. Folder where all the json dumps of API requests are read/written.
-_DEBUG_PREFIX = 'FOS_9_2_0/'
-verbose_debug = False  # When True, prints data structures. Only useful for debugging. Can be set externally
+_DEBUG_PREFIX = 'gsh_raw_230826/'
+_verbose_debug = False  # When True, prints data structures. Only useful for debugging.
 _req_pending = False  # When True, the script is waiting for a response from a switch
 _control_c_pend = False  # When True, a keyboard interrupt is pending a request to complete
 
@@ -133,14 +106,14 @@ _clean_debug_file = re.compile(r'[?=/]')
 
 
 def _format_op_status(obj):
-    """Formats an operations status response into a list of human readable text. Intended for error reporting
+    """Formats an operations status response into a list of human-readable text. Intended for error reporting
 
     :param obj: Response from GET 'operations/show-status/message-id/'
     :type obj: dict
     :return error_l: List of object parameters (type str)
     :rtype: list
     """
-    rl = list()
+    rl, status_d = list(), dict()
 
     # Get and validate the status response
     try:
@@ -210,7 +183,7 @@ def login(user_id, pw, ip_addr, https='none'):
             logout(session)
             session = fos_auth.create_error(brcdapi_util.HTTP_INT_SERVER_ERROR,
                                             'Programming error encountered in brcdapi_util.add_uri_map.',
-                                            [str(e, errors='ignore') if isinstance(e, (bytes, str)) else str(type(e))])
+                                            msg=str(type(e)) + ': ' + str(e))
 
     return session
 
@@ -222,17 +195,6 @@ def logout(session):
     :type session: dict
     """
     return fos_auth.logout(session) if not (_DEBUG and _DEBUG_MODE == 1) else dict()
-
-
-def vfid_to_str(vfid):
-    """Deprecated. Use brcdapi.util.vfid_to_str
-
-    :param vfid: FOS session object
-    :type vfid: int
-    :return: '?vf-id=x' where x is the vfid converted to a str. If vfid is None then just '' is returned
-    :rtype: str
-    """
-    return brcdapi_util.vfid_to_str(vfid)
 
 
 def _set_methods(session, uri, op):
@@ -301,7 +263,8 @@ def _check_methods(session, in_uri):
             if supported_methods == brcdapi_util.op_no:
                 return True
     elif 'brocade-module-version' not in uri:  # We haven't built the map yet so 'brocade-module-version' won't be there
-        brcdapi_log.log('UNKNOWN URI: ' + uri)
+        brcdapi_log.log('UNKNOWN URI: ' + uri + '. Check the log for details.', echo=True)  # For the user
+        brcdapi_log.exception('UNKNOWN URI: ' + uri)  # For the log
 
     return False
 
@@ -320,7 +283,7 @@ def _api_request(session, uri, http_method, content):
     :return: Response and status in fos_auth.is_error() and fos_auth.formatted_error_msg() friendly format
     :rtype: dict
     """
-    global _DEBUG, _DEBUG_MODE, _req_pending, _control_c_pend
+    global _DEBUG, _DEBUG_MODE, _req_pending, _control_c_pend, _verbose_debug
 
     if _DEBUG and _DEBUG_MODE == 1 and http_method == 'OPTIONS':
         return dict(_raw_data=dict(status=brcdapi_util.HTTP_NO_CONTENT, reason='OK'))
@@ -328,14 +291,14 @@ def _api_request(session, uri, http_method, content):
     if http_method != 'OPTIONS' and _check_methods(session, uri):
         _api_request(session, uri, 'OPTIONS', dict())
 
-    if verbose_debug:
+    if _verbose_debug:
         buf = ['_api_request() - Send:', 'Method: ' + http_method, 'URI: ' + uri, 'content:', pprint.pformat(content)]
         brcdapi_log.log(buf, echo=True)
 
     # Set up the headers and JSON data
     header = session.get('credential')
     if header is None:
-        return fos_auth.create_error(brcdapi_util.HTTP_FORBIDDEN, 'No login session', list())
+        return fos_auth.create_error(brcdapi_util.HTTP_FORBIDDEN, 'No login session')
     header.update({'Accept': 'application/yang-data+json'})
     header.update({'Content-Type': 'application/yang-data+json'})
     json_data = json.dumps(content) if content is not None and len(content) > 0 else None
@@ -347,8 +310,8 @@ def _api_request(session, uri, http_method, content):
     except BaseException as e:
         obj = fos_auth.create_error(brcdapi_util.HTTP_NOT_FOUND,
                                     'Not Found',
-                                    ['Typical of switch going offline or pre-FOS 8.2.1c',
-                                     str(e, errors='ignore') if isinstance(e, (bytes, str)) else str(type(e))])
+                                    msg=['Typical of switch going offline or pre-FOS 8.2.1c',
+                                         str(type(e)) + ': ' + str(e)])
         _req_pending = False
         if _control_c_pend:
             _control_c_pend = False
@@ -366,19 +329,19 @@ def _api_request(session, uri, http_method, content):
                     _set_methods(session, uri, brcdapi_util.op_not_supported)
                 else:
                     _add_methods(session, http_response, uri)
-            if verbose_debug:
+            if _verbose_debug:
                 brcdapi_log.log(['_api_request() - Response:', pprint.pformat(json_data)], echo=True)
     except TimeoutError:
         buf = 'Time out processing ' + uri + '. Method: ' + http_method
-        return fos_auth.create_error(brcdapi_util.HTTP_REQUEST_TIMEOUT, buf, '')
+        return fos_auth.create_error(brcdapi_util.HTTP_REQUEST_TIMEOUT, buf)
     except TypeError:
         # Apparently, the http lib intercepts Control-C. A TypeError is a by-product of how it's handled.
         _control_c_pend = True
     except http.client.RemoteDisconnected:
         buf = 'Disconnect while processing ' + uri + '. Method: ' + http_method
-        return fos_auth.create_error(brcdapi_util.HTTP_REQUEST_TIMEOUT, buf, '')
+        return fos_auth.create_error(brcdapi_util.HTTP_REQUEST_TIMEOUT, buf)
     except BaseException as e:
-        e_buf = str(e, errors='ignore') if isinstance(e, (bytes, str)) else str(type(e))
+        e_buf = str(type(e)) + ': ' + str(e)
         http_buf = 'http_response: '
         http_buf += 'None' if http_response is None else \
             http_response.decode(encoding=brcdapi_util.encoding_type, errors='ignore')
@@ -391,7 +354,9 @@ def _api_request(session, uri, http_method, content):
               http_buf,
               json_buf]
         brcdapi_log.exception(ml, echo=True)
-        return fos_auth.create_error(brcdapi_util.HTTP_REQUEST_TIMEOUT, 'Unexpected error:', e_buf.split('\n'))
+        return fos_auth.create_error(brcdapi_util.HTTP_REQUEST_TIMEOUT,
+                                     'Unexpected error:',
+                                     msg=e_buf.split('\n'))
     
     _req_pending = False
     if _control_c_pend:
@@ -409,7 +374,7 @@ def _api_request(session, uri, http_method, content):
             else:
                 msg = json_data['errors']['error']['error-message']
         except BaseException as e0:
-            e0_buf = str(e0, errors='ignore') if isinstance(e0, (bytes, str)) else str(type(e0))
+            e0_buf = str(type(e0)) + ': ' + str(e0)
             if '_raw_data' not in json_data:  # Make sure it's not an error without any detail
                 try:
                     # The purpose of capturing the message is to support the code below that works around a defect in
@@ -418,7 +383,7 @@ def _api_request(session, uri, http_method, content):
                     # that will be true. Since I know this will be fixed in a future version of FOS, I took the easy way
                     msg = json_data['errors']['error'][0]['error-message']
                 except BaseException as e1:
-                    e1_buf = str(e1, errors='ignore') if isinstance(e1, (bytes, str)) else str(type(e1))
+                    e1_buf = str(type(e1)) + ': ' + str(e1)
                     brcdapi_log.exception(['Invalid data returned from FOS:', e0_buf, e1_buf], echo=True)
                     msg = ''
         try:
@@ -450,7 +415,7 @@ def _api_request(session, uri, http_method, content):
                 reason = json_data['_raw_data']['reason']
             except (TypeError, KeyError):
                 reason = 'No reason provided'
-            ret_obj = fos_auth.create_error(status, reason, msg)
+            ret_obj = fos_auth.create_error(status, reason, msg=msg)
     elif 'Response' in json_data:
         obj = json_data.get('Response')
         ret_obj = obj if bool(obj) else {cmd: list()}
@@ -463,7 +428,7 @@ def _api_request(session, uri, http_method, content):
             status = brcdapi_util.HTTP_BAD_REQUEST
             reason = 'Invalid response from the API'
         if status < 200 or status >= 300:
-            ret_obj = fos_auth.create_error(status, reason, '')
+            ret_obj = fos_auth.create_error(status, reason)
         else:
             ret_obj = dict()
 
@@ -511,7 +476,7 @@ def api_request(session, uri, http_method, content):
     if uri is None:  # An error occurred in brcdapi_util.format_uri()
         buf = 'Missing URI'
         brcdapi_log.exception(buf, echo=True)
-        return fos_auth.create_error(brcdapi_util.HTTP_BAD_REQUEST, 'Missing URI', buf)
+        return fos_auth.create_error(brcdapi_util.HTTP_BAD_REQUEST, 'Missing URI', msg=buf)
     obj = _api_request(session, uri, http_method, content)
     retry_count = _MAX_RETRIES
     retry_flag, wait_time = _retry(obj)
@@ -535,6 +500,9 @@ def get_request(session, ruri, fid=None):
     :return: Response and status in fos_auth.is_error() and fos_auth.formatted_error_msg() friendly format
     :rtype: dict
     """
+    global _DEBUG, _verbose_debug
+
+    # Only used if _DEBUG is True
     if _DEBUG:
         buf = '' if fid is None else brcdapi_util.vfid_to_str(fid)
         file = _DEBUG_PREFIX + _clean_debug_file.sub('_', session.get('_debug_name') + '_' +
@@ -545,17 +513,17 @@ def get_request(session, ruri, fid=None):
             f = open(file, "r")
             json_data = json.load(f)
             f.close()
-            if verbose_debug:
+            if _verbose_debug:
                 ml = ['api_request() - Send:',
                       'Method: GET', 'URI: ' + brcdapi_util.format_uri(session, ruri, fid),
                       'api_request() - Response:',
                       pprint.pformat(json_data)]
                 brcdapi_log.log(ml, echo=True)
         except (FileNotFoundError, FileExistsError):
-            return fos_auth.create_error(brcdapi_util.HTTP_NOT_FOUND, 'File not found: ', [file])
+            return fos_auth.create_error(brcdapi_util.HTTP_NOT_FOUND, 'File not found: ', msg=[file])
         except BaseException as e:
-            e_buf = str(e, errors='ignore') if isinstance(e, (bytes, str)) else str(type(e))
-            brcdapi_log.log('Unknown error, ' + e_buf + ' encountered opening ' + file, echo=True)
+            brcdapi_log.log('Unknown error, ' + str(type(e)) + ': ' + str(e) + ' encountered opening ' + file,
+                            echo=True)
             raise RuntimeError
     else:
         json_data = api_request(session, brcdapi_util.format_uri(session, ruri, fid), 'GET', dict())
@@ -646,7 +614,7 @@ def check_status(session, fid, message_id, wait_time, num_check):
     """
     obj = fos_auth.create_error(brcdapi_util.HTTP_REQUEST_CONFLICT,
                                 'Invalid parameter',
-                                'num_check must be greater than 0')
+                                msg='num_check must be greater than 0')
     i = num_check
 
     while i > 0:
@@ -664,14 +632,14 @@ def check_status(session, fid, message_id, wait_time, num_check):
         except KeyError:
             return fos_auth.create_error(brcdapi_util.HTTP_INT_SERVER_ERROR,
                                          brcdapi_util.HTTP_REASON_UNEXPECTED_RESP,
-                                         "Missing: ['show-status']['status']")
+                                         msg="Missing: ['show-status']['status']")
         i -= 1
 
     try:
         if obj['show-status']['status'] != 'done':
             obj = fos_auth.create_error(brcdapi_util.HTTP_REQUEST_TIMEOUT,
                                         'Timeout',
-                                        _format_op_status(obj))
+                                        msg=_format_op_status(obj))
     except KeyError:
         pass
 
@@ -725,8 +693,20 @@ def operations_request(session, ruri, http_method, content_d, fid=None, wait_tim
     try:
         message_id = obj['show-status']['message-id']
         if obj['show-status']['status'] != 'done':
-            obj = check_status(session, None, message_id, max_try, wait_time)
+            obj = check_status(session, fid, message_id, max_try, wait_time)
     except KeyError:  # Sometimes operations branches complete immediately or there may have been an error
         pass
 
     return obj
+
+
+def verbose_debug(state):
+    """Sets or clears verbose debugging
+
+    :param state: True - Enable verbose debug, False - disable verbose debug
+    :type state: bool
+    """
+    global _verbose_debug
+
+    _verbose_debug = state
+    fos_cli.verbose_debug(state)

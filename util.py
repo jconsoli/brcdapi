@@ -1,18 +1,17 @@
-# Copyright 2019, 2020, 2021, 2022, 2023 Jack Consoli.  All rights reserved.
-#
-# NOT BROADCOM SUPPORTED
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may also obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.bp
-# See the License for the specific language governing permissions and
-# limitations under the License.
 """
+Copyright 2023, 2024 Consoli Solutions, LLC.  All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+the License. You may also obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific
+language governing permissions and limitations under the License.
+
+The license is free for single customer use (internal applications). Use of this module in the production,
+redistribution, or service delivery for commerce requires an additional license. Contact jack@consoli-solutions.com for
+details.
+
 :mod:`brcdapi.utils` - Utility methods
 
 Description::
@@ -23,7 +22,7 @@ Description::
     * CLI to API conversion for MAPS rules
     * Action tables, see discussion below
 
-    In FOS 8.2.1c, module-version was introduced but as of this writting, still contained scant information about each
+    In FOS 8.2.1c, module-version was introduced but as of v9.2.0, still contained scant information about each
     module. The table uri_map is a hard coded table to serve applications and other libraries that need to know how to
     build a full URI and define the behavior of each exposed in the API. The hope is that some day, this information
     will be available through the API allowing uri_map to be built dynamically.
@@ -37,7 +36,7 @@ Public Methods & Data::
     +-----------------------+---------------------------------------------------------------------------------------+
     | Method                | Description                                                                           |
     +=======================+=======================================================================================+
-    | HTTP_xxx              | Several comon status codes and reasons for sythesizing API responses. Typically this  |
+    | HTTP_xxx              | Several comon status codes and reasons for synthesizing API responses. Typically this |
     |                       | used for logic that determines an issue whereby the request can't be sent to the      |
     |                       | switch API based on problems found with the input to the method.                      |
     +-----------------------+---------------------------------------------------------------------------------------+
@@ -48,7 +47,7 @@ Public Methods & Data::
     | add_uri_map           | Builds out the URI map and adds it to the session. Intended to be called once         |
     |                       | immediately after login                                                               |
     +-----------------------+---------------------------------------------------------------------------------------+
-    | split_uri             | Strips out leading '/rest/'. Optionally remover 'running' and 'operations'            |
+    | split_uri             | Strips out leading '/rest/'. Optionally remove 'running' and 'operations'             |
     +-----------------------+---------------------------------------------------------------------------------------+
     | session_cntl          | Returns the control dictionary (uri map) for the uri                                  |
     +-----------------------+---------------------------------------------------------------------------------------+
@@ -56,55 +55,29 @@ Public Methods & Data::
     +-----------------------+---------------------------------------------------------------------------------------+
     | uri_d                 | Returns the dictionary in the URI map for a specified URI                             |
     +-----------------------+---------------------------------------------------------------------------------------+
+    | validate_fid          | Validates a FID or list of FIDs                                                       |
+    +-----------------------+---------------------------------------------------------------------------------------+
 
 Version Control::
 
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | Version   | Last Edit     | Description                                                                       |
     +===========+===============+===================================================================================+
-    | 1.x.x     | 03 Jul 2019   | Experimental                                                                      |
-    | 2.x.x     |               |                                                                                   |
+    | 4.0.0     | 04 Aug 2023   | Re-Launch                                                                         |
     +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.0     | 19 Jul 2020   | Initial Launch                                                                    |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.1     | 29 Jul 2020   | Remove duplicate keys                                                             |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.2     | 13 Feb 2021   | Removed the shebang line                                                          |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.3     | 07 Aug 2021   | Clean up mask_ip_addr()                                                           |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.4     | 31 Dec 2021   | Added new branches and leaves for FOS 9.1                                         |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.5     | 28 Apr 2022   | Added KPIs for 9.1, dynamically build uri map, account for "operations" branch.   |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.6     | 22 Jun 2022   | Set FID=True for operations/port                                                  |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.7     | 25 Jul 2022   | Added new branches and leaves for 9.1.0b                                          |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.8     | 04 Sep 2022   | Added new branches and leaves for 9.1.1                                           |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.9     | 24 Oct 2022   | Fixed area for brocade-fabric/access-gateway                                      |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.1.0     | 26 Mar 2023   | Added new branches and leaves for 9.2.x                                           |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.1.1     | 09 May 2023   | Fixed bug in show-status and missed 9.2.x branch                                  |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.1.2     | 21 May 2023   | Documentation updates.                                                            |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.1.3     | 04 Jun 2023   | Added commonly used URIs                                                          |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.1.4     | 17 Jun 2023   | Added additional commonly used URIs                                               |
+    | 4.0.1     | 06 Mar 2024   | Added brocade-maps and brocade-fibrechannel-routing to common URIs. Added         |
+    |           |               | validate_fid()                                                                    |
     +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2019, 2020, 2021, 2022, 2023 Jack Consoli'
-__date__ = '17 Jun 2023'
+__copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
+__date__ = '06 Mar 2024'
 __license__ = 'Apache License, Version 2.0'
-__email__ = 'jack.consoli@broadcom.com'
+__email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.1.4'
+__version__ = '4.0.1'
 
 import pprint
 import copy
@@ -136,143 +109,163 @@ encoding_type = 'utf-8'  # Unless running these scripts on a mainframe, this wil
 
 # Commonly used URIs: brocade-name-server
 bns_uri = 'brocade-name-server/fibrechannel-name-server'
-bns_fc4_features = bns_uri  + '/fc4-features'
-bns_node_symbol = bns_uri  + '/node-symbolic-name'
-bns_port_symbol = bns_uri  + '/port-symbolic-name'
-bns_share_area = bns_uri  + '/share-area'
-bns_redirection = bns_uri  + '/frame-redirection'
-bns_partial = bns_uri  + '/partial'
-bns_lsan = bns_uri  + '/lsan'
-bns_cascade_ag = bns_uri  + '/cascaded-ag'
-bns_connect_ag = bns_uri  + '/connected-through-ag'
-bns_dev_behind_ag = bns_uri  + '/real-device-behind-ag'
-bns_fcoe_dev = bns_uri  + '/fcoe-device'
-bns_sddq = bns_uri  + '/slow-drain-device-quarantine'
-bns_port_id = bns_uri  + '/port-id'
-bns_port_name = bns_uri  + '/port-name'
-bns_link_speed = bns_uri  + '/link-speed'
-bns_ns_dev_type = bns_uri  + '/name-server-device-type'
-bns_node_name = bns_uri  + '/node-name'
-bns_scr = bns_uri  + '/state-change-registration'
-bns_fab_port_name = bns_uri  + '/fabric-port-name'
-bns_perm_port_name = bns_uri  + '/permanent-port-name'
-bns_port_index = bns_uri  + '/port-index'
+bns_fc4_features = bns_uri + '/fc4-features'
+bns_node_symbol = bns_uri + '/node-symbolic-name'
+bns_port_symbol = bns_uri + '/port-symbolic-name'
+bns_share_area = bns_uri + '/share-area'
+bns_redirection = bns_uri + '/frame-redirection'
+bns_partial = bns_uri + '/partial'
+bns_lsan = bns_uri + '/lsan'
+bns_cascade_ag = bns_uri + '/cascaded-ag'
+bns_connect_ag = bns_uri + '/connected-through-ag'
+bns_dev_behind_ag = bns_uri + '/real-device-behind-ag'
+bns_fcoe_dev = bns_uri + '/fcoe-device'
+bns_sddq = bns_uri + '/slow-drain-device-quarantine'
+bns_port_id = bns_uri + '/port-id'
+bns_port_name = bns_uri + '/port-name'
+bns_link_speed = bns_uri + '/link-speed'
+bns_ns_dev_type = bns_uri + '/name-server-device-type'
+bns_node_name = bns_uri + '/node-name'
+bns_scr = bns_uri + '/state-change-registration'
+bns_fab_port_name = bns_uri + '/fabric-port-name'
+bns_perm_port_name = bns_uri + '/permanent-port-name'
+bns_port_index = bns_uri + '/port-index'
 # Commonly used URIs: brocade-fibrechannel-switch
 bfs_uri = 'brocade-fibrechannel-switch/fibrechannel-switch'
-bfs_name = bfs_uri  + '/name'
-bfs_did = bfs_uri  + '/domain-id'
-bfs_fcid_hex = bfs_uri  + '/fcid-hex'
-bfs_principal = bfs_uri  + '/principal'
-bfs_op_status = bfs_uri  + '/operational-status'
-bfs_fab_user_name = bfs_uri  + '/fabric-user-friendly-name'
-bfs_sw_user_name = bfs_uri  + '/user-friendly-name'
-bfs_banner = bfs_uri  + '/banner'
-bfs_fw_version =bfs_uri  + '/firmware-version'
-bfs_adv_tunning = bfs_uri  + '/advanced-performance-tuning-policy'
-bfs_dls = bfs_uri  + '/dynamic-load-sharing'
-bfs_domain_name = bfs_uri  + '/domain-name'
-bfs_model = bfs_uri  + '/model'
-bfs_vf_id = bfs_uri  + '/vf-id'
-bfs_ag_mode = bfs_uri  + '/ag-mode'
-bfs_enabled_state = bfs_uri  + '/is-enabled-state'
-bfc_up_time = bfs_uri  + '/up-time'
+bfs_name = bfs_uri + '/name'
+bfs_did = bfs_uri + '/domain-id'
+bfs_fcid_hex = bfs_uri + '/fcid-hex'
+bfs_principal = bfs_uri + '/principal'
+bfs_op_status = bfs_uri + '/operational-status'
+bfs_fab_user_name = bfs_uri + '/fabric-user-friendly-name'
+bfs_sw_user_name = bfs_uri + '/user-friendly-name'
+bfs_banner = bfs_uri + '/banner'
+bfs_fw_version = bfs_uri + '/firmware-version'
+bfs_adv_tuning = bfs_uri + '/advanced-performance-tuning-policy'
+bfs_dls = bfs_uri + '/dynamic-load-sharing'
+bfs_domain_name = bfs_uri + '/domain-name'
+bfs_model = bfs_uri + '/model'
+bfs_vf_id = bfs_uri + '/vf-id'
+bfs_ag_mode = bfs_uri + '/ag-mode'
+bfs_enabled_state = bfs_uri + '/is-enabled-state'
+bfc_up_time = bfs_uri + '/up-time'
 # Commonly used URIs: brocade-fibrechannel-configuration
 bfc_uri = 'brocade-fibrechannel-configuration/fabric'
-bfc_idid = bfc_uri  + '/insistent-domain-id-enabled'
-bfc_principal_en = bfc_uri  + '/principal-selection-enabled'
-bfc_principal_pri = bfc_uri  + '/principal-priority'
+bfc_idid = bfc_uri + '/insistent-domain-id-enabled'
+bfc_principal_en = bfc_uri + '/principal-selection-enabled'
+bfc_principal_pri = bfc_uri + '/principal-priority'
 bfc_port_uri = 'brocade-fibrechannel-configuration/port-configuration'
 bfc_portname_mode = bfc_port_uri + '/portname-mode'
 bfc_portname_format = bfc_port_uri + '/dynamic-portname-format'
-bfc_max_logins = 'brocade-fibrechannel-configuration/f-port-login-settings/max-logins'
-bfc_max_flogi_rate = 'brocade-fibrechannel-configuration/f-port-login-settings/max-flogi-rate-per-switch'
-bfc_stage_interval = 'brocade-fibrechannel-configuration/f-port-login-settings/stage-interval'
-bfc_free_fdisc = 'brocade-fibrechannel-configuration/f-port-login-settings/free-fdisc'
-bfc_max_flogi_rate_port = 'brocade-fibrechannel-configuration/f-port-login-settings/max-flogi-rate-per-port'
+# Commonly used URIs: brocade-fibrechannel-configuration/f-port-login-settings
+bfcfp_uri = 'brocade-fibrechannel-configuration/f-port-login-settings'
+bfc_max_logins = bfcfp_uri + '/max-logins'
+bfc_max_flogi_rate = bfcfp_uri + '/max-flogi-rate-per-switch'
+bfc_stage_interval = bfcfp_uri + '/stage-interval'
+bfc_free_fdisc = bfcfp_uri + '/free-fdisc'
+bfc_max_flogi_rate_port = bfcfp_uri + '/max-flogi-rate-per-port'
+bfc_fport_enforce_login = bfcfp_uri + '/enforce-login'
+# Commonly used URIs: brocade-fibrechannel-configuration/switch-configuration
 bfc_sw_uri = 'brocade-fibrechannel-configuration/switch-configuration'
-bfc_xisl_en = bfc_sw_uri  + '/xisl-enabled'
-bfc_area_mode = bfc_sw_uri  + '/area-mode'
-bfc_port_id_mode = bfc_sw_uri  + '/wwn-port-id-mode'
-bfs_edge_hold = bfc_sw_uri  + '/edge-hold-time'
-bfc_fport_enforce_login = 'brocade-fibrechannel-configuration/f-port-login-settings/enforce-login'
+bfc_xisl_en = bfc_sw_uri + '/xisl-enabled'
+bfc_area_mode = bfc_sw_uri + '/area-mode'
+bfc_port_id_mode = bfc_sw_uri + '/wwn-port-id-mode'
+bfs_edge_hold = bfc_sw_uri + '/edge-hold-time'
 # Commonly used URIs: brocade-fru
 fru_uri = 'brocade-fru'
-fru_blade = fru_uri  + '/blade'
-fru_fan = fru_uri  + '/fan'
-fru_ps = fru_uri  + '/power-supply'
-fru_sensor = fru_uri  + '/sensor'
-fru_wwn = fru_uri  + '/wwn'
-fru_blade_pn = fru_uri  + '/blade/part-number'
-# Commonly used URIs: brocade-chassis
-bc_mfg = 'brocade-chassis/chassis/manufacturer'
-bc_product_name = 'brocade-chassis/chassis/product-name'
-bc_serial_num = 'brocade-chassis/chassis/serial-number'
-bc_vf = 'brocade-chassis/chassis/vf-supported'
-bc_ha = 'brocade-chassis/ha-status/ha-enabled'
-bc_heartbeat = 'brocade-chassis/ha-status/heartbeat-up'
-bc_time_alive = 'brocade-chassis/chassis/time-alive'
-bc_time_awake = 'brocade-chassis/chassis/time-awake'
-bc_active_cp = 'brocade-chassis/ha-status/active-cp'
-bc_active_slot = 'brocade-chassis/ha-status/active-slot'
-bc_ha_recovery = 'brocade-chassis/ha-status/recovery-type'
-bc_ha_standby_cp = 'brocade-chassis/ha-status/standby-cp'
-bc_ha_standby_health = 'brocade-chassis/ha-status/standby-health'
-bc_ha_standby_slot = 'brocade-chassis/ha-status/standby-slot'
-bc_ha_enabled = 'brocade-chassis/chassis/ha-enabled'
-bc_ha_sync = 'brocade-chassis/ha-status/ha-synchronized'
+fru_blade = fru_uri + '/blade'
+fru_fan = fru_uri + '/fan'
+fru_ps = fru_uri + '/power-supply'
+fru_sensor = fru_uri + '/sensor'
+fru_wwn = fru_uri + '/wwn'
+fru_blade_pn = fru_uri + '/blade/part-number'
+# Commonly used URIs: brocade-chassis/chassis
+bcc_uri = 'brocade-chassis/chassis'
+bc_mfg = bcc_uri + '/manufacturer'
+bc_product_name = bcc_uri + '/product-name'
+bc_serial_num = bcc_uri + '/serial-number'
+bc_vf = bcc_uri + '/vf-supported'
+bc_time_alive = bcc_uri + '/time-alive'
+bc_time_awake = bcc_uri + '/time-awake'
+bc_fcr_en = bcc_uri + '/fcr-enabled'
+bc_fcr_supported = bcc_uri + '/fcr-supported'
+bc_user_name = bcc_uri + '/chassis-user-friendly-name'
+bc_wwn = bcc_uri + '/chassis-wwn'
+bc_license_id = bcc_uri + '/license-id'
+bc_org_name = bcc_uri + '/registered-organization-name'
+bc_org_reg_date = bcc_uri + '/organization-registration-date'
+bc_pn = bcc_uri + '/part-number'
+bc_vendor_pn = bcc_uri + '/vendor-part-number'
+bc_max_blades = bcc_uri + '/max-blades-supported'
+bc_vendor_sn = bcc_uri + '/vendor-serial-number'
+bc_vendor_rev_num = bcc_uri + '/vendor-revision-number'
+bc_date = bcc_uri + '/date'
+bc_enabled = bcc_uri + '/chassis-enabled'
+bc_motd = bcc_uri + '/message-of-the-day'
+bc_shell_to = bcc_uri + '/shell-timeout'
+bc_session_to = bcc_uri + '/session-timeout'
+bc_usb_enbled = bcc_uri + '/usb-device-enabled'
+bc_usb_avail_space = bcc_uri + '/usb-available-space'
+bc_tcp_to_level = bcc_uri + '/tcp-timeout-level'
+bc_bp_rev = bcc_uri + '/backplane-revision'
+bp_vf_enabled = bcc_uri + '/vf-enabled'
+# Commonly used URIs: brocade-chassis/ha-status
+bcha_uri = 'brocade-chassis/ha-status'
+bc_ha = bcha_uri + '/ha-enabled'
+bc_heartbeat = bcha_uri + '/heartbeat-up'
+bc_active_cp = bcha_uri + '/active-cp'
+bc_active_slot = bcha_uri + '/active-slot'
+bc_ha_recovery = bcha_uri + '/recovery-type'
+bc_ha_standby_cp = bcha_uri + '/standby-cp'
+bc_ha_standby_health = bcha_uri + '/standby-health'
+bc_ha_standby_slot = bcha_uri + '/standby-slot'
+bc_ha_enabled = bcha_uri + '/ha-enabled'
+bc_ha_sync = bcha_uri + '/ha-synchronized'
 bc_sync = bc_ha_sync  # This used to be 'brocade-chassis/chassis/ha-synchronized' which was deprecated early in 8.2.x
-bc_heartbeat = 'brocade-chassis/chassis/heartbeat-up'
-bc_user_name = 'brocade-chassis/chassis/chassis-user-friendly-name'
-bc_wwn = 'brocade-chassis/chassis/chassis-wwn'
-bc_license_id = 'brocade-chassis/chassis/license-id'
-bc_org_name = 'brocade-chassis/chassis/registered-organization-name'
-bc_org_reg_date = 'brocade-chassis/chassis/organization-registration-date'
-bc_pn = 'brocade-chassis/chassis/part-number'
-bc_vendor_pn = 'brocade-chassis/chassis/vendor-part-number'
-bc_max_blades = 'brocade-chassis/chassis/max-blades-supported'
-bc_vendor_sn = 'brocade-chassis/chassis/vendor-serial-number'
-bc_vendor_rev_num = 'brocade-chassis/chassis/vendor-revision-number'
-bc_date = 'brocade-chassis/chassis/date'
-bc_enabled = 'brocade-chassis/chassis/chassis-enabled'
-bc_motd = 'brocade-chassis/chassis/message-of-the-day'
-bc_shell_to = 'brocade-chassis/chassis/shell-timeout'
-bc_session_to = 'brocade-chassis/chassis/session-timeout'
-bc_usb_enbled = 'brocade-chassis/chassis/usb-device-enabled'
-bc_usb_avail_space = 'brocade-chassis/chassis/usb-available-space'
-bc_tcp_to_level = 'brocade-chassis/chassis/tcp-timeout-level'
-bc_bp_rev = 'brocade-chassis/chassis/backplane-revision'
-bp_vf_enabled = 'brocade-chassis/chassis/vf-enabled'
-bc_rest_enabled = 'brocade-chassis/management-interface-configuration/rest-enabled'
-bc_https_enabled = 'brocade-chassis/management-interface-configuration/https-protocol-enabled'
-bc_eff_protocol = 'brocade-chassis/management-interface-configuration/effective-protocol'
-bc_max_rest = 'brocade-chassis/management-interface-configuration/max-rest-sessions'
-bc_https_ka = 'brocade-chassis/management-interface-configuration/https-keep-alive-enabled'
-bc_https_ka_to = 'brocade-chassis/management-interface-configuration/https-keep-alive-timeout'
-# Commonly used URIs: brocade-fabric
-bf_sw_user_name = 'brocade-fabric/fabric-switch/switch-user-friendly-name'  # Depracated? Use bfs_sw_user_name
-bf_sw_wwn = 'brocade-fabric/fabric-switch/name'
-bf_fw_version = 'brocade-fabric/fabric-switch/firmware-version'
+# Commonly used URIs: brocade-chassis/management-interface-configuration
+bcmic_uri = 'brocade-chassis/management-interface-configuration'
+bc_rest_enabled = bcmic_uri + '/rest-enabled'
+bc_https_enabled = bcmic_uri + '/https-protocol-enabled'
+bc_eff_protocol = bcmic_uri + '/effective-protocol'
+bc_max_rest = bcmic_uri + '/max-rest-sessions'
+bc_https_ka = bcmic_uri + '/https-keep-alive-enabled'
+bc_https_ka_to = bcmic_uri + '/https-keep-alive-timeout'
+# Commonly used URIs: brocade-fabric/fabric-switch
+bfsw_uri = 'brocade-fabric/fabric-switch'
+bf_sw_user_name = bfsw_uri + '/switch-user-friendly-name'  # Depracated? Use bfs_sw_user_name
+bf_sw_wwn = bfsw_uri + '/name'
+bf_fw_version = bfsw_uri + '/firmware-version'
 # Commonly used URIs: brocade-fibrechannel-logical-switch
-bfls_sw_wwn = 'brocade-fibrechannel-logical-switch/fibrechannel-logical-switch/switch-wwn'
-bfls_fid = 'brocade-fibrechannel-logical-switch/fibrechannel-logical-switch/fabric-id'
-bfls_base_sw_en = 'brocade-fibrechannel-logical-switch/fibrechannel-logical-switch/base-switch-enabled'
-bfls_def_sw_status = 'brocade-fibrechannel-logical-switch/fibrechannel-logical-switch/default-switch-status'
-bfls_ficon_mode_en = 'brocade-fibrechannel-logical-switch/fibrechannel-logical-switch/ficon-mode-enabled'
-bfls_isl_enabled = 'brocade-fibrechannel-logical-switch/fibrechannel-logical-switch/logical-isl-enabled'
-bfls_mem_list = 'brocade-fibrechannel-logical-switch/fibrechannel-logical-switch/port-member-list'
-bfls_ge_mem_list = 'brocade-fibrechannel-logical-switch/fibrechannel-logical-switch/ge-port-member-list'
+bfls_uri = 'brocade-fibrechannel-logical-switch/fibrechannel-logical-switch'
+bfls_sw_wwn = bfls_uri + '/switch-wwn'
+bfls_fid = bfls_uri + '/fabric-id'
+bfls_base_sw_en = bfls_uri + '/base-switch-enabled'
+bfls_def_sw_status = bfls_uri + '/default-switch-status'
+bfls_ficon_mode_en = bfls_uri + '/ficon-mode-enabled'
+bfls_isl_enabled = bfls_uri + '/logical-isl-enabled'
+bfls_mem_list = bfls_uri + '/port-member-list'
+bfls_ge_mem_list = bfls_uri + '/ge-port-member-list'
+# Commonly used URIs: brocade-maps
+maps_uri = 'brocade-maps'
+maps_db_hist = maps_uri + '/dashboard-history'
+maps_db_misc = maps_uri + '/dashboard-misc'
+maps_db_rule = maps_uri + '/dashboard-rule'
+maps_group = maps_uri + '/group'
+maps_config = maps_uri + '/maps-config'
+maps_policy = maps_uri + '/maps-policy'
+maps_rule = maps_uri + '/rule'
 # Commonly used URIs: brocade-ficon
 ficon_sw_wwn = 'brocade-ficon/switch-rnid/switch-wwn'
 ficon_cup_uri = 'brocade-ficon/cup'
-ficon_cup_en = ficon_cup_uri  + '/fmsmode-enabled'
-ficon_posc = ficon_cup_uri  + '/programmed-offline-state-control'
-ficon_uam = ficon_cup_uri  + '/user-alert-mode'
-ficon_asm = ficon_cup_uri  + '/active-equal-saved-mode'
-ficon_dcam = ficon_cup_uri  + '/director-clock-alert-mode'
-ficon_mihpto = ficon_cup_uri  + '/mihpto'
-ficon_uam_fru = ficon_cup_uri  + '/unsolicited-alert-mode-fru-enabled'
-ficon_uam_hsc = ficon_cup_uri  + '/unsolicited-alert-mode-hsc-enabled'
-ficon_uam_invalid_attach = ficon_cup_uri  + '/unsolicited-alert-mode-invalid-attach-enabled'
+ficon_cup_en = ficon_cup_uri + '/fmsmode-enabled'
+ficon_posc = ficon_cup_uri + '/programmed-offline-state-control'
+ficon_uam = ficon_cup_uri + '/user-alert-mode'
+ficon_asm = ficon_cup_uri + '/active-equal-saved-mode'
+ficon_dcam = ficon_cup_uri + '/director-clock-alert-mode'
+ficon_mihpto = ficon_cup_uri + '/mihpto'
+ficon_uam_fru = ficon_cup_uri + '/unsolicited-alert-mode-fru-enabled'
+ficon_uam_hsc = ficon_cup_uri + '/unsolicited-alert-mode-hsc-enabled'
+ficon_uam_invalid_attach = ficon_cup_uri + '/unsolicited-alert-mode-invalid-attach-enabled'
 ficon_sw_rnid_flags = 'brocade-ficon/switch-rnid/flags'
 ficon_sw_node_params = 'brocade-ficon/switch-rnid/node-parameters'
 ficon_sw_rnid_type = 'brocade-ficon/switch-rnid/type-number'
@@ -410,11 +403,40 @@ bz_eff_default_zone = 'brocade-zone/effective-configuration/default-zone-access'
 bz_eff_db_trans = 'brocade-zone/effective-configuration/db-transaction'
 bz_eff_trans_token = 'brocade-zone/effective-configuration/transaction-token'
 bz_eff_db_chassis_committed = 'brocade-zone/effective-configuration/db-chassis-wide-committed'
-bz_def_alias = 'brocade-zone/defined-configuration/alias'
 bz_def_zone = 'brocade-zone/defined-configuration/zone'
 # Commonly used URIs: brocade-fdmi
 fdmi_port_sym = 'brocade-fdmi/port-symbolic-name'
 fdmi_node_sym = 'brocade-fdmi/node-symbolic-name'
+# Commonly used URIs: brocade-fibrechannel-routing
+bfr_uri = 'brocade-fibrechannel-routing'
+bfr_rc = bfr_uri + '/routing-configuration'
+bfr_rc_lc = bfr_rc + '/maximum-lsan-count'
+bfr_rc_bfid = bfr_rc + '/backbone-fabric-id'
+bfr_rc_ifl = bfr_rc + '/shortest-ifl'
+bfr_rc_en_tags = '/lsan-enforce-tags'
+bfr_rc_sp_tags = bfr_rc + '/lsan-speed-tag'
+bfr_rc_mm = bfr_rc + '/migration-mode'
+bfr_rc_ptde = bfr_rc + '/persistent-translate-domain-enabled'
+bfr_lz = bfr_uri + '/lsan-zone'
+bfr_ld = bfr_uri + '/lsan-device'
+bfr_efa = bfr_uri + '/edge-fabric-alias'
+bfr_fcr = bfr_uri + '/fibrechannel-router'
+bfr_stats = bfr_uri + '/router-statistics'
+bfr_stats_lz_in_use = bfr_stats + '/lsan-zones-in-use'
+bfr_stats_mld = bfr_stats + '/maximum-lsan-devices'
+bfr_stats_ld_in_use = bfr_stats + '/lsan-devices-in-use'
+bfr_stats_mpds = bfr_stats + '/maximum-proxy-device-slots'
+bfr_stats_pds_in_use = bfr_stats + '/proxy-device-slots-in-use'
+bfr_stats_mpd = bfr_stats + '/maximum-proxy-devices'
+bfr_stats_max_nr = bfr_stats + '/maximum-nr-ports'
+bfr_pc = bfr_uri + '/proxy-config'
+bfr_tdc = bfr_uri + '/translate-domain-config'
+bfr_std = bfr_uri + '/stale-translate-domain'
+
+
+class VirtualFabricIdError(Exception):
+    pass
+
 
 _VF_ID = '?vf-id='
 # sfp_rules.xlsx actions may have been entered using CLI syntax so this table converts the CLI syntax to API syntax.
@@ -450,7 +472,7 @@ op_yes = 2
 """Below is the default URI map. It was built against FOS 9.1. It is necessary because there is not way to retrieve the
 FID or area from the FOS API. An # RFE was submitted to get this information. This information is used to build
 default_uri_map. Up to the time this was written, all keys (branches) were unique regardless of the URL type. In
-FOS 9.1, a new URL type, "operations" was introduced. Although it appears that all keys are still unique, seperate keys
+FOS 9.1, a new URL type, "operations" was introduced. Although it appears that all keys are still unique, separate keys
 for each type were added because it does not appear that anyone in engineering is thinking they need to be unique.
 
 +---------------+-----------+-----------+-------+-------------------------------------------------------------------+
@@ -458,7 +480,7 @@ for each type were added because it does not appear that anyone in engineering i
 +===============+===========+===========+=======+===================================================================+
 |               |           |           | dict  | URI prefix is just "/rest/"                                       |
 +---------------+-----------+-----------+-------+-------------------------------------------------------------------+
-|               |           | area      | int   | Used to indicate what type of object this request is associted    |
+|               |           | area      | int   | Used to indicate what type of object this request is associated   |
 |               |           |           |       | with. Search for "Used in area in default_uri_map" above for      |
 |               |           |           |       | details.                                                          |
 +---------------+-----------+-----------+-------+-------------------------------------------------------------------+
@@ -519,15 +541,15 @@ default_uri_map = {
             'fabric-switch': dict(area=FABRIC_SWITCH_OBJ, fid=False, methods=('OPTIONS', 'GET')),
         },
         'brocade-fibrechannel-routing': {
-            'routing-configuration': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'lsan-zone': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'lsan-device': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'edge-fabric-alias': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'fibrechannel-router': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'router-statistics': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'proxy-config': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'translate-domain-config': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'stale-translate-domain': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+            'routing-configuration': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+            'lsan-zone': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+            'lsan-device': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+            'edge-fabric-alias': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+            'fibrechannel-router': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+            'router-statistics': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+            'proxy-config': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+            'translate-domain-config': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+            'stale-translate-domain': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
          },
         'brocade-zone': {
             'defined-configuration': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
@@ -619,7 +641,6 @@ default_uri_map = {
             'backend-ports-history': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
             'gigabit-ethernet-ports-history': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
             'maps-device-login': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'maps-violation': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
             'quarantined-devices': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
         },
         'brocade-time': {
@@ -806,7 +827,18 @@ def vfid_to_str(vfid):
     :return: '?vf-id=x' where x is the vfid converted to a str. If vfid is None then just '' is returned
     :rtype: str
     """
-    return '' if vfid is None else _VF_ID + str(vfid)
+    if vfid is None:
+        return ''
+    try:  # FOS gets really hosed up if anything other than an integer is used in the URI after '?vf-id='.
+        if not isinstance(vfid, int):
+            raise TypeError
+        if vfid < 1 or vfid > 128:
+            raise TypeError
+    except TypeError:
+        buf = '. FIDs must be integers, type int, in the range 1-128.'
+        brcdapi_log.exception('Invalid FID. Type: ' + str(type(vfid)) + '. Value: ' + str(vfid) + buf, echo=True)
+        raise VirtualFabricIdError
+    return _VF_ID + str(vfid)
 
 
 def add_uri_map(session, rest_d):
@@ -852,7 +884,7 @@ def add_uri_map(session, rest_d):
         for uri_l in to_process_l:
 
             # Find the dictionary in the default URI map
-            default_d, last_d = default_uri_map, uri_map_d
+            d, k, default_d, last_d = None, None, default_uri_map, uri_map_d
             for k in uri_l:
                 if default_d is not None:
                     default_d = default_d.get(k)
@@ -891,18 +923,18 @@ def split_uri(uri, run_op_out=False):
     :type uri: str
     :param run_op_out: If True, also remove 'running' and 'operations'
     :type run_op_out: bool
-    :return: URI split into a list with leading '/rest/' stipped out
+    :return: URI split into a list with leading '/rest/' stripped out
     :rtype: list
     """
-    l = uri.split('/')
-    if len(l) > 0 and l[0] == '':
-        l.pop(0)
-    if len(l) > 0 and l[0] == 'rest':
-        l.pop(0)
-    if run_op_out and len(l) > 0 and l[0] in ('running', 'operations'):
-        l.pop(0)
+    uri_l = uri.split('/')
+    if len(uri_l) > 0 and uri_l[0] == '':
+        uri_l.pop(0)
+    if len(uri_l) > 0 and uri_l[0] == 'rest':
+        uri_l.pop(0)
+    if run_op_out and len(uri_l) > 0 and uri_l[0] in ('running', 'operations'):
+        uri_l.pop(0)
 
-    return l
+    return uri_l
 
 
 def session_cntl(session, in_uri):
@@ -912,7 +944,7 @@ def session_cntl(session, in_uri):
     :type session: dict
     :param in_uri: URI
     :type in_uri: str
-    :return: Control dicstionary associated with uri. None if not found
+    :return: Control dictionary associated with uri. None if not found
     :rtype: dict, None
     """
     if 'operations/show-status/message-id/' in in_uri:
@@ -953,7 +985,8 @@ def uri_d(session, uri):
     """
     d = gen_util.get_struct_from_obj(session.get('uri_map'), uri)
     if not isinstance(d, dict) and gen_util.get_key_val(default_uri_map, uri) is None:
-        brcdapi_log.log('UNKNOWN URI: ' + uri)
+        brcdapi_log.log('UNKNOWN URI: ' + uri + '. Check the log for details.', echo=True)  # For humans
+        brcdapi_log.exception('UNKNOWN URI: ' + uri, echo=True)  # For the log
     return d
 
 
@@ -1011,8 +1044,8 @@ def _int_dict_to_uri(convert_dict):
     if isinstance(convert_dict, dict):
         for k, v in convert_dict.items():
             if isinstance(v, dict):
-                for l in dict_to_uri(v):
-                    rl.append(str(k) + '/' + '/'.join(l))
+                for uri_l in dict_to_uri(v):
+                    rl.append(str(k) + '/' + '/'.join(uri_l))
             else:
                 rl.append('/' + str(k))
 
@@ -1037,3 +1070,20 @@ def dict_to_uri(convert_dict):
                 rl.append(str(k))
 
     return rl
+
+
+def validate_fid(in_fid):
+    """Validates a FID or list of FIDs
+
+    :param in_fid: FID or list of FIDs as integers. None is permitted to simplify logic for the calling function.
+    :type in_fid: int, list, tuple, None
+    :return: Error message. Empty string if no errors.
+    :rtype: str
+    """
+    try:
+        for fid in [int(f) for f in gen_util.convert_to_list(in_fid)]:
+            if fid < 1 or fid > 128:
+                raise TypeError
+    except TypeError:
+        return ' FIDs must be integers in the range 1-128'
+    return ''

@@ -1,21 +1,17 @@
-# Copyright 2021 Jack Consoli.  All rights reserved.
-#
-# NOT BROADCOM SUPPORTED
-#
-# The term "Broadcom" refers to Broadcom Inc. and/or its subsidiaries.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may also obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 """
+Copyright 2023, 2024 Consoli Solutions, LLC.  All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+the License. You may also obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific
+language governing permissions and limitations under the License.
+
+The license is free for single customer use (internal applications). Use of this module in the production,
+redistribution, or service delivery for commerce requires an additional license. Contact jack@consoli-solutions.com for
+details.
+
 :mod:`sannav.auth` - SANnav API Login, logout, and error formatting.
 
 Primary Methods::
@@ -37,18 +33,20 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | Version   | Last Edit     | Description                                                                       |
     +===========+===============+===================================================================================+
-    | 1.0.0     | 09 Jan 2021   | Initial Launch                                                                    |
+    | 4.0.0     | 04 Aug 2023   | Re-Launch                                                                         |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 4.0.1     | 06 Mar 2024   | Documentation updates only.                                                       |
     +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2021 Jack Consoli'
-__date__ = '09 Jan 2021'
+__copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
+__date__ = '06 Mar 2024'
 __license__ = 'Apache License, Version 2.0'
-__email__ = 'jack.consoli@broadcom.com'
+__email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.0'
+__version__ = '4.0.1'
 
 from pprint import pprint
 import http.client as httplib
@@ -68,17 +66,17 @@ def basic_api_parse(obj):
     :rtype: dict
     """
     try:
-        # I could have checked for obj.status = 200 - < 300 and obj.reason = 'No Content', but this covers everything
+        # I could have checked for obj.status => 200 or < 300 and obj.reason = 'No Content', but this covers everything
         json_data = json.loads(obj.read())
-    except:
+    except:  # TODO Should this be a TypeError?
         json_data = dict()
     try:
         d = dict()
         json_data.update({'_raw_data': d})
         d.update({'status': obj.status})
         d.update({'reason': obj.reason})
-    except:  # Some requiests do not return a status and reason when the request was completed successfully
-        pass
+    except:  # TODO Should this be a TypeError?
+        pass  # Some requests do not return a status and reason when the request was completed successfully
     return json_data
 
 
@@ -121,7 +119,7 @@ def obj_status(obj):
     """
     try:
         return obj['_raw_data']['status']
-    except:
+    except KeyError:
         return brcdapi_util.HTTP_OK
 
 
@@ -155,12 +153,12 @@ def obj_reason(obj):
     """
     try:
         return obj['_raw_data']['reason']
-    except:
+    except KeyError:
         return ''
 
 
 def obj_error_detail(obj):
-    """Formats the error message detail into human readable format
+    """Formats the error message detail into human-readable format
 
     :param obj: API object
     :type obj: dict
@@ -169,12 +167,12 @@ def obj_error_detail(obj):
     """
     try:
         return 'Error: ' + obj['error'] + '\nError Description: ' + obj['error_description']
-    except:  # A formatted error message isn't always present so this may happen
+    except KeyError:  # A formatted error message isn't always present so this may happen
         return ''
 
 
 def formatted_error_msg(obj):
-    """Formats the error message into a human readable format
+    """Formats the error message into a human-readable format
 
     :param obj: Object returned from get_request()
     :type obj: dict
@@ -187,7 +185,7 @@ def formatted_error_msg(obj):
 def login(userid, pw, ip_addr, ca='self'):
     """Establish a session to the FOS switch and return the session object
 
-    :param userid: User name to establish a session.
+    :param userid: Username to establish a session.
     :type userid: str
     :param pw: Password to establish a session.
     :type pw: str
@@ -210,7 +208,7 @@ def login(userid, pw, ip_addr, ca='self'):
 
     try:
         conn.request('POST', '/external-api/v1/login/', '', credential)
-    except:
+    except:  # TODO Should this be a TypeError?
         # Usually, we get here if the IP address was inaccessible or HTTPS was used before a certifiate was generated
         obj = create_error(brcdapi_util.HTTP_NOT_FOUND, 'Not Found', '')
         obj.update({'ip_addr': ip_addr})
@@ -220,10 +218,10 @@ def login(userid, pw, ip_addr, ca='self'):
     resp = conn.getresponse()
     json_data = basic_api_parse(resp)
     content = resp.getheader('content-type')
-    contentlist = content.split(';')
-    if len(contentlist) == 2:
-        json_data.update({'content-type': contentlist[0]})
-        json_data.update({'content-version': contentlist[1]})
+    content_l = content.split(';')
+    if len(content_l) == 2:
+        json_data.update({'content-type': content_l[0]})
+        json_data.update({'content-version': content_l[1]})
     else:
         json_data.update({'content-type': content})
         json_data.update({'content-version': None})

@@ -1,18 +1,17 @@
-# Copyright 2022, 2023 Jack Consoli.  All rights reserved.
-#
-# NOT BROADCOM SUPPORTED
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may also obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 """
+Copyright 2023, 2024 Consoli Solutions, LLC.  All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+the License. You may also obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific
+language governing permissions and limitations under the License.
+
+The license is free for single customer use (internal applications). Use of this module in the production,
+redistribution, or service delivery for commerce requires an additional license. Contact jack@consoli-solutions.com for
+details.
+
 :mod:`brcdapi.gen_util` - General purpose utility functions
 
 **Description**
@@ -32,7 +31,9 @@
   +-----------------------------+-----------------------------------------------------------------------------------|
   | date_to_epoch               | Converts a date and time string to epoch time.                                    |
   +-----------------------------+-----------------------------------------------------------------------------------|
-  | dBm_to_absolute             | Converts a number in dBm to it's value                                            |
+  | dBm_to_absolute             | Converts a number in dBm to its value                                             |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | get_input                   | Performs standard command line input parsing using argparse.                      |
   +-----------------------------+-----------------------------------------------------------------------------------|
   | get_key_val                 | Spins through a list of keys separated by a '/' and returns the value associated  |
   |                             | with the last key.                                                                |
@@ -40,7 +41,7 @@
   | get_struct_from_obj         | Returns a Python data structure for a key using / notation in obj with everything |
   |                             | not in the key, k, filtered out                                                   |
   +-----------------------------+-----------------------------------------------------------------------------------|
-  | is_di                       | Determines if an str is a d,i pair (used in zoning)                               |
+  | is_di                       | Determines if a str is a d,i pair (used in zoning)                                |
   +-----------------------------+-----------------------------------------------------------------------------------|
   | int_list_to_range           | Converts a list of integers to ranges as text.                                    |
   +-----------------------------+-----------------------------------------------------------------------------------|
@@ -49,7 +50,7 @@
   +-----------------------------+-----------------------------------------------------------------------------------|
   | is_wwn                      | Validates that the wwn is a properly formed WWN                                   |
   +-----------------------------+-----------------------------------------------------------------------------------|
-  | month_to_num                | Using datetime is clumsy. These are easier. Speed is seldom the issue but it is   |
+  | month_to_num                | Using datetime is clumsy. These are easier. Speed is seldom the issue, but it is  |
   |                             | faster.                                                                           |
   +-----------------------------+-----------------------------------------------------------------------------------|
   | multiplier                  | Converts K, M, G, & T to an integer multiplier.                                   |
@@ -75,10 +76,10 @@
   +-----------------------------+-----------------------------------------------------------------------------------|
   | remove_none                 | Removes list entries whose value is None                                          |
   +-----------------------------+-----------------------------------------------------------------------------------|
-  | resolve_multiplier          | Converts an str representation of a number. Supported conversions are K, k, M, m, |
-  |                             | G, g, T, and t.                                                                   |
+  | resolve_multiplier          | Converts str representation of a number with a multiplier. Supported conversions  |
+  |                             | are K, k, M, m, G, g, T, and t.                                                   |
   +-----------------------------+-----------------------------------------------------------------------------------|
-  | slot_port                   | Separate the slot and port number from a s/p port reference. Can also be used to  |
+  | slot_port                   | Separate the slot and port number from s/p port reference. Can also be used to    |
   |                             | validate s/p notation.                                                            |
   +-----------------------------+-----------------------------------------------------------------------------------|
   | sort_obj_num                | Sorts a list of dictionaries based on the value for a key. Value must be a        |
@@ -87,13 +88,14 @@
   | sort_obj_str                | Sorts a list of dictionaries based on the value for a key or list of keys. Value  |
   |                             | must be a string.                                                                 |
   +-----------------------------+-----------------------------------------------------------------------------------|
-  | slot_port                   | Separate the slot and port number from a s/p port reference. Can also be used to  |
-  |                             | validate s/p notation.                                                            |
+  | sp_range_to_list            | Returns a list of port based on a range of ports using s/p notation.              |
   +-----------------------------+-----------------------------------------------------------------------------------|
-  | str_to_num                  | Converts an str to an int if it can be represented as an int, otherwise float.    |
+  | str_to_num                  | Converts str to an int if it can be represented as an int, otherwise float.       |
   |                             | 12.0 is returned as a float.                                                      |
   +-----------------------------+-----------------------------------------------------------------------------------|
   | uwatts_to_dbm               | Converts a number in uWatts to dBm                                                |
+  +-----------------------------+-----------------------------------------------------------------------------------|
+  | wrap_text                   | Formats text into paragraphs.                                                     |
   +-----------------------------+-----------------------------------------------------------------------------------|
 
 Version Control::
@@ -101,48 +103,63 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | Version   | Last Edit     | Description                                                                       |
     +===========+===============+===================================================================================+
-    | 1.0.0     | 28 Apr 2022   | Initial Launch                                                                    |
+    | 4.0.0     | 04 Aug 2023   | Re-Launch                                                                         |
     +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 1.0.1     | 22 Jun 2022   | Added valid_banner                                                                |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 1.0.2     | 25 Jul 2022   | Handled exception in remove_duplicates() when input list is a list of dict        |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 1.0.3     | 04 Sep 2022   | Added sort_obj_str()                                                              |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 1.0.4     | 09 Sep 2022   | Fixed bug in get_key_val() when an interim key was not found. The user reported   |
-    |           |               | error was an exception returned from api_get_examples.py.                         |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 1.0.5     | 14 Oct 2022   | Deprecated remove_duplicate_space() and added remove_duplicate_char()             |
-    |           |               | Added , range_to_list()                                                           |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 1.0.6     | 01 Jan 2023   | Fixed zone object in is_valid_zone_name()                                         |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 1.0.7     | 11 Feb 2023   | Added uwatts_to_dbm()                                                             |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 1.0.8     | 26 Mar 2023   | Added missing ^ and $ to valid zone names                                         |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 1.0.9     | 09 May 2023   | Updated comments only.                                                            |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 1.1.0     | 21 May 2023   | Removed unused code.                                                              |
+    | 4.0.1     | 06 Mar 2024   | Added sort to int_list_to_range(). Added wrap_text() and sp_range_to_list()       |
     +-----------+---------------+-----------------------------------------------------------------------------------+
 """
+
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2022, 2023 Jack Consoli'
-__date__ = '21 May 2023'
+__copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
+__date__ = '06 Mar 2024'
 __license__ = 'Apache License, Version 2.0'
-__email__ = 'jack.consoli@broadcom.com'
+__email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.1.0'
+__version__ = '4.0.1'
 
 import re
 import datetime
 import math
+import argparse
 import brcdapi.log as brcdapi_log
 
 _MAX_ZONE_NAME_LEN = 64
 _MAX_LINE_COUNT = 20  # Maximum number of lines before inserting a space when generating CLI
 _MAX_MEM = 3  # Maximum number of members to add to a zone object in a single FOS command (CLI)
+
+# Common input parameters - For use with get_input()
+_login_false_help = 'Required unless using -i, -scan, -cli, -t, or -eh options. This is a generic message. Only a  '\
+                    'subset of these options are available with each module.'
+_http_help = 'Optional. "none" for HTTP. The default is "self" for HTTPS mode.'
+parseargs_login_d = dict(
+    ip=dict(h='Required. IP address.'),
+    id=dict(h='Required. User ID.'),
+    pw=dict(h='Required. Password.'),
+    s=dict(r=False, d='self', v=('self', 'none'), h=_http_help),
+)
+parseargs_login_false_d = dict(
+    ip=dict(r=False, h=_login_false_help + 'IP address.'),
+    id=dict(r=False, h=_login_false_help + 'User ID.'),
+    pw=dict(r=False, h=_login_false_help + 'Password.'),
+    s=dict(r=False, d='self', h=_http_help),
+)
+parseargs_log_d = dict(
+    sup=dict(r=False, d=False, t='bool',
+             h='Optional. No parameters. Suppress all output to STD_IO except the exit code and argument parsing '
+               'errors. Useful with batch processing where only the exit status code is desired. Messages are still '
+               'printed to the log file.'),
+    log=dict(r=False,
+             h='Optional. Directory where log file is to be created. Default is to use the current directory. The '
+               'log file name will always be "Log_xxxx" where xxxx is a time and date stamp.'),
+    nl=dict(r=False, d=False, t='bool',
+            h='Optional. No parameters. When set, a log file is not created. The default is to create a log file.')
+)
+parseargs_debug_d = dict(
+    d=dict(r=False, d=False, t='bool',
+           h='Optional. No parameters. When set, a pprint of all content sent and received to/from the API, except '
+             'login information, is printed to the log.'),
+)
 
 # ReGex matching
 non_decimal = re.compile(r'[^\d.]+')
@@ -225,7 +242,7 @@ def get_key_val(obj, keys):
     v = obj
     for k in key_l:
         if isinstance(v, dict):
-            v = v.get(k)
+            v = v.get(k, None)
         elif v is None:
             return None
         elif k != last_key:
@@ -301,11 +318,17 @@ def sort_obj_str(obj_list, key_list, r=False):
 def convert_to_list(obj):
     """Converts an object to a list. Typically used to convert objects that may be None or list.
 
-    obj         Return
-    None        Empty list
-    list        The same passed object, obj, is returned - NOT A COPY
-    tuple       Tuple copied to a list
-    All else    List with the passed obj as the only member
+    +-----------+-------------------------------------------------------+
+    | obj       | Return                                                |
+    +===========+=======================================================+
+    | None      | Empty list                                            |
+    +-----------+-------------------------------------------------------+
+    | list      | The same passed object, obj, is returned - NOT A COPY |
+    +-----------+-------------------------------------------------------+
+    | tuple     | Converted, copied, to a list                          |
+    +-----------+-------------------------------------------------------+
+    | All else  | List with the passed obj as the only member           |
+    +-----------+-------------------------------------------------------+
 
     :param obj: Object to be converted to list
     :type obj: list, tuple, dict, str, float, int
@@ -393,7 +416,7 @@ def is_valid_zone_name(zone_name):
 
 
 def slot_port(port):
-    """Seperate the slot and port number from a s/p port reference. Can also be used to validate s/p notation.
+    """Separate the slot and port number from s/p port reference. Can also be used to validate s/p notation.
 
     :param port: Port number in s/p notation
     :type port: str
@@ -418,11 +441,11 @@ def slot_port(port):
 
 
 def is_di(di):
-    """Determines if an str is a d,i pair (used in zoning)
+    """Determines if di is a d,i pair (used in zoning)
 
-    :param di: Domain index pair as a "d,i" str
+    :param di: Domain index pair as a "d,i"
     :type di: str
-    :return: True - di looks like a d,i pair. Otherwise False.
+    :return: True - di looks like a d,i pair. Otherwise, False.
     :rtype: bool
     """
     try:
@@ -433,11 +456,11 @@ def is_di(di):
 
 
 def str_to_num(buf):
-    """Converts an str to an int if it can be represented as an int, otherwise float. 12.0 is returned as a float.
+    """Converts str to an int if it can be represented as an int, otherwise float. 12.0 is returned as a float.
 
     :param buf: Text to convert to float or int
     :type buf: str
-    :return: str converted to number. If the input cannot be converted to a number, it is returned as passed in.
+    :return: buf converted to number. If the input cannot be converted to a number, it is returned as passed in.
     :rtype: str, float, int
     """
     if isinstance(buf, str):
@@ -512,7 +535,7 @@ def add_to_obj(obj, k, v):
             obj.update({k: v})
             return
         key = key_list.pop(0)
-        d = obj.get(key)
+        d = obj.get(key, None)
         if d is None:
             d = dict()
             obj.update({key: d})
@@ -535,17 +558,17 @@ def get_struct_from_obj(obj, k):
         return None
     w_obj, kl = obj, k.split('/')
     while len(kl) > 0 and isinstance(w_obj, dict):
-        w_obj = w_obj.get(kl.pop(0))
+        w_obj = w_obj.get(kl.pop(0), None)
 
     return w_obj if len(kl) == 0 else None
 
 
 def resolve_multiplier(val):
-    """Converts an str representation of a number. Supported conversions are k, m,, g, or t
+    """Converts str representation of a number with a multiplier. Supported conversions are K, k, M, m, G, g, T, and t.
 
     :param val: Dictionary the key is for
     :type val: str
-    :return: val as a number. Returns None if
+    :return: val as a number. Returns None if val is not a number
     :rtype: float, None
     """
     if isinstance(val, str):
@@ -567,7 +590,7 @@ def dBm_to_absolute(val, r=1):
     :type val: str, float, int
     :param r: Number of digits to the right of the decimal point to round off to
     :type r: int
-    :return: val converted to it's absolute value. None if val cannot be converted to a float.
+    :return: val converted to its absolute value. None if val cannot be converted to a float.
     :rtype: float, None
     """
     try:
@@ -584,7 +607,7 @@ def uwatts_to_dbm(val, r=1):
     :type val: str, float, int
     :param r: Number of digits to the right of the decimal point to round off to
     :type r: int
-    :return: val converted to it's absolute value. None if val cannot be converted to a float.
+    :return: val converted to its absolute value. None if val cannot be converted to a float.
     :rtype: float, None
     """
     try:
@@ -594,8 +617,15 @@ def uwatts_to_dbm(val, r=1):
     return None
 
 
-def int_list_to_range(num_list):
-    """Converts a list of integers to ranges as text. For example: 0, 1, 2, 5, 6, 9 is returned as:
+def int_list_to_range(num_list, sort=False):
+    """Converts a list of integers to ranges as text. For example, if sort == False: 0, 1, 5, 6, 2, 9 is returned as:
+
+    0:  '0-1'
+    1:  '5-6'
+    2:  '2'
+    3:  '9'
+
+    Using the same example when sort==True:
 
     0:  '0-2'
     1:  '5-6'
@@ -603,11 +633,15 @@ def int_list_to_range(num_list):
 
     :param num_list: List of numeric values, int or float
     :type num_list: list
+    :param sort: If True, num_list is sorted first. This makes for more efficient ranges.
+    :type sort: bool
     :return: List of str as described above
     :rtype: list
     """
-    rl, range_l = list(), list()
-    for i in num_list:
+    rl, range_l, num_l = list(), list(), num_list.copy()
+    if sort:
+        num_l.sort()
+    for i in num_l:
         ri = len(range_l)
         if ri > 0 and i != range_l[ri-1] + 1:
             rl.append(str(range_l[0]) if ri == 1 else str(range_l[0]) + '-' + str(range_l[ri-1]))
@@ -621,16 +655,17 @@ def int_list_to_range(num_list):
 
 
 def range_to_list(num_range, hex_num=False, upper=False, sort=False, rsort=False, strip=False):
-    """Converts a CSV list of integer or hex numbers as ranges to a list. For example: "0-2, 9, 6-5" is returned as
-    [0, 1, 2, 9, 6, 5]. If hex is True, all values are assumed to be hex and the returned list is a list of str. For
-    example: "0-2, 9-0xb" is returned as ["0x0", "0x1", "0x2", "0x9", "0xa", "0xb"]. Note that a reverse range is
-    permitted.
+    """Converts a CSV list of integer or hex numbers as ranges to a list.
 
-    :param num_range: CSV of numeric values, int or float
+    For example: "0-2, 9, 6-5" is returned as [0, 1, 2, 9, 6, 5]. If hex is True, all values are assumed to be hex and
+    the returned list is a list of str. For example: "0-2, 9-0xb" is returned as ["0x0", "0x1", "0x2", "0x9", "0xa",
+    "0xb"]. Note that a reverse range is permitted.
+
+    :param num_range: CSV of numeric values as described in the example above.
     :type num_range: str
     :param hex_num: If True, treat the input str num_range as hex
     :type hex_num: bool
-    :param upper: Ony significant when hex_num==True. If True, output is upper case. Otherwise lower case.
+    :param upper: Ony significant when hex_num==True. If True, output is upper case. Otherwise, lower case.
     :type upper: bool
     :param sort: If True the output is sorted from lowest to highest.
     :type sort: bool
@@ -653,10 +688,7 @@ def range_to_list(num_range, hex_num=False, upper=False, sort=False, rsort=False
                 rl.extend([v for v in reversed(range(min_i, max_i+1))])
 
     # Prepare the return data
-    if sort:
-        rl.sort()
-    elif rsort:
-        rl.sort(reverse=True)
+    rl.sort(reverse=rsort)
 
     # Return
     if hex_num:
@@ -783,9 +815,205 @@ def pad_string(in_buf, pad_len, pad_char, append=False):
     :type pad_char: str
     :param append: True: Append pad character to the end of the string. False: Prepend pad characters to the beginning
     :type append: bool
+    :return: Padded text
+    :rtype: str
     """
     buf = '' if in_buf is None else in_buf
     x, pad_buf = pad_len-len(buf), ''
     for i in range(0, x):
         pad_buf += pad_char
     return buf + pad_buf if append else pad_buf + buf
+
+
+def wrap_text(buf, max_len, prepend_buf=None):
+    """Formats text into paragraphs.
+
+    :param buf: The text string(s) to format
+    :type buf: str, list, tuple, None
+    :param max_len: Maximum line length
+    :type max_len: int
+    :param prepend_buf: Prefix text inserted at the beginning of each string in in_buf. If additional lines are
+        required, subsequent lines are padded with all spaces. Typically used for bullets. prepend_buf is not prepended
+        for blank lines.
+    :type prepend_buf: str, None
+    :return: Formatted text
+    :rtype: list
+    """
+    rl = list()
+    if buf is None:
+        return rl
+    w_prepend_buf = '' if prepend_buf is None else prepend_buf
+
+    # Validate the input
+    if not isinstance(buf, (list, tuple, str)):
+        rl.append('buf type, ' + str(type(buf)) + ', is not valid. Type must be str, list, tuple, or None.')
+    if not isinstance(max_len, int):
+        rl.append('max_len type, ' + str(type(max_len)) + ', is not valid. Type must be int.')
+    if not isinstance(w_prepend_buf, str):
+        rl.append('prepend_buf type, ' + str(type(max_len)) + ', is not valid. Type must be None or str.')
+    if len(rl) > 0:
+        brcdapi_log.exception(rl, echo=True)
+        return list()
+
+    # Format the text
+    next_pad = pad_string('', len(w_prepend_buf), ' ', append=True)
+    for t_buf in convert_to_list(buf):
+        print_buf = w_prepend_buf
+        i = 0
+        for w_buf in t_buf.split(' '):
+            if i == 0:
+                print_buf += w_buf
+                i += 1
+            elif len(print_buf) + len(w_buf) >= max_len:
+                rl.append(print_buf)
+                print_buf, i = next_pad + w_buf, i + 1
+            else:
+                print_buf += ' ' + w_buf
+                i += 1
+        rl.append(print_buf)
+
+    return rl
+
+
+# Case statments fir get_input()
+def _get_input_bool(parser, k, d):
+    parser.add_argument('-' + str(k), help=d['h'], action='store_true', required=d.get('r', True))
+
+
+def _get_input_int(parser, k, d):
+    parser.add_argument('-'+str(k), help=d['h'], type=int, required=d.get('r', True))
+
+
+def _get_input_float(parser, k, d):
+    parser.add_argument('-'+str(k), help=d['h'], type=float, required=d.get('r', True))
+
+
+def _get_input_str(parser, k, d):
+    parser.add_argument('-' + str(k), help=d['h'], type=str, required=d.get('r', True))
+
+
+def _get_input_list(parser, k, d):
+    parser.add_argument('-' + str(k), help=d['h'], type=list, required=d.get('r', True))
+
+
+def _get_input_none(parser, k, d):
+    parser.add_argument('-' + str(k), help=d['h'], required=d.get('r', True))
+
+
+_get_input_d = dict(
+    bool=_get_input_bool,
+    int=_get_input_int,
+    float=_get_input_float,
+    str=_get_input_str,
+    list=_get_input_list,
+    none=_get_input_none,
+)
+
+
+def get_input(desc, param_d):
+    """Performs standard command line input parsing using argparse
+
+    Returns a dictionary of arguments. The key is the option, without the leading -. Value is the entered value.
+
+    Sample:
+
+    py sample.py -ip 10.1.2.3 -id admin -pw password -fid 4 -flag
+
+    sample_desc = 'This is an example'
+    args_d = dict(
+        ip=dict(r=True, h='Required: IP address'),
+        id=dict(r=True, h='Required: User ID'),
+        pw=dict(r=True, h='Required: Password'),
+        s=dict(d='none', h='Optional: "none" for HTTP, "self" for self signed HTTPS. Default is "none"'),
+        fid=dict(d=128, t=int, v=gen_util.range_to_list('1-128'), h='Optional: Fabric ID. The default is 128'),
+        flag=dict(t='flag', h='Optional: Sample boolean')
+    )
+
+    values_d = get_input(sample_desc, args_d)
+
+    Returns: dict(ip='10.1.2.3', id='admin', pw='password', s='none', fid='128', flag=True)
+
+    Dictionaries of param_d detail:
+
+    +-------+---------------+---------------------------------------------------------------------------------------+
+    | Key   | Type          | Description                                                                           |
+    +=======+===============+=======================================================================================+
+    | d     | any           | The return value for any optional parameter when not specified. Default is None.      |
+    |       |               | WARNING: This can be anything you want. Dictionaries, pointers, ect. Keep in mind     |
+    |       |               | that the power to do whatever you want also gives you the power to do some pretty     |
+    |       |               | stupid stuff.                                                                         |
+    +-------+---------------+---------------------------------------------------------------------------------------+
+    | h     | str           | Help text                                                                             |
+    +-------+---------------+---------------------------------------------------------------------------------------+
+    | r     | None, bool    | Required parameter. The default is False                                              |
+    +-------+---------------+---------------------------------------------------------------------------------------+
+    | t     | str           | If bool, sets action='store_true', not the "type=bool" parameter. All else sets       |
+    |       |               | "type=t". Supported types are: bool, int, float, str, list. If ommitted, "type=" is   |
+    |       |               | not specified. argparse treats the argument as a str by default.                      |
+    +-------+---------------+---------------------------------------------------------------------------------------+
+    | v     | list, tuple   | Valid options                                                                         |
+    +-------+---------------+---------------------------------------------------------------------------------------+
+
+    :param desc: General module description displayed with -h
+    :type desc: str
+    :param param_d: As described above
+    :type param_d: dict
+    """
+    global _get_input_d
+
+    return_d, el = dict(), list()
+
+    # Set up parameter parsing for argparse
+    parser = argparse.ArgumentParser(description=desc)
+    for k, d in param_d.items():
+        t = d.get('t', 'none')
+        try:
+            _get_input_d[t](parser, k, d)
+        except KeyError as e:
+            el.append('Missing or invalid key: ' + str(e))
+
+    # Evaluate the parameters
+    for k, v in vars(parser.parse_args()).items():
+        val = param_d[k].get('d', None) if v is None else v
+        valid_val_l = param_d[k].get('v', None)
+        if valid_val_l is not None:
+            try:
+                if val not in valid_val_l:
+                    el.append('Invalid value, ' + str(val) + ', for -' + str(k))
+            except TypeError:
+                el.append('Invalid value, ' + str(val) + ' type: ' + str(type(val)) + ', for -' + str(k))
+        return_d.update({k: val})
+
+    # If there are errors, report them and exit. Note that the log isn't set up yet, so use print()
+    if len(el) > 0:
+        for buf in el:
+            print(buf)
+        print('Re-run with the -h option for additional help')
+        exit(0)
+
+    return return_d
+
+
+def sp_range_to_list(port_range):
+    """Returns a list of port based on a range of ports using s/p notation
+
+    :param port_range: CSV list of port ranges in s/p notation
+    :type port_range: str, None
+    :return: Ports
+    :rtype: list
+    """
+    rl = list()
+    if port_range is None:
+        return rl
+    for sp_range in port_range.split(','):
+        temp_l = sp_range.split('/')
+        if len(temp_l) == 1:
+            temp_l.insert(0, '0')
+        if len(temp_l) != 2:
+            brcdapi_log.exception('Invalid port range.', echo=True)
+            return rl
+        for slot in range_to_list(temp_l[0]):
+            rl.extend([str(slot) + '/' + str(p) for p in range_to_list(temp_l[1])])
+
+    return rl
+

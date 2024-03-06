@@ -1,18 +1,17 @@
-# Copyright 2020, 2021, 2022, 2023 Jack Consoli.  All rights reserved.
-#
-# NOT BROADCOM SUPPORTED
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may also obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 """
+Copyright 2023, 2024 Consoli Solutions, LLC.  All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+the License. You may also obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific
+language governing permissions and limitations under the License.
+
+The license is free for single customer use (internal applications). Use of this module in the production,
+redistribution, or service delivery for commerce requires an additional license. Contact jack@consoli-solutions.com for
+details.
+
 :mod:`zone.py` - Execute zoning operations.
 
 **Description**
@@ -82,36 +81,20 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | Version   | Last Edit     | Description                                                                       |
     +===========+===============+===================================================================================+
-    | 1.x.x     | 03 Jul 2019   | Experimental                                                                      |
-    | 2.x.x     |               |                                                                                   |
+    | 4.0.0     | 04 Aug 2023   | Re-Launch                                                                         |
     +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.0     | 29 Jul 2020   | Initial Launch                                                                    |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.1     | 13 Feb 2021   | Removed the shebang line                                                          |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.2     | 14 May 2021   | Fixed some mutable list issues in modify_zone()                                   |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.3     | 14 Nov 2021   | Deprecated pyfos_auth                                                             |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.4     | 31 Dec 2021   | Improved error messages and comments. No functional changes                       |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.5     | 28 Apr 2022   | Adjusted for new URI format                                                       |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.6     | 26 Mar 2023   | Allow a list of aliases by name to delete del_aliases(). Added find_zone()        |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.7     | 09 May 2023   | Fixed error message when disabling a zone configuration.                          |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.8     | 21 May 2023   | Updated comments.                                                                 |
+    | 4.0.1     | 06 Mar 2024   | Documentation updates only.                                                       |
     +-----------+---------------+-----------------------------------------------------------------------------------+
 """
+
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2020, 2021, 2022, 2023 Jack Consoli'
-__date__ = '21 May 2023'
+__copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
+__date__ = '06 Mar 2024'
 __license__ = 'Apache License, Version 2.0'
-__email__ = 'jack.consoli@broadcom.com'
+__email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.0.8'
+__version__ = '4.0.1'
 
 import pprint
 import brcdapi.brcdapi_rest as brcdapi_rest
@@ -191,8 +174,9 @@ def del_aliases(session, fid, alias_list, echo=False):
     """
     if len(gen_util.convert_to_list(alias_list)) == 0:
         return brcdapi_util.GOOD_STATUS_OBJ
-    content = {'defined-configuration': {'alias': [{'alias-name': alias_obj if isinstance(alias_obj, str) else \
-        alias_obj.get('name')} for alias_obj in alias_list]}}
+    alias_l = [{'alias-name': alias_obj if isinstance(alias_obj, str) else alias_obj.get('name')} for alias_obj in
+               alias_list]
+    content = {'defined-configuration': {'alias': alias_l}}
     obj = brcdapi_rest.send_request(session, 'running/brocade-zone/defined-configuration', 'DELETE', content, fid)
     _is_error(obj, 'Failed to delete alias', echo)
     return obj

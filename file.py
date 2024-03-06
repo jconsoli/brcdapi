@@ -1,18 +1,17 @@
-# Copyright 2022, 2023 Jack Consoli.  All rights reserved.
-#
-# NOT BROADCOM SUPPORTED
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may also obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 """
+Copyright 2023, 2024 Consoli Solutions, LLC.  All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+the License. You may also obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific
+language governing permissions and limitations under the License.
+
+The license is free for single customer use (internal applications). Use of this module in the production,
+redistribution, or service delivery for commerce requires an additional license. Contact jack@consoli-solutions.com for
+details.
+
 :mod:`brcdapi.util.file` - File operation methods
 
 Description::
@@ -46,26 +45,23 @@ Version Control::
 
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | Version   | Last Edit     | Description                                                                       |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
+    | Version   | Last Edit     | Description                                                                       |
     +===========+===============+===================================================================================+
-    | 1.0.0     | 28 Apr 2022   | Initial Launch. Previously in brcddb.                                             |
+    | 4.0.0     | 04 Aug 2023   | Re-Launch                                                                         |
     +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 1.0.1     | 22 Jun 2022   | Minor performance enhancements.                                                   |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 1.0.2     | 25 Jul 2022   | Fixed bug in read_full_directory() when skip_sys == True                          |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 1.0.3     | 14 Oct 2022   | Fixed missing new line when line end is just '\r' in file()                       |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 1.0.4     | 21 May 2023   | Updated comments and removed unused imports.                                      |
+    | 4.0.1     | 06 Mar 2024   | Documentation updates only.                                                       |
     +-----------+---------------+-----------------------------------------------------------------------------------+
 """
+
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2022, 2023 Jack Consoli'
-__date__ = '21 May 2023'
+__copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
+__date__ = '06 Mar 2024'
 __license__ = 'Apache License, Version 2.0'
-__email__ = 'jack.consoli@broadcom.com'
+__email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.4'
+__version__ = '4.0.1'
 
 import json
 import os
@@ -140,11 +136,11 @@ def read_file(file, remove_blank=True, rc=True):
     :type remove_blank: bool
     :param rc: If True, remove anything beginning with # to the end of line
     :type rc: bool
-    :return: List of file file contents.
+    :return: File contents.
     :rtype: list
     """
     # Apparently, Putty puts some weird characters in the file. Looks like there is a Python bug with the line below. I
-    # get "NameError: name 'open' is not defined.
+    # get "NameError: name 'open' is not defined".
     # f = open(file, 'r', encoding='utf-8', errors='ignore')
     #  So I read as bytes, decoded using utf-8 and then had to ignore errors.
     f = open(file, 'rb')
@@ -258,7 +254,7 @@ def full_file_name(file, extension, prefix=None):
     :type file: str, None
     :param extension: The file extension
     :type extension: str
-    :param prefix: A prefix to add. Typically a folder name. If a folder, don't forget the last character must be '/'
+    :param prefix: A prefix to add. Typically, a folder name. If a folder, don't forget the last character must be '/'
     :type prefix: None, str
     :return: File name with the extension and prefix added
     :rtype: str

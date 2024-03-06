@@ -1,21 +1,17 @@
-# Copyright 2021, 2022, 2023 Jack Consoli.  All rights reserved.
-#
-# NOT BROADCOM SUPPORTED
-#
-# The term "Broadcom" refers to Broadcom Inc. and/or its subsidiaries.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may also obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 """
+Copyright 2023, 2024 Consoli Solutions, LLC.  All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+the License. You may also obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific
+language governing permissions and limitations under the License.
+
+The license is free for single customer use (internal applications). Use of this module in the production,
+redistribution, or service delivery for commerce requires an additional license. Contact jack@consoli-solutions.com for
+details.
+
 :mod:`brcdapi.fos_auth` - Login, logout, and error formatting. With the exception of error handling, typically, the
 remaining methods contained herein are only used by brcdapi.brcdapi_rest.
 
@@ -100,36 +96,20 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | Version   | Last Edit     | Description                                                                       |
     +===========+===============+===================================================================================+
-    | 1.0.0     | 14 Nov 2021   | Initial Launch                                                                    |
+    | 4.0.0     | 04 Aug 2023   | Re-Launch                                                                         |
     +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 1.0.1     | 31 Dec 2021   | Improved comments only. No functional changes                                     |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 1.0.2     | 28 Apr 2022   | Build uri map dynamically.                                                        |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 1.0.3     | 22 Jun 2022   | Added error message when login is for something other than none or self           |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 1.0.4     | 25 Jul 2022   | Modified obj_error_detail() to handle operations URLs which do not have           |
-    |           |               | obj[errors][error] for error detail                                               |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 1.0.5     | 24 Oct 2022   | Improved error messaging                                                          |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 1.0.6     | 11 Feb 2023   | Modified is_error() to handle objects with good status and errors. Additional     |
-    |           |               | error checking added to basic_api_parse()                                         |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 1.0.7     | 29 Mar 2023   | Added error message when there is no internet                                     |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 1.0.8     | 27 May 2023   | Updated comments only                                                             |
+    | 4.0.1     | 06 Mar 2024   | Added user_id and user_pw to dict returned from login()                           |
     +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2021, 2022, 2023 Jack Consoli'
-__date__ = '27 May 2023'
+__copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
+__date__ = '06 Mar 2024'
 __license__ = 'Apache License, Version 2.0'
-__email__ = 'jack.consoli@broadcom.com'
+__email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '1.0.8'
+__version__ = '4.0.1'
 
 import http.client as httplib
 import base64
@@ -138,6 +118,8 @@ import json
 import pprint
 import brcdapi.util as brcdapi_util
 import brcdapi.log as brcdapi_log
+import brcdapi.gen_util as gen_util
+import brcdapi.fos_cli as fos_cli
 
 _LOGIN_RESTCONF = '/rest/login'
 _LOGOUT_RESTCONF = '/rest/logout'
@@ -145,7 +127,7 @@ _HEADER = 'application/yang-data+json'
 
 
 def basic_api_parse(obj):
-    """Performs a read and basic parse of the conn.getresponse()
+    """Performs a read and basic parse of conn.getresponse()
 
     :param obj: Response from conn.getresponse()
     :type obj: HTTPResponse
@@ -161,21 +143,20 @@ def basic_api_parse(obj):
             except UnicodeDecodeError:
                 return create_error(brcdapi_util.HTTP_INT_SERVER_ERROR,
                                     'Invalid data returned from FOS',
-                                    'UnicodeDecodeError')
+                                    msg='UnicodeDecodeError')
             except BaseException as e:
                 try:
                     http_buf = 'None' if http_response is None else \
                         http_response.decode(encoding=brcdapi_util.encoding_type, errors='ignore')
                 except BaseException as e0:
-                    http_buf = 'Could not decode http_response. Exception is: ' + str(e, errors='ignore') if \
-                        isinstance(e, (bytes, str)) else str(type(e0))
+                    http_buf = 'Could not decode http_response. Exception is: ' + str(type(e0)) + ': ' + str(e0)
                 brcdapi_log.exception(['Invalid data returned from FOS. Error code:',
-                                       str(e, errors='ignore') if isinstance(e, (bytes, str)) else str(type(e)),
+                                       str(type(e)) + ': ' + str(e),
                                        '',
                                        'http_response:',
                                        http_buf],
                                       echo=True)
-                return create_error(brcdapi_util.HTTP_INT_SERVER_ERROR, 'Invalid data returned from FOS', '')
+                return create_error(brcdapi_util.HTTP_INT_SERVER_ERROR, 'Invalid data returned from FOS')
         try:
             json_data.update(_raw_data=dict(status=obj.status, reason=obj.reason))
         except AttributeError:
@@ -184,7 +165,7 @@ def basic_api_parse(obj):
             http_buf = 'None' if http_response is None else \
                 http_response.decode(encoding=brcdapi_util.encoding_type, errors='ignore')
             brcdapi_log.exception(['Invalid data returned from FOS. Error code:',
-                                   str(e, errors='ignore') if isinstance(e, (bytes, str)) else str(type(e)),
+                                   str(type(e)) + ': ' + str(e),
                                    '',
                                    'http_response:',
                                    http_buf],
@@ -193,9 +174,8 @@ def basic_api_parse(obj):
         pass  # I think logout is the only time I get here.
     except BaseException as e:
         buf = 'Undetermined error parsing response'
-        brcdapi_log.exception([str(e, errors='ignore') if isinstance(e, (bytes, str)) else str(type(e)), buf],
-                              echo=True)
-        return create_error(brcdapi_util.HTTP_INT_SERVER_ERROR, buf, '')
+        brcdapi_log.exception([str(type(e)) + ': ' + str(e), buf], echo=True)
+        return create_error(brcdapi_util.HTTP_INT_SERVER_ERROR, buf)
 
     return json_data
 
@@ -211,7 +191,7 @@ def _get_connection(ip_addr, ca):
     raise ConnectionRefusedError
 
 
-def create_error(status, reason, msg):
+def create_error(status, reason, msg=None):
     """Creates a standard error object
 
     :param status: Rest API status code.
@@ -219,12 +199,12 @@ def create_error(status, reason, msg):
     :param reason: Rest API reason
     :type reason: str
     :param msg: Formatted error message(s)
-    :type msg: str, list
+    :type msg: None, str, list
     :return: error_obj
     :rtype: dict
     """
-    ml = msg if isinstance(msg, list) else [msg]
-    return dict(_raw_data=dict(status=status, reason=reason), errors=dict(error=[{'error-message': buf} for buf in ml]))
+    return dict(_raw_data=dict(status=status, reason=reason),
+                errors=dict(error=[{'error-message': buf} for buf in gen_util.convert_to_list(msg)]))
 
 
 def obj_status(obj):
@@ -275,7 +255,7 @@ def obj_reason(obj):
 
 
 def obj_error_detail(obj):
-    """Formats the error message detail into human readable format. Typically only called from formatted_error_msg().
+    """Formats the error message detail into human-readable format. Typically only called from formatted_error_msg().
 
     :param obj: API object
     :type obj: dict
@@ -312,7 +292,7 @@ def obj_error_detail(obj):
 
 
 def formatted_error_msg(obj):
-    """Formats the error message into a human readable format
+    """Formats the FOS responses into a human-readable format. Typically only used for error messages
 
     :param obj: Object returned from get_request()
     :type obj: dict
@@ -330,7 +310,7 @@ def formatted_error_msg(obj):
 def login(user, password, ip_addr, in_http_access=None):
     """Establish a session to the FOS switch and return the session object
 
-    :param user: User name to establish a session.
+    :param user: Username to establish a session.
     :type user: str
     :param password: Password to establish a session.
     :type password: str
@@ -347,13 +327,15 @@ def login(user, password, ip_addr, in_http_access=None):
         buf = 'HTTP access other than "none" and "self" has not been implemented. Entered HTTPS method was: ' +\
               str(http_access)
         brcdapi_log.log(buf, echo=True)
-        return create_error(brcdapi_util.HTTP_BAD_REQUEST, 'Unsupported login', str(http_access, errors='ignore'))
+        return create_error(brcdapi_util.HTTP_BAD_REQUEST,
+                            'Unsupported login',
+                            msg=[str(type(http_access)), str(http_access)])
 
     # Get connection token
     try:
         conn = _get_connection(ip_addr, http_access)
     except ConnectionRefusedError:
-        return create_error(brcdapi_util.HTTP_NOT_FOUND, 'Connection refused', '').update(ip_addr=ip_addr)
+        return create_error(brcdapi_util.HTTP_NOT_FOUND, 'Connection refused').update(ip_addr=ip_addr)
     auth = user + ':' + password
     auth_encoded = base64.b64encode(auth.encode())
     credential = {
@@ -366,9 +348,9 @@ def login(user, password, ip_addr, in_http_access=None):
     try:
         conn.request('POST', _LOGIN_RESTCONF, '', credential)
     except (TimeoutError, OSError):
-        return create_error(brcdapi_util.HTTP_NOT_FOUND, 'Not Found', '').update(ip_addr=ip_addr)
+        return create_error(brcdapi_util.HTTP_NOT_FOUND, 'Not Found').update(ip_addr=ip_addr)
     except BaseException as e:
-        e_buf = str(e, errors='ignore') if isinstance(e, (bytes, str)) else str(type(e))
+        e_buf = str(type(e)) + ': ' + str(e)
         brcdapi_log.exception(['', 'Unknown exception: ', e_buf], echo=True)
         return create_error(brcdapi_util.HTTP_NOT_FOUND, 'Not Found', e_buf).update(ip_addr=ip_addr)
 
@@ -385,8 +367,11 @@ def login(user, password, ip_addr, in_http_access=None):
     json_data.update(conn=conn,
                      credential=credential,
                      ip_addr=ip_addr,
+                     user_id=user,
+                     user_pw=password,
                      ishttps=False if http_access == 'none' else True,
-                     debug=False)
+                     ssh_login=None,  # Used in fos_cli.py
+                     ssh_fault=False)  # Used in fos_cli.py to indicate an SSH login was attempted but failed.
 
     return json_data
 
@@ -398,6 +383,10 @@ def logout(session):
     :type session: dict
     :rtype: None.
     """
+    # CLI logout
+    fos_cli.logout(session)
+
+    # API logout
     conn = session.get('conn')
     conn.request('POST', _LOGOUT_RESTCONF, '', session.get('credential'))
     return basic_api_parse(conn.getresponse().read())

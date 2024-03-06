@@ -1,18 +1,17 @@
-# Copyright 2020, 2021, 2022, 2023 Jack Consoli.  All rights reserved.
-#
-# NOT BROADCOM SUPPORTED
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may also obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 """
+Copyright 2023, 2024 Consoli Solutions, LLC.  All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+the License. You may also obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific
+language governing permissions and limitations under the License.
+
+The license is free for single customer use (internal applications). Use of this module in the production,
+redistribution, or service delivery for commerce requires an additional license. Contact jack@consoli-solutions.com for
+details.
+
 :mod:`port.py` - Methods to configure ports.
 
 Description::
@@ -38,7 +37,7 @@ Public Methods & Data::
     +-----------------------+---------------------------------------------------------------------------------------+
     | enable_port           | Enables a port or list of ports on a specific logical switch.                         |
     +-----------------------+---------------------------------------------------------------------------------------+
-    | port_enable_disable   | Enables or disables a port or list of ports. Typically enable_port() or               |
+    | port_enable_disable   | Enables or disables a port or list of ports. Typically, enable_port() or              |
     |                       | port_disable() is called externally instead of this method.                           |
     +-----------------------+---------------------------------------------------------------------------------------+
     | ports_to_list         | Converts ports to a list of ports. Many sources for ports return None, a single port, |
@@ -67,41 +66,20 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | Version   | Last Edit     | Description                                                                       |
     +===========+===============+===================================================================================+
-    | 3.0.0     | 27 Nov 2020   | Initial Launch                                                                    |
+    | 4.0.0     | 04 Aug 2023   | Re-Launch                                                                         |
     +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.1     | 13 Feb 2021   | Added disable_port()                                                              |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.2     | 14 Nov 2021   | Deprecated pyfos_auth                                                             |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.3     | 31 Dec 2021   | Improved comments only. No functional changes                                     |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.4     | 28 Apr 2022   | Use new URI formats.                                                              |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.5     | 22 Jun 2022   | Removed GE input parameter in clear_stats()                                       |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.6     | 25 Jul 2022   | Added decommission_port(), sort_ports(), and added persistent to enable_port()    |
-    |           |               | and disable_port                                                                  |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.7     | 14 Oct 2022   | Modified decommission_port() to handle case when status is immediately available  |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.8     | 01 Jan 2023   | Added reserve_pod(), release_pod(), port_range_to_list(), set_mode(), and         |
-    |           |               | bind_addresses().                                                                 |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.0.9     | 09 May 2023   | used brcdapi_rest.operations_request() in decommission_port()                     |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.1.0     | 21 May 2023   | Updated comments and removed unused import                                        |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 3.1.1     | 11 Jul 2023   | Added support for ge ports in sort_ports()                                        |
+    | 4.0.1     | 06 Mar 2024   | Documentation updates only.                                                       |
     +-----------+---------------+-----------------------------------------------------------------------------------+
 """
+
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2020, 2021, 2022, 2023 Jack Consoli'
-__date__ = '11 Jul 2023'
+__copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
+__date__ = '06 Mar 2024'
 __license__ = 'Apache License, Version 2.0'
-__email__ = 'jack.consoli@broadcom.com'
+__email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '3.1.1'
+__version__ = '4.0.1'
 
 import collections
 import brcdapi.util as brcdapi_util
@@ -204,7 +182,7 @@ default_port_config_d['f-port-buffers'] = 0  # No F-Port buffers
 default_port_config_d['e-port-credit'] = 0  # No additional E-Port credits
 default_port_config_d['csctl-mode-enabled'] = 0  # CSCTL mode is disabled
 default_port_config_d['fault-delay-enabled'] = 0  # The value is R_A_TOV
-default_port_config_d['octet-speed-combo'] = 1  # Auto-negotiated or fixed port speeds of 32, 16, 8, 4, and 2 Gb/s.
+default_port_config_d['octet-speed-combo'] = 1  # Auto-negotiated or fixed port speeds.
 default_port_config_d['isl-ready-mode-enabled'] = 0  # ISL ready mode is disabled on the port
 default_port_config_d['rscn-suppression-enabled'] = 0  # RSCN is disabled on the port
 default_port_config_d['los-tov-mode-enabled'] = 0  # LOS_TOV mode is disabled on the port
