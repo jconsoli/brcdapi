@@ -1,7 +1,13 @@
 # brcdapi
 
 Consoli Solutions, LLC
-jack_consoli@yahoo.com
+jack@consoli-solutions.com
+
+**Updates 6 March 2024**
+
+* Miscellaneous bug fixes
+* Improved error messaging
+* Updated comments
 
 **Updates 04 Aug 2023**
 
