@@ -12,62 +12,62 @@ The license is free for single customer use (internal applications). Use of this
 redistribution, or service delivery for commerce requires an additional license. Contact jack@consoli-solutions.com for
 details.
 
-:mod:`brcdapi.utils` - Utility methods
+**Description**
 
-Description::
+Used for:
 
-    Used for:
+* Defining common HTTP status & messages
+* CLI to API conversion for MAPS rules
+* Action tables, see discussion below
 
-    * Defining common HTTP status & messages
-    * CLI to API conversion for MAPS rules
-    * Action tables, see discussion below
+In FOS 8.2.1c, module-version was introduced but as of v9.2.0, still contained scant information about each module. The
+table uri_map is a hard coded table to serve applications and other libraries that need to know how to build a full URI
+and define the behavior of each exposed in the API. The hope is that some day, this information will be available
+through the API allowing uri_map to be built dynamically.
 
-    In FOS 8.2.1c, module-version was introduced but as of v9.2.0, still contained scant information about each
-    module. The table uri_map is a hard coded table to serve applications and other libraries that need to know how to
-    build a full URI and define the behavior of each exposed in the API. The hope is that some day, this information
-    will be available through the API allowing uri_map to be built dynamically.
+**WARNING**
 
-    **WARNING**
+Only GET is valid in the 'methods' leaf of uti_map
 
-    Only GET is valid in the 'methods' leaf of uti_map
+**Public Methods & Data**
 
-Public Methods & Data::
++-----------------------+---------------------------------------------------------------------------------------+
+| Method                | Description                                                                           |
++=======================+=======================================================================================+
+| HTTP_xxx              | Several comon status codes and reasons for synthesizing API responses. Typically this |
+|                       | used for logic that determines an issue whereby the request can't be sent to the      |
+|                       | switch API based on problems found with the input to the method.                      |
++-----------------------+---------------------------------------------------------------------------------------+
+| mask_ip_addr          | Replaces IP address with xxx.xxx.xxx.123 or all x depending on keep_last              |
++-----------------------+---------------------------------------------------------------------------------------+
+| vfid_to_str           | Converts a FID to a string, '?vf-id=xx' to be appended to a URI that requires a FID   |
++-----------------------+---------------------------------------------------------------------------------------+
+| add_uri_map           | Builds out the URI map and adds it to the session. Intended to be called once         |
+|                       | immediately after login                                                               |
++-----------------------+---------------------------------------------------------------------------------------+
+| split_uri             | Strips out leading '/rest/'. Optionally remove 'running' and 'operations'             |
++-----------------------+---------------------------------------------------------------------------------------+
+| session_cntl          | Returns the control dictionary (uri map) for the uri                                  |
++-----------------------+---------------------------------------------------------------------------------------+
+| format_uri            | Formats a full URI                                                                    |
++-----------------------+---------------------------------------------------------------------------------------+
+| uri_d                 | Returns the dictionary in the URI map for a specified URI                             |
++-----------------------+---------------------------------------------------------------------------------------+
+| validate_fid          | Validates a FID or list of FIDs                                                       |
++-----------------------+---------------------------------------------------------------------------------------+
 
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | Method                | Description                                                                           |
-    +=======================+=======================================================================================+
-    | HTTP_xxx              | Several comon status codes and reasons for synthesizing API responses. Typically this |
-    |                       | used for logic that determines an issue whereby the request can't be sent to the      |
-    |                       | switch API based on problems found with the input to the method.                      |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | mask_ip_addr          | Replaces IP address with xxx.xxx.xxx.123 or all x depending on keep_last              |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | vfid_to_str           | Converts a FID to a string, '?vf-id=xx' to be appended to a URI that requires a FID   |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | add_uri_map           | Builds out the URI map and adds it to the session. Intended to be called once         |
-    |                       | immediately after login                                                               |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | split_uri             | Strips out leading '/rest/'. Optionally remove 'running' and 'operations'             |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | session_cntl          | Returns the control dictionary (uri map) for the uri                                  |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | format_uri            | Formats a full URI                                                                    |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | uri_d                 | Returns the dictionary in the URI map for a specified URI                             |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | validate_fid          | Validates a FID or list of FIDs                                                       |
-    +-----------------------+---------------------------------------------------------------------------------------+
+**Version Control**
 
-Version Control::
-
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | Version   | Last Edit     | Description                                                                       |
-    +===========+===============+===================================================================================+
-    | 4.0.0     | 04 Aug 2023   | Re-Launch                                                                         |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 4.0.1     | 06 Mar 2024   | Added brocade-maps and brocade-fibrechannel-routing to common URIs. Added         |
-    |           |               | validate_fid()                                                                    |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
++-----------+---------------+-----------------------------------------------------------------------------------+
+| Version   | Last Edit     | Description                                                                       |
++===========+===============+===================================================================================+
+| 4.0.0     | 04 Aug 2023   | Re-Launch                                                                         |
++-----------+---------------+-----------------------------------------------------------------------------------+
+| 4.0.1     | 06 Mar 2024   | Added brocade-maps and brocade-fibrechannel-routing to common URIs. Added         |
+|           |               | validate_fid()                                                                    |
++-----------+---------------+-----------------------------------------------------------------------------------+
+| 4.0.2     | 03 Apr 2024   | Added common URIs                                                                 |
++-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
@@ -233,6 +233,7 @@ bc_https_ka_to = bcmic_uri + '/https-keep-alive-timeout'
 # Commonly used URIs: brocade-fabric/fabric-switch
 bfsw_uri = 'brocade-fabric/fabric-switch'
 bf_sw_user_name = bfsw_uri + '/switch-user-friendly-name'  # Depracated? Use bfs_sw_user_name
+# brocade-fabric/fabric-switch/switch-user-friendly-name
 bf_sw_wwn = bfsw_uri + '/name'
 bf_fw_version = bfsw_uri + '/firmware-version'
 # Commonly used URIs: brocade-fibrechannel-logical-switch

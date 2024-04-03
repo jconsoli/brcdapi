@@ -12,56 +12,57 @@ The license is free for single customer use (internal applications). Use of this
 redistribution, or service delivery for commerce requires an additional license. Contact jack@consoli-solutions.com for
 details.
 
-:mod:`brcdapi.util.file` - File operation methods
-
-Description::
+**Description**
 
     General purpose file operations.
 
-Public Methods & Data::
+**Public Methods & Data**
 
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | Method                | Description                                                                           |
-    +=======================+=======================================================================================+
-    | write_dump            | Converts a Python object to JSON and writes it to a file.                             |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | read_dump             | Reads in a file with JSON formatted data and loads into a Python object.              |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | read_directory        | Reads in the contents of a folder (directory) and return the list of files only (no   |
-    |                       | directories) in that folder                                                           |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | read_file             | Reads a file, comments and blank lines optionally removed, and trailing white space   |
-    |                       | removed into a list                                                                   |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | file_properties       | Reads the file properties into a dictionary                                           |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | read_full_directory   | Beginning with folder, reads the full content of a folder and puts all file names and |
-    |                       | stats in a list of dict                                                               |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | full_file_name        | Checks to see if an extension is already in the file name and adds it if necessary    |
-    +-----------------------+---------------------------------------------------------------------------------------+
++-----------------------+---------------------------------------------------------------------------------------+
+| Method                | Description                                                                           |
++=======================+=======================================================================================+
+| file_properties       | Reads the file properties into a dictionary                                           |
++-----------------------+---------------------------------------------------------------------------------------+
+| full_file_name        | Checks to see if an extension is already in the file name and adds it if necessary    |
++-----------------------+---------------------------------------------------------------------------------------+
+| read_directory        | Reads in the contents of a folder (directory) and return the list of files only (no   |
+|                       | directories) in that folder                                                           |
++-----------------------+---------------------------------------------------------------------------------------+
+| read_dump             | Reads in a file with JSON formatted data and loads into a Python object.              |
++-----------------------+---------------------------------------------------------------------------------------+
+| read_file             | Reads a file, comments and blank lines optionally removed, and trailing white space   |
+|                       | removed into a list                                                                   |
++-----------------------+---------------------------------------------------------------------------------------+
+| read_full_directory   | Beginning with folder, reads the full content of a folder and puts all file names and |
+|                       | stats in a list of dict                                                               |
++-----------------------+---------------------------------------------------------------------------------------+
+| write_dump            | Converts a Python object to JSON and writes it to a file.                             |
++-----------------------+---------------------------------------------------------------------------------------+
+| write_file            | Write a list of strings to a file                                                     |
++-----------------------+---------------------------------------------------------------------------------------+
 
-Version Control::
+**Version Control**
 
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | Version   | Last Edit     | Description                                                                       |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | Version   | Last Edit     | Description                                                                       |
-    +===========+===============+===================================================================================+
-    | 4.0.0     | 04 Aug 2023   | Re-Launch                                                                         |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 4.0.1     | 06 Mar 2024   | Documentation updates only.                                                       |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
++-----------+---------------+-----------------------------------------------------------------------------------+
+| Version   | Last Edit     | Description                                                                       |
++-----------+---------------+-----------------------------------------------------------------------------------+
+| Version   | Last Edit     | Description                                                                       |
++===========+===============+===================================================================================+
+| 4.0.0     | 04 Aug 2023   | Re-Launch                                                                         |
++-----------+---------------+-----------------------------------------------------------------------------------+
+| 4.0.1     | 06 Mar 2024   | Documentation updates only.                                                       |
++-----------+---------------+-----------------------------------------------------------------------------------+
+| 4.0.2     | 03 Apr 2024   | Added write_file(). Added dot parameter to full_file_name()                       |
++-----------+---------------+-----------------------------------------------------------------------------------+
 """
-
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
-__date__ = '06 Mar 2024'
+__date__ = '03 Apr 2024'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.1'
+__version__ = '4.0.2'
 
 import json
 import os
@@ -151,6 +152,30 @@ def read_file(file, remove_blank=True, rc=True):
     content = data.replace('\r\n', '\n').replace('\n\r', '\n').replace('\r', '\n').split('\n')
     rl = [buf[:buf.find('#')].rstrip() if buf.find('#') >= 0 else buf.rstrip() for buf in content] if rc else content
     return [buf for buf in rl if len(buf) > 0] if remove_blank else rl
+
+
+def write_file(file, content_l):
+    """Write a list of strings to a file
+
+    :param file: Full path with name of file to write
+    :type file: str
+    :param content_l: List of strings to write to file
+    :type content_l: list
+    :return: Error messages.
+    :rtype: list
+    """
+    el = list()
+    try:
+        with open(file, 'w') as f:
+            f.write('\n'.join(content_l))
+        f.close()
+    except FileExistsError:
+        el.append('A folder in ' + file + ' does not exist.')
+    except PermissionError:
+        el.append('You do not have permission to write ' + file + '.')
+    except BaseException as e:
+        el.extend(['Unexcpected error while writing ' + str(file), str(type(e)) + str(e)])
+    return el
 
 
 def file_properties(folder, file):
@@ -247,7 +272,7 @@ def read_full_directory(folder, skip_sys=False):
     return rl
 
 
-def full_file_name(file, extension, prefix=None):
+def full_file_name(file, extension, prefix=None, dot=False):
     """Checks to see if an extension is already in the file name and adds it if necessary
 
     :param file: File name. If None, None is returned
@@ -256,11 +281,13 @@ def full_file_name(file, extension, prefix=None):
     :type extension: str
     :param prefix: A prefix to add. Typically, a folder name. If a folder, don't forget the last character must be '/'
     :type prefix: None, str
+    :param dot: If True, return file as is if there is a "." in it.
+    :type dot: bool
     :return: File name with the extension and prefix added
     :rtype: str
     """
-    if file is None:
-        return None
-    x = len(extension)
-    p = '' if prefix is None else prefix
-    return p + file + extension if len(file) < x or file[len(file)-x:].lower() != extension.lower() else p + file
+    if isinstance(file, str) and '.' not in file:
+        x = len(extension)
+        p = '' if prefix is None else prefix
+        return p + file + extension if len(file) < x or file[len(file)-x:].lower() != extension.lower() else p + file
+    return file

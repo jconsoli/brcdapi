@@ -59,16 +59,18 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 4.0.1     | 06 Mar 2024   | Documentation updates only.                                                       |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 4.0.2     | 03 Apr 2024   | Added creator to save_report()                                                    |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
-__date__ = '06 Mar 2024'
+__date__ = '03 Apr 2024'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.1'
+__version__ = '4.0.2'
 
 import openpyxl as xl
 import openpyxl.utils.cell as xl_util
@@ -186,14 +188,17 @@ def new_report():
     return xl.Workbook()
 
 
-def save_report(wb, file_name='Report.xlsx'):
+def save_report(wb, file_name='Report.xlsx', creator='Consoli-Solutions, LLC'):
     """Saves a workbook object as an Excel file.
 
     :param wb: Workbook object
     :type wb: openpyxl.workbook.workbook.Workbook
     :param file_name: Report name
     :type file_name: str
+    :param creator: Name of person or organization creating this document.
+    :type creator: str
     """
+    wb.properties.creator = 'Consoli-Solutions, LLC'
     wb.save(brcdapi_file.full_file_name(file_name, '.xlsx'))
 
 

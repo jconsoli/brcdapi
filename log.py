@@ -53,16 +53,18 @@ Version Control::
     +-----------+---------------+-----------------------------------------------------------------------------------+
     | 4.0.1     | 06 Mar 2024   | Documentation updates only.                                                       |
     +-----------+---------------+-----------------------------------------------------------------------------------+
+    | 4.0.2     | 03 Apr 2024   | Added version_d to open_log()                                                     |
+    +-----------+---------------+-----------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
-__date__ = '06 Mar 2024'
+__date__ = '03 Apr 2024'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.1'
+__version__ = '4.0.2'
 
 import traceback
 import datetime
@@ -161,7 +163,7 @@ def close_log(msg=None, echo=False, force=False):
         _log_obj = None
 
 
-def open_log(folder=None, supress=False, no_log=False):
+def open_log(folder=None, supress=False, no_log=False, version_d=None):
     """Creates a log file. If the log file is already open, it is closed and a new one created.
 
     :param folder: Directory for the log file.
@@ -170,9 +172,13 @@ def open_log(folder=None, supress=False, no_log=False):
     :type supress: bool
     :param no_log: If True, do not open the log file
     :type no_log: bool
+    :param version_d: Dictionary of imported modules and version numbers
+    :type version_d: None,dict
     :rtype: None
     """
     global _log_obj
+
+    in_version_d = dict() if version_d is None else version_d
 
     # Figure out what the log file name is
     log_file = 'Log_' + datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S_%f') + '.txt'
@@ -191,6 +197,9 @@ def open_log(folder=None, supress=False, no_log=False):
     el = list()  # Error messages
     try:
         _log_obj = open(file_name, 'w')
+        el.append('Successfully opened log file: ' + file_name)
+        el.extend([str(k) + ': ' + str(v) for k,v in in_version_d.items()])
+        log(el)
         return
     except FileNotFoundError:
         el.append(folder + ' Does not exist.')
@@ -204,6 +213,7 @@ def open_log(folder=None, supress=False, no_log=False):
             _log_obj = open(log_file, 'w')
             el.append('Successfully opened log file in local directory')
             log(el, echo=True)
+            log([str(k) + ': ' + str(v) for k, v in in_version_d.items()])
             return
         except PermissionError:
             el.append('Write access permission was not granted. All processing terminated.')
