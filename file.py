@@ -14,55 +14,55 @@ details.
 
 **Description**
 
-    General purpose file operations.
+General purpose file operations.
 
 **Public Methods & Data**
 
-+-----------------------+---------------------------------------------------------------------------------------+
-| Method                | Description                                                                           |
-+=======================+=======================================================================================+
-| file_properties       | Reads the file properties into a dictionary                                           |
-+-----------------------+---------------------------------------------------------------------------------------+
-| full_file_name        | Checks to see if an extension is already in the file name and adds it if necessary    |
-+-----------------------+---------------------------------------------------------------------------------------+
-| read_directory        | Reads in the contents of a folder (directory) and return the list of files only (no   |
-|                       | directories) in that folder                                                           |
-+-----------------------+---------------------------------------------------------------------------------------+
-| read_dump             | Reads in a file with JSON formatted data and loads into a Python object.              |
-+-----------------------+---------------------------------------------------------------------------------------+
-| read_file             | Reads a file, comments and blank lines optionally removed, and trailing white space   |
-|                       | removed into a list                                                                   |
-+-----------------------+---------------------------------------------------------------------------------------+
-| read_full_directory   | Beginning with folder, reads the full content of a folder and puts all file names and |
-|                       | stats in a list of dict                                                               |
-+-----------------------+---------------------------------------------------------------------------------------+
-| write_dump            | Converts a Python object to JSON and writes it to a file.                             |
-+-----------------------+---------------------------------------------------------------------------------------+
-| write_file            | Write a list of strings to a file                                                     |
-+-----------------------+---------------------------------------------------------------------------------------+
++-----------------------+-------------------------------------------------------------------------------------------+
+| Method                | Description                                                                               |
++=======================+===========================================================================================+
+| file_properties       | Reads the file properties into a dictionary                                               |
++-----------------------+-------------------------------------------------------------------------------------------+
+| full_file_name        | Checks to see if an extension is already in the file name and adds it if necessary        |
++-----------------------+-------------------------------------------------------------------------------------------+
+| read_directory        | Reads in the contents of a folder (directory) and return the list of files only (no       |
+|                       | directories) in that folder                                                               |
++-----------------------+-------------------------------------------------------------------------------------------+
+| read_dump             | Reads in a file with JSON formatted data and loads into a Python object.                  |
++-----------------------+-------------------------------------------------------------------------------------------+
+| read_file             | Reads a file, comments and blank lines optionally removed, and trailing white space       |
+|                       | removed into a list                                                                       |
++-----------------------+-------------------------------------------------------------------------------------------+
+| read_full_directory   | Beginning with folder, reads the full content of a folder and puts all file names and     |
+|                       | stats in a list of dict                                                                   |
++-----------------------+-------------------------------------------------------------------------------------------+
+| write_dump            | Converts a Python object to JSON and writes it to a file.                                 |
++-----------------------+-------------------------------------------------------------------------------------------+
+| write_file            | Write a list of strings to a file                                                         |
++-----------------------+-------------------------------------------------------------------------------------------+
 
 **Version Control**
 
-+-----------+---------------+-----------------------------------------------------------------------------------+
-| Version   | Last Edit     | Description                                                                       |
-+-----------+---------------+-----------------------------------------------------------------------------------+
-| Version   | Last Edit     | Description                                                                       |
-+===========+===============+===================================================================================+
-| 4.0.0     | 04 Aug 2023   | Re-Launch                                                                         |
-+-----------+---------------+-----------------------------------------------------------------------------------+
-| 4.0.1     | 06 Mar 2024   | Documentation updates only.                                                       |
-+-----------+---------------+-----------------------------------------------------------------------------------+
-| 4.0.2     | 03 Apr 2024   | Added write_file(). Added dot parameter to full_file_name()                       |
-+-----------+---------------+-----------------------------------------------------------------------------------+
++-----------+---------------+---------------------------------------------------------------------------------------+
+| Version   | Last Edit     | Description                                                                           |
++===========+===============+=======================================================================================+
+| 4.0.0     | 04 Aug 2023   | Re-Launch                                                                             |
++-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.1     | 06 Mar 2024   | Documentation updates only.                                                           |
++-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.2     | 03 Apr 2024   | Added write_file(). Added dot parameter to full_file_name()                           |
++-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.3     | 15 May 2024   | Fixed full_file_name() when dot is False and the file name has a '.' in it.           |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
-__date__ = '03 Apr 2024'
+__date__ = '15 May 2024'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.2'
+__version__ = '4.0.3'
 
 import json
 import os
@@ -286,8 +286,10 @@ def full_file_name(file, extension, prefix=None, dot=False):
     :return: File name with the extension and prefix added
     :rtype: str
     """
-    if isinstance(file, str) and '.' not in file:
-        x = len(extension)
-        p = '' if prefix is None else prefix
-        return p + file + extension if len(file) < x or file[len(file)-x:].lower() != extension.lower() else p + file
+    if isinstance(file, str):
+        if not dot or (dot and not '.' in file):
+            x = len(extension)
+            p = '' if prefix is None else prefix
+            return p + file + extension if len(file) < x or file[len(file)-x:].lower() != extension.lower() \
+                else p + file
     return file

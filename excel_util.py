@@ -14,63 +14,65 @@ details.
 
 :mod:`brcdapi.excel_util` - Contains miscellaneous Excel workbook utilitarian methods.
 
-Public Methods & Data::
+**Public Methods & Data**
 
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | Method                | Description                                                                           |
-    +=======================+=======================================================================================+
-    | cell_match_val        | Finds the cell matching a value                                                       |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | cell_update           | A convenient way to set cell properties and the cell value in a single call.          |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | col_to_num            | Converts a cell reference to a column number. I'm pretty sure the openpyxl library    |
-    |                       | has an equivalent. I couldn't find it so this was an expedient                        |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | copy_worksheet        | Typically used to copy a worksheet from one workbook to another                       |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | excel_datetime        | Converts a datetime.datetime class object from Excel to formatted text                |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | find_headers          | Match columns to headers. Duplicate headers are ignored. Optionally warn if a         |
-    |                       | duplicate is encountered.                                                             |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | new_report            | Creates a workbook object for the Excel report.                                       |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | parse_parameters      | Parses a Workbook into a dictionary of header columns and content by header. See      |
-    |                       | sample_parameters.xlsx                                                                |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | read_sheet            | Reads the contents (values) of a worksheet into two lists of dictionaries. The cell   |
-    |                       | list is a list of dictionaries whereby the key is the cell reference and the value is |
-    |                       | the value of the cell. This is typically only used by applications using the brcddb   |
-    |                       | search engine. The second is a list of lists that make up a C like array that can be  |
-    |                       | accessed with a row and column number for the cell value.                             |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | read_workbook         | Reads a workbook into a list of worksheets followed by lists of lists which           |
-    |                       | effectively make up a row by column matrix of each sheet.                             |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | save_report           | Saves a workbook object as an Excel file.                                             |
-    +-----------------------+---------------------------------------------------------------------------------------+
++-----------------------+-------------------------------------------------------------------------------------------+
+| Method                | Description                                                                               |
++=======================+===========================================================================================+
+| cell_match_val        | Finds the cell matching a value                                                           |
++-----------------------+-------------------------------------------------------------------------------------------+
+| cell_update           | A convenient way to set cell properties and the cell value in a single call.              |
++-----------------------+-------------------------------------------------------------------------------------------+
+| col_to_num            | Converts a cell reference to a column number. I'm pretty sure the openpyxl library has an |
+|                       | equivalent. I couldn't find it so this was an expedient                                   |
++-----------------------+-------------------------------------------------------------------------------------------+
+| copy_worksheet        | Typically used to copy a worksheet from one workbook to another                           |
++-----------------------+-------------------------------------------------------------------------------------------+
+| excel_datetime        | Converts a datetime.datetime class object from Excel to formatted text                    |
++-----------------------+-------------------------------------------------------------------------------------------+
+| find_headers          | Match columns to headers. Duplicate headers are ignored. Optionally warn if a duplicate   |
+|                       | is encountered.                                                                           |
++-----------------------+-------------------------------------------------------------------------------------------+
+| new_report            | Creates a workbook object for the Excel report.                                           |
++-----------------------+-------------------------------------------------------------------------------------------+
+| parse_parameters      | Parses a Workbook into a dictionary of header columns and content by header. See          |
+|                       | sample_parameters.xlsx                                                                    |
++-----------------------+-------------------------------------------------------------------------------------------+
+| read_sheet            | Reads the contents (values) of a worksheet into two lists of dictionaries. The cell list  |
+|                       | is a list of dictionaries whereby the key is the cell reference and the value is the      |
+|                       | value of the cell. This is typically only used by applications using the brcddb search    |
+|                       | engine. The second is a list of lists that make up a C like array that can be accessed    |
+|                       | with a row and column number for the cell value.                                          |
++-----------------------+-------------------------------------------------------------------------------------------+
+| read_workbook         | Reads a workbook into a list of worksheets followed by lists of lists which effectively   |
+|                       | make up a row by column matrix of each sheet.                                             |
++-----------------------+-------------------------------------------------------------------------------------------+
+| save_report           | Saves a workbook object as an Excel file.                                                 |
++-----------------------+-------------------------------------------------------------------------------------------+
 
-Version Control::
+**Version Control**
 
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | Version   | Last Edit     | Description                                                                       |
-    +===========+===============+===================================================================================+
-    | 4.0.0     | 04 Aug 2023   | Re-Launch                                                                         |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 4.0.1     | 06 Mar 2024   | Documentation updates only.                                                       |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 4.0.2     | 03 Apr 2024   | Added creator to save_report()                                                    |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
++-----------+---------------+---------------------------------------------------------------------------------------+
+| Version   | Last Edit     | Description                                                                           |
++===========+===============+=======================================================================================+
+| 4.0.0     | 04 Aug 2023   | Re-Launch                                                                             |
++-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.1     | 06 Mar 2024   | Documentation updates only.                                                           |
++-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.2     | 03 Apr 2024   | Added creator to save_report()                                                        |
++-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.3     | 15 May 2024   | Added hidden parameter to read_sheet() and read_workbook()                            |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
-__date__ = '03 Apr 2024'
+__date__ = '15 May 2024'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.2'
+__version__ = '4.0.3'
 
 import openpyxl as xl
 import openpyxl.utils.cell as xl_util
@@ -260,7 +262,7 @@ def cell_match_val(sheet, val, col=None, row=None, num=1):
     return ret if num != 1 else ret[0] if len(ret) > 0 else None
 
 
-def read_sheet(sheet, order='col', granularity=2):
+def read_sheet(sheet, order='col', granularity=2, hidden=True):
     """Reads the contents (values) of a worksheet into two lists of dictionaries. The cell list is a list of
     dictionaries whereby the key is the cell reference and the value is the value of the cell. This is typically only
     used by applications using the brcddb search engine. The second is a list of lists that make up a C like array that
@@ -283,6 +285,9 @@ def read_sheet(sheet, order='col', granularity=2):
     :type order: str
     :param granularity: See description of granularity with excel_datetime()
     :type granularity: int
+    :param hidden: If True (default), read all cells from hidden rows/columns. If False, all values for cells in hidden
+                   rows/columns will be None.
+    :type hidden: bool
     :return sl: Dictionaries as noted above
     :rtype sl: list
     :return al: Contents of the worksheet referenced by al[col-1][row-1] if order is 'col' or
@@ -293,6 +298,9 @@ def read_sheet(sheet, order='col', granularity=2):
     sl, al = list(), list()
     if order.lower() == 'col':
         for col in range(1, sheet.max_column+1):
+            if not hidden and col in sheet.column_dimensions and sheet.column_dimensions[col].hidden:
+                al.append([None for row in range(1, sheet.max_row+1)])
+                continue
             col_ref = xl_util.get_column_letter(col)
             rl = list()
             for row in range(1, sheet.max_row+1):
@@ -310,6 +318,9 @@ def read_sheet(sheet, order='col', granularity=2):
             al.append(rl)
     else:
         for row in range(1, sheet.max_row+1):
+            if not hidden and row in sheet.row_dimensions and sheet.row_dimensions[row].hidden:
+                al.append([None for col in range(1, sheet.max_column + 1)])
+                continue
             cl = list()
             for col in range(1, sheet.max_column+1):
                 cell = xl_util.get_column_letter(col) + str(row)
@@ -366,7 +377,7 @@ def cell_update(sheet, row, col, buf, font=None, align=None, fill=None, link=Non
         sheet[cell] = buf
 
 
-def read_workbook(file, dm=0, order='row', sheets=None, skip_sheets=None, echo=False):
+def read_workbook(file, dm=0, order='row', sheets=None, skip_sheets=None, echo=False, hidden=True):
     """Reads an Excel workbook
 
     For large workbooks that take a long time to read, it turned out to be convenient to leave these debug modes in.
@@ -399,6 +410,8 @@ def read_workbook(file, dm=0, order='row', sheets=None, skip_sheets=None, echo=F
     :type skip_sheets: None, list, tuple, str
     :param echo: If True, print read/write status to STD_OUT
     :type echo: bool
+    :param hiden: If True, read hiden rows from sheet
+    :type hiden: bool
     :return el: Errors. Empty if no errors.
     :rtype el: list
     :return sl: List of dictionaries, one for each sheet, with the file, sheet name, and excel_util.read_sheet() output.
@@ -467,7 +480,7 @@ def read_workbook(file, dm=0, order='row', sheets=None, skip_sheets=None, echo=F
     # Read the sheets
     for sheet_name in sheet_l:
         brcdapi_log.log('  Reading sheet ' + sheet_name, echo=echo)
-        sl, al = read_sheet(wb[sheet_name], order='row')
+        sl, al = read_sheet(wb[sheet_name], order='row', hidden=hidden)
         rl.append(dict(file=file, sheet=sheet_name, sl=sl, al=al))
     brcdapi_log.log('  Read complete', echo=echo)
 

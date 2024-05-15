@@ -20,149 +20,156 @@ details.
 
 **Public Methods & Data**
 
-+-----------------------------+-------------------------------------------------------------------------------------|
-| Method or Data              | Description                                                                         |
-+=============================+=====================================================================================+
-| add_to_obj                  | Adds a key value pair to obj using '/' notation in the key. If the key already      |
-|                             | exists, it is overwritten.                                                          |
-+-----------------------------+-------------------------------------------------------------------------------------|
-| compare_lists               | Compare two lists. Returns True if they are equal, False otherwise.                 |
-+-----------------------------+-------------------------------------------------------------------------------------|
-| convert_to_list             | Converts an object to a list. Typically used to convert objects that may be None,   |
-|                             | str, int, float, dict, or list.                                                     |
-+-----------------------------+-------------------------------------------------------------------------------------|
-| date_to_epoch               | Converts a date and time string to epoch time.                                      |
-+-----------------------------+-------------------------------------------------------------------------------------|
-| dBm_to_absolute             | Converts a number in dBm to its value                                               |
-+-----------------------------+-------------------------------------------------------------------------------------|
-| get_input                   | Performs standard command line input parsing using argparse.                        |
-+-----------------------------+-------------------------------------------------------------------------------------|
-| get_key_val                 | Spins through a list of keys separated by a '/' and returns the value associated    |
-|                             | with the last key.                                                                  |
-+-----------------------------+-------------------------------------------------------------------------------------|
-| get_struct_from_obj         | Returns a Python data structure for a key using / notation in obj with everything   |
-|                             | not in the key, k, filtered out                                                     |
-+-----------------------------+-------------------------------------------------------------------------------------|
-| is_di                       | Determines if a str is a d,i pair (used in zoning)                                  |
-+-----------------------------+-------------------------------------------------------------------------------------|
-| int_list_to_range           | Converts a list of integers to ranges as text.                                      |
-+-----------------------------+-------------------------------------------------------------------------------------|
-| is_valid_zone_name          | Checks to ensure that a zone object meets the FOS zone object naming convention     |
-|                             | rules                                                                               |
-+-----------------------------+-------------------------------------------------------------------------------------|
-| is_wwn                      | Validates that the wwn is a properly formed WWN                                     |
-+-----------------------------+-------------------------------------------------------------------------------------|
-| month_to_num                | Using datetime is clumsy. These are easier. Speed is seldom the issue, but it is    |
-|                             | faster.                                                                             |
-+-----------------------------+-------------------------------------------------------------------------------------|
-| multiplier                  | Converts K, M, G, & T to an integer multiplier.                                     |
-+-----------------------------+-------------------------------------------------------------------------------------|
-| num_to_month                | Converts an integer representing a month to text.                                   |
-+-----------------------------+-------------------------------------------------------------------------------------|
-| pad_string                  | Pads characters to a string to a fixed length. This is a cheesy way to support      |
-|                             | report formatting without textable                                                  |
-+-----------------------------+-------------------------------------------------------------------------------------|
-| paren_content               | Returns the contents of a string within matching parenthesis. First character       |
-|                             | must be '('                                                                         |
-+-----------------------------+-------------------------------------------------------------------------------------|
-| range_to_list               | Converts a CSV list of integer or hex numbers as ranges to a list                   |
-+-----------------------------+-------------------------------------------------------------------------------------|
-| ReGex & miscellaneous       | Compiled ReGex for filtered or converting common. Common multipliers and date       |
-|                             | conversion tables. Search for "ReGex matching" for details.                         |
-+-----------------------------+-------------------------------------------------------------------------------------|
-| remove_duplicate_char       | Removes duplicate characters                                                        |
-+-----------------------------+-------------------------------------------------------------------------------------|
-| remove_duplicate_space      | Deprecated. Use remove_duplicate_char                                               |
-+-----------------------------+-------------------------------------------------------------------------------------|
-| remove_duplicates           | Removes duplicate entries in a list                                                 |
-+-----------------------------+-------------------------------------------------------------------------------------|
-| remove_none                 | Removes list entries whose value is None                                            |
-+-----------------------------+-------------------------------------------------------------------------------------|
-| resolve_multiplier          | Converts str representation of a number with a multiplier. Supported conversions    |
-|                             | are K, k, M, m, G, g, T, and t.                                                     |
-+-----------------------------+-------------------------------------------------------------------------------------|
-| slot_port                   | Separate the slot and port number from s/p port reference. Can also be used to      |
-|                             | validate s/p notation.                                                              |
-+-----------------------------+-------------------------------------------------------------------------------------|
-| sort_obj_num                | Sorts a list of dictionaries based on the value for a key. Value must be a number.  |
-|                             | Key may be in '/' format.                                                           |
-+-----------------------------+-------------------------------------------------------------------------------------|
-| sort_obj_str                | Sorts a list of dictionaries based on the value for a key or list of keys. Value    |
-|                             | must be a string.                                                                   |
-+-----------------------------+-------------------------------------------------------------------------------------|
-| sp_range_to_list            | Returns a list of port based on a range of ports using s/p notation.                |
-+-----------------------------+-------------------------------------------------------------------------------------|
-| str_to_num                  | Converts str to an int if it can be represented as an int, otherwise float.         |
-|                             | 12.0 is returned as a float.                                                        |
-+-----------------------------+-------------------------------------------------------------------------------------|
-| uwatts_to_dbm               | Converts a number in uWatts to dBm                                                  |
-+-----------------------------+-------------------------------------------------------------------------------------|
-| wrap_text                   | Formats text into paragraphs.                                                       |
-+-----------------------------+-------------------------------------------------------------------------------------|
++---------------------------+---------------------------------------------------------------------------------------|
+| Method or Data            | Description                                                                           |
++===========================+=======================================================================================+
+| add_to_obj                | Adds a key value pair to obj using '/' notation in the key. If the key already        |
+|                           | exists, it is overwritten.                                                            |
++---------------------------+---------------------------------------------------------------------------------------|
+| compare_lists             | Compare two lists. Returns True if they are equal, False otherwise.                   |
++---------------------------+---------------------------------------------------------------------------------------|
+| convert_to_list           | Converts an object to a list. Typically used to convert objects that may be None,     |
+|                           | str, int, float, dict, or list.                                                       |
++---------------------------+---------------------------------------------------------------------------------------|
+| date_to_epoch             | Converts a date and time string to epoch time.                                        |
++---------------------------+---------------------------------------------------------------------------------------|
+| dBm_to_absolute           | Converts a number in dBm to its value                                                 |
++---------------------------+---------------------------------------------------------------------------------------|
+| get_input                 | Performs standard command line input parsing using argparse.                          |
++---------------------------+---------------------------------------------------------------------------------------|
+| get_key_val               | Spins through a list of keys separated by a '/' and returns the value associated      |
+|                           | with the last key.                                                                    |
++---------------------------+---------------------------------------------------------------------------------------|
+| get_struct_from_obj       | Returns a Python data structure for a key using / notation in obj with everything     |
+|                           | not in the key, k, filtered out                                                       |
++---------------------------+---------------------------------------------------------------------------------------|
+| is_di                     | Determines if a str is a d,i pair (used in zoning)                                    |
++---------------------------+---------------------------------------------------------------------------------------|
+| int_list_to_range         | Converts a list of integers to ranges as text.                                        |
++---------------------------+---------------------------------------------------------------------------------------|
+| is_valid_zone_name        | Checks to ensure that a zone object meets the FOS zone object naming convention       |
+|                           | rules                                                                                 |
++---------------------------+---------------------------------------------------------------------------------------|
+| is_wwn                    | Validates that the wwn is a properly formed WWN                                       |
++---------------------------+---------------------------------------------------------------------------------------|
+| match_str                 | Returns a list of strings using exact, wild card, ReGex match, or ReGex search.       |
++---------------------------+---------------------------------------------------------------------------------------|
+| month_to_num              | Using datetime is clumsy. These are easier. Speed is seldom the issue, but it is      |
+|                           | faster.                                                                               |
++---------------------------+---------------------------------------------------------------------------------------|
+| multiplier                | Converts K, M, G, & T to an integer multiplier.                                       |
++---------------------------+---------------------------------------------------------------------------------------|
+| num_to_month              | Converts an integer representing a month to text.                                     |
++---------------------------+---------------------------------------------------------------------------------------|
+| pad_string                | Pads characters to a string to a fixed length. This is a cheesy way to support        |
+|                           | report formatting without textable                                                    |
++---------------------------+---------------------------------------------------------------------------------------|
+| paren_content             | Returns the contents of a string within matching parenthesis. First character         |
+|                           | must be '('                                                                           |
++---------------------------+---------------------------------------------------------------------------------------|
+| range_to_list             | Converts a CSV list of integer or hex numbers as ranges to a list                     |
++---------------------------+---------------------------------------------------------------------------------------|
+| ReGex & miscellaneous     | Compiled ReGex for filtered or converting common. Common multipliers and date         |
+|                           | conversion tables. Search for "ReGex matching" for details.                           |
++---------------------------+---------------------------------------------------------------------------------------|
+| remove_duplicate_char     | Removes duplicate characters                                                          |
++---------------------------+---------------------------------------------------------------------------------------|
+| remove_duplicate_space    | Deprecated. Use remove_duplicate_char                                                 |
++---------------------------+---------------------------------------------------------------------------------------|
+| remove_duplicates         | Removes duplicate entries in a list                                                   |
++---------------------------+---------------------------------------------------------------------------------------|
+| remove_none               | Removes list entries whose value is None                                              |
++---------------------------+---------------------------------------------------------------------------------------|
+| resolve_multiplier        | Converts str representation of a number with a multiplier. Supported conversions      |
+|                           | are K, k, M, m, G, g, T, and t.                                                       |
++---------------------------+---------------------------------------------------------------------------------------|
+| slot_port                 | Separate the slot and port number from s/p port reference. Can also be used to        |
+|                           | validate s/p notation.                                                                |
++---------------------------+---------------------------------------------------------------------------------------|
+| sort_obj_num              | Sorts a list of dictionaries based on the value for a key. Value must be a number.    |
+|                           | Key may be in '/' format.                                                             |
++---------------------------+---------------------------------------------------------------------------------------|
+| sort_obj_str              | Sorts a list of dictionaries based on the value for a key or list of keys. Value      |
+|                           | must be a string.                                                                     |
++---------------------------+---------------------------------------------------------------------------------------|
+| sp_range_to_list          | Returns a list of port based on a range of ports using s/p notation.                  |
++---------------------------+---------------------------------------------------------------------------------------|
+| str_to_num                | Converts str to an int if it can be represented as an int, otherwise float.           |
+|                           | 12.0 is returned as a float.                                                          |
++---------------------------+---------------------------------------------------------------------------------------|
+| uwatts_to_dbm             | Converts a number in uWatts to dBm                                                    |
++---------------------------+---------------------------------------------------------------------------------------|
+| wrap_text                 | Formats text into paragraphs.                                                         |
++---------------------------+---------------------------------------------------------------------------------------|
 
 **Version Control**
 
-+-----------+---------------+-----------------------------------------------------------------------------------+
-| Version   | Last Edit     | Description                                                                       |
-+===========+===============+===================================================================================+
-| 4.0.0     | 04 Aug 2023   | Re-Launch                                                                         |
-+-----------+---------------+-----------------------------------------------------------------------------------+
-| 4.0.1     | 06 Mar 2024   | Added sort to int_list_to_range(). Added wrap_text() and sp_range_to_list()       |
-+-----------+---------------+-----------------------------------------------------------------------------------+
-| 4.0.2     | 03 Apr 2024   | Set default to None in parseargs_login_false_d. Added compare_lists()             |
-+-----------+---------------+-----------------------------------------------------------------------------------+
++-----------+---------------+---------------------------------------------------------------------------------------+
+| Version   | Last Edit     | Description                                                                           |
++===========+===============+=======================================================================================+
+| 4.0.0     | 04 Aug 2023   | Re-Launch                                                                             |
++-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.1     | 06 Mar 2024   | Added sort to int_list_to_range(). Added wrap_text() and sp_range_to_list()           |
++-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.2     | 03 Apr 2024   | Set default to None in parseargs_login_false_d. Added compare_lists()                 |
++-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.3     | 15 May 2024   | Made parseargs_* an ordered dictionary. Only validate parameters if required or the   |
+|           |               | value is not None in get_input(). Added match_str().                                  |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
-__date__ = '03 Apr 2024'
+__date__ = '15 May 2024'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.2'
+__version__ = '4.0.3'
 
 import re
+import fnmatch
 import datetime
 import math
 import argparse
+import collections
 import brcdapi.log as brcdapi_log
 
 _MAX_ZONE_NAME_LEN = 64
-_MAX_LINE_COUNT = 20  # Maximum number of lines before inserting a space when generating CLI
-_MAX_MEM = 3  # Maximum number of members to add to a zone object in a single FOS command (CLI)
 
 # Common input parameters - For use with get_input()
 _login_false_help = 'Required unless using -i, -scan, -cli, -t, or -eh options. This is a generic message. Only a  '\
                     'subset of these options are available with each module.'
 _http_help = 'Optional. "none" for HTTP. The default is "self" for HTTPS mode.'
-parseargs_login_d = dict(
-    ip=dict(h='Required. IP address.'),
-    id=dict(h='Required. User ID.'),
-    pw=dict(h='Required. Password.'),
-    s=dict(r=False, d='self', v=('self', 'none'), h=_http_help),
-)
-parseargs_login_false_d = dict(
-    ip=dict(r=False, d=None, h=_login_false_help + 'IP address.'),
-    id=dict(r=False, d=None, h=_login_false_help + 'User ID.'),
-    pw=dict(r=False, d=None, h=_login_false_help + 'Password.'),
-    s=dict(r=False, d='self', h=_http_help),
-)
-parseargs_log_d = dict(
-    sup=dict(r=False, d=False, t='bool',
-             h='Optional. No parameters. Suppress all output to STD_IO except the exit code and argument parsing '
-               'errors. Useful with batch processing where only the exit status code is desired. Messages are still '
-               'printed to the log file.'),
-    log=dict(r=False, d=None,
-             h='Optional. Directory where log file is to be created. Default is to use the current directory. The '
-               'log file name will always be "Log_xxxx" where xxxx is a time and date stamp.'),
-    nl=dict(r=False, d=False, t='bool',
-            h='Optional. No parameters. When set, a log file is not created. The default is to create a log file.')
-)
-parseargs_debug_d = dict(
-    d=dict(r=False, d=False, t='bool',
-           h='Optional. No parameters. When set, a pprint of all content sent and received to/from the API, except '
-             'login information, is printed to the log.'),
-)
+parseargs_login_d = collections.OrderedDict()
+parseargs_login_d['ip'] = dict(h='Required. IP address.')
+parseargs_login_d['id'] = dict(h='Required. User ID.')
+parseargs_login_d['pw'] = dict(h='Required. Password.')
+parseargs_login_d['s'] = dict(r=False, d='self', v=('self', 'none'), h=_http_help)
+
+parseargs_login_false_d = collections.OrderedDict()
+parseargs_login_false_d['ip'] = dict(r=False, d=None, h=_login_false_help + 'IP address.')
+parseargs_login_false_d['id'] = dict(r=False, d=None, h=_login_false_help + 'User ID.')
+parseargs_login_false_d['pw'] = dict(r=False, d=None, h=_login_false_help + 'Password.')
+parseargs_login_false_d['s'] = dict(r=False, d='self', h=_http_help)
+
+parseargs_log_d = collections.OrderedDict()
+parseargs_log_d['sup'] = dict(
+    r=False, d=False, t='bool',
+    h='Optional. No parameters. Suppress all output to STD_IO except the exit code and argument parsing errors. Useful '
+      'with batch processing where only the exit status code is desired. Messages are still printed to the log file.')
+parseargs_log_d['log'] = dict(
+    r=False, d=None,
+    h='Optional. Directory where log file is to be created. Default is to use the current directory. The log file '
+      'name will always be "Log_xxxx" where xxxx is a time and date stamp.')
+parseargs_log_d['nl'] = dict(
+    r=False, d=False, t='bool',
+    h='Optional. No parameters. When set, a log file is not created. The default is to create a log file.')
+
+parseargs_debug_d = collections.OrderedDict()
+parseargs_debug_d['d'] = dict(
+    r=False, d=False, t='bool',
+    h='Optional. No parameters. When set, a pprint of all content sent and received to/from the API, except login '
+      'information, is printed to the log.')
 
 # ReGex matching
 non_decimal = re.compile(r'[^\d.]+')
@@ -1004,13 +1011,14 @@ def get_input(desc, param_d):
     # Evaluate the parameters
     for k, v in vars(parser.parse_args()).items():
         val = param_d[k].get('d', None) if v is None else v
-        valid_val_l = param_d[k].get('v', None)
-        if valid_val_l is not None:
-            try:
-                if val not in valid_val_l:
-                    el.append('Invalid value, ' + str(val) + ', for -' + str(k))
-            except TypeError:
-                el.append('Invalid value, ' + str(val) + ' type: ' + str(type(val)) + ', for -' + str(k))
+        if param_d[k].get('r', True) or val is not None:
+            valid_val_l = param_d[k].get('v', None)
+            if valid_val_l is not None:
+                try:
+                    if val not in valid_val_l:
+                        el.append('Invalid value, ' + str(val) + ', for -' + str(k))
+                except TypeError:
+                    el.append('Invalid value, ' + str(val) + ' type: ' + str(type(val)) + ', for -' + str(k))
         return_d.update({k: val})
 
     # If there are errors, report them and exit. Note that the log isn't set up yet, so use print()
@@ -1045,3 +1053,124 @@ def sp_range_to_list(port_range):
             rl.extend([str(slot) + '/' + str(p) for p in range_to_list(temp_l[1])])
 
     return rl
+
+
+def _match_str_exact(test_l, search_term, ignore_case=False):
+    """Finds items in test_list that match test_str exactly.
+
+    :param test_list: Input list of strings to test against
+    :type test_list: tuple, list
+    :param search_term: Match test
+    :param ignore_case: Default is False. If True, ignores case in search_term. Not that keys are always case sensitive
+    :type ignore_case: bool
+    :type search_term: str
+    :return: List of matches
+    :rtype: list
+    """
+    s = search_term.lower() if ignore_case else search_term
+    return [c for c in test_l if c.lower() == s] if ignore_case else [c for c in test_l if c == s]
+
+
+def _match_str_wild(test_l, search_term, ignore_case):
+    """Finds items in test_list using wild card matching in test_str. See _match_str_exact() for parameters"""
+    s = search_term.lower() if ignore_case else search_term
+    return [c for c in test_l if fnmatch.fnmatch(c, s)] if ignore_case \
+        else [c for c in test_l if fnmatch.fnmatchcase(c, s)]
+
+
+def _match_str_regexm(test_l, search_term, ignore_case):
+    """Finds items in test_list using ReGex Matching in test_str. See _match_str_exact() for parameters"""
+    regex_obj = re.compile(search_term, re.IGNORECASE) if ignore_case else re.compile(search_term)
+    return [c for c in test_l if regex_obj.match(c)]
+
+
+def _match_str_regexs(test_l, search_term, ignore_case):
+    """Finds items in test_list using ReGex Searching in test_str. See _match_str_exact() for parameters"""
+    regex_obj = re.compile(search_term, re.IGNORECASE) if ignore_case else re.compile(search_term)
+    return [c for c in test_l if regex_obj.search(c)]
+
+
+_match_str_d = {
+    'exact': _match_str_exact,
+    'wild': _match_str_wild,
+    'regexm': _match_str_regexm,
+    'regex_m': _match_str_regexm,
+    'regex-m': _match_str_regexm,
+    'regexs': _match_str_regexs,
+    'regex_s': _match_str_regexs,
+    'regex-s': _match_str_regexs,
+}
+
+
+def match_str(test_l, search_term, ignore_case=False, stype='exact'):
+    """Returns a list of strings using exact, wild card, ReGex match, or ReGex search.
+
+    **Summary of wild card strings**
+
+    Search the web for 'python fnmatch.fnmatch' for additional informaiton
+
+    *         matches everything
+    ?         matches any single character
+    [seq]     matches any character in seq
+    [!seq]    matches any character not in seq
+
+    **Summary of ReGex strings**
+
+    Search the web for 'regex' for additional information. A regex match must match the begining of the string. A regex
+    search must match any instance of the regex in the string.
+
+    abc…          Letters
+    123…          Digits
+    \d            Any Digit
+    \D            Any Non - digit character
+    .             Any Character
+    \.            Period
+    [abc]         Only a, b, or c
+    [ ^ abc]      Not a, b, nor c
+    [a - z]       Characters a to z
+    [0 - 9]       Numbers 0 to 9
+    \w            Any Alphanumeric character
+    \W            Any Non - alphanumeric character
+    {m}           m Repetitions
+    {m, n}        m to n Repetitions
+    *             Zero or more repetitions
+    +             One or more repetitions
+    ?             Optional character
+    \s            Any Whitespace
+    \S            Any Non - whitespace character
+    ^ …$          Starts and ends
+    (…)           Capture Group
+    (a(bc))       Capture Sub - group
+    (.*)          Capture all
+    (abc | def )  Matches abc or def
+
+    :param test_l: Strings to test against
+    :type test_l: list, tuple
+    :param search_term: text to test against. Maybe a regex, wildcard, or exact match
+    :type search_term: str
+    :param ignore_case: Default is False. If True, ignores case in search_term. Not that keys are always case sensitive
+    :type ignore_case: bool
+    :param stype: Valid options are keys in _match_str_d
+    :param stype: str
+    :return return_list: List of items matching the search criteria.
+    :rtype: list
+    """
+    global _match_str_d
+
+    # Validate the input
+    el = list()
+    if not isinstance(test_l, (tuple, list)):
+        el.append('Invalid test list, test_list, type: ' + str(type(test_l)))
+    if not isinstance(search_term, str):
+        el.append('Invalid test string, search_term, type: ' + str(type(search_term)))
+    if not isinstance(ignore_case, bool):
+        el.append('Ignore case must be a boolean. Type: ' + str(type(ignore_case)))
+    if not isinstance(stype, str):
+        el.append('Invalid type for search term, stype: ' + str(type(stype)))
+    elif not _match_str_d.get(stype, False):
+        el.append('Invalid test type, stype: ' + stype)
+    if len(el) > 0:
+        brcdapi_log.exception(el, echo=True)
+        return list()
+
+    return _match_str_d[stype](test_l, search_term, ignore_case)
