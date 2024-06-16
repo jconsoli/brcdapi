@@ -116,15 +116,17 @@ details.
 | 4.0.3     | 15 May 2024   | Made parseargs_* an ordered dictionary. Only validate parameters if required or the   |
 |           |               | value is not None in get_input(). Added match_str().                                  |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.4     | 16 Jun 2024   | Added  parseargs_scan_d and parseargs_eh_d.                                           |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
-__date__ = '15 May 2024'
+__date__ = '16 Jun 2024'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.3'
+__version__ = '4.0.4'
 
 import re
 import fnmatch
@@ -151,25 +153,31 @@ parseargs_login_false_d['ip'] = dict(r=False, d=None, h=_login_false_help + 'IP 
 parseargs_login_false_d['id'] = dict(r=False, d=None, h=_login_false_help + 'User ID.')
 parseargs_login_false_d['pw'] = dict(r=False, d=None, h=_login_false_help + 'Password.')
 parseargs_login_false_d['s'] = dict(r=False, d='self', h=_http_help)
-
-parseargs_log_d = collections.OrderedDict()
-parseargs_log_d['sup'] = dict(
-    r=False, d=False, t='bool',
-    h='Optional. No parameters. Suppress all output to STD_IO except the exit code and argument parsing errors. Useful '
-      'with batch processing where only the exit status code is desired. Messages are still printed to the log file.')
-parseargs_log_d['log'] = dict(
-    r=False, d=None,
-    h='Optional. Directory where log file is to be created. Default is to use the current directory. The log file '
-      'name will always be "Log_xxxx" where xxxx is a time and date stamp.')
-parseargs_log_d['nl'] = dict(
-    r=False, d=False, t='bool',
-    h='Optional. No parameters. When set, a log file is not created. The default is to create a log file.')
-
-parseargs_debug_d = collections.OrderedDict()
-parseargs_debug_d['d'] = dict(
+parseargs_log_d= dict(
+    sup = dict(
+        r=False, d=False, t='bool',
+        h='Optional. No parameters. Suppress all output to STD_IO except the exit code and argument parsing errors. '
+          'Useful with batch processing where only the exit status code is desired. Messages are still printed to the '''
+          'log file.'),
+    log = dict(
+        r=False, d=None,
+        h='Optional. Directory where log file is to be created. Default is to use the current directory. The log file '
+          'name will always be "Log_xxxx" where xxxx is a time and date stamp.'),
+    nl = dict(
+        r=False, d=False, t='bool',
+        h='Optional. No parameters. When set, a log file is not created. The default is to create a log file.'),
+)
+parseargs_debug_d = dict(d=dict(
     r=False, d=False, t='bool',
     h='Optional. No parameters. When set, a pprint of all content sent and received to/from the API, except login '
-      'information, is printed to the log.')
+      'information, is printed to the log.'))
+parseargs_scan_d = dict(scan=dict(
+    r=False, d=False, t='bool',
+    h='Optional. No parameters. Scans for chassis and logical fabric information including the active zone '
+      'configuration. No other actions are taken.'))
+parseargs_eh_d = dict(eh=dict(
+    r=False, d=False, t='bool',
+    h='Optional. No parameters. Displays extended help text. No other actions are taken.'))
 
 # ReGex matching
 non_decimal = re.compile(r'[^\d.]+')
@@ -1008,7 +1016,6 @@ def get_input(desc, param_d):
         except KeyError as e:
             el.append('Missing or invalid key: ' + str(e))
 
-    # Evaluate the parameters
     for k, v in vars(parser.parse_args()).items():
         val = param_d[k].get('d', None) if v is None else v
         if param_d[k].get('r', True) or val is not None:
