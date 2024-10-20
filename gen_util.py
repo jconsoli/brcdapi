@@ -116,17 +116,20 @@ details.
 | 4.0.3     | 15 May 2024   | Made parseargs_* an ordered dictionary. Only validate parameters if required or the   |
 |           |               | value is not None in get_input(). Added match_str().                                  |
 +-----------+---------------+---------------------------------------------------------------------------------------+
-| 4.0.4     | 16 Jun 2024   | Added  parseargs_scan_d and parseargs_eh_d.                                           |
+| 4.0.4     | 16 Jun 2024   | Added parseargs_scan_d and parseargs_eh_d.                                            |
++-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.5     | 20 Oct 2024   | Added error checking to slot_port(), removed unused variables in range_to_list() and  |
+|           |               | date_to_epoch(),                                                                      |
 +-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
-__date__ = '16 Jun 2024'
+__date__ = '20 Oct 2024'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.4'
+__version__ = '4.0.5'
 
 import re
 import fnmatch
@@ -153,17 +156,17 @@ parseargs_login_false_d['ip'] = dict(r=False, d=None, h=_login_false_help + 'IP 
 parseargs_login_false_d['id'] = dict(r=False, d=None, h=_login_false_help + 'User ID.')
 parseargs_login_false_d['pw'] = dict(r=False, d=None, h=_login_false_help + 'Password.')
 parseargs_login_false_d['s'] = dict(r=False, d='self', h=_http_help)
-parseargs_log_d= dict(
-    sup = dict(
+parseargs_log_d = dict(
+    sup=dict(
         r=False, d=False, t='bool',
         h='Optional. No parameters. Suppress all output to STD_IO except the exit code and argument parsing errors. '
-          'Useful with batch processing where only the exit status code is desired. Messages are still printed to the '''
+          'Useful with batch processing where only the exit status code is desired. Messages are still printed to the '
           'log file.'),
-    log = dict(
+    log=dict(
         r=False, d=None,
         h='Optional. Directory where log file is to be created. Default is to use the current directory. The log file '
           'name will always be "Log_xxxx" where xxxx is a time and date stamp.'),
-    nl = dict(
+    nl=dict(
         r=False, d=False, t='bool',
         h='Optional. No parameters. When set, a log file is not created. The default is to create a log file.'),
 )
@@ -244,7 +247,7 @@ def get_key_val(obj, keys):
     :param obj: Starting point in the object
     :type obj: dict, ProjectObj, FabricObj, SwitchObj, PortObj, ZoneCfgObj, ZoneObj, PortObj, LoginObj
     :param keys: Sting of keys to look through
-    :type keys: str
+    :type keys: str, int, key
     :return: Value associated with last key. None if not found
     :rtype: int, float, str, list, tuple, dict
     """
@@ -348,8 +351,10 @@ def compare_lists(l1, l2):
     :rtype: bool
     """
     if not isinstance(l1, (list, tuple)) or not isinstance(l2, (list, tuple)):
-        brcdapi_log.exception('l1 and l2 must be a list or tuple. l1: ' + str(type(l1)) + '. l2: ' + str(type(l2)),
-                          echo=True)
+        brcdapi_log.exception(
+            'l1 and l2 must be a list or tuple. l1: ' + str(type(l1)) + '. l2: ' + str(type(l2)),
+            echo=True
+        )
         return False
     s1, s2 = set(l1), set(l2)
     if len([x for x in s1 if x not in s2]):
@@ -374,9 +379,9 @@ def convert_to_list(obj):
     | All else  | List with the passed obj as the only member           |
     +-----------+-------------------------------------------------------+
 
-    :param obj: Object to be converted to list
-    :type obj: list, tuple, dict, str, float, int
-    :return: Converted list
+    :param obj: Object to be converted to a list
+    :type obj: dict, str, float, int, list, tuple
+    :return: Converted obj
     :rtype: list
     """
     if obj is None:
@@ -386,7 +391,7 @@ def convert_to_list(obj):
     if isinstance(obj, dict):
         return list() if len(obj.keys()) == 0 else [obj]
     if isinstance(obj, tuple):
-        return list(obj)
+        return [b for b in obj]
     else:
         return [obj]
 
@@ -464,24 +469,30 @@ def slot_port(port):
 
     :param port: Port number in s/p notation
     :type port: str
-    :return slot: Slot number. None if port is not in standard s/p notation
+    :return slot: Slot number. None if not in standard s/p notation
     :rtype slot: int, None
-    :return port: Port number. None if port is not in standard s/p notation
+    :return port: Port number as an int if an integer. None if GigE port
     :rtype port: int, None
+    :return ge_port: GigE port, including leading "ge" or "xge"
+    :rtype ge_port: str, None
     """
-    temp_l = port.split('/')
-    if len(temp_l) == 1:
-        temp_l.insert(0, '0')
-    if len(temp_l) != 2:
-        return None, None
-    try:
-        s = int(temp_l[0])
-        p = int(temp_l[1])
-    except (ValueError, IndexError):
-        return None, None
-    if s in range(0, 13) and p in range(0, 64):
-        return s, p
-    return None, None
+    if isinstance(port, str):
+        temp_l = port.split('/')
+        if len(temp_l) == 1:
+            temp_l.insert(0, '0')
+        if len(temp_l) == 2:
+            try:
+                if temp_l[1].isnumeric():
+                    return int(temp_l[0]), int(temp_l[1]), None
+                else:
+                    return int(temp_l[0]), None, temp_l[1]
+            except (ValueError, IndexError):
+                pass
+    brcdapi_log.exception(
+        'ERROR: Invalid port number. Type: ' + str(type(port)) + ', Value: ' + str(port),
+        echo=True
+    )
+    return None, None, None
 
 
 def is_di(di):
@@ -698,7 +709,7 @@ def int_list_to_range(num_list, sort=False):
     return rl
 
 
-def range_to_list(num_range, hex_num=False, upper=False, sort=False, rsort=False, strip=False):
+def range_to_list(num_range, hex_num=False, upper=False, rsort=False, strip=False):
     """Converts a CSV list of integer or hex numbers as ranges to a list.
 
     For example: "0-2, 9, 6-5" is returned as [0, 1, 2, 9, 6, 5]. If hex is True, all values are assumed to be hex and
@@ -711,9 +722,7 @@ def range_to_list(num_range, hex_num=False, upper=False, sort=False, rsort=False
     :type hex_num: bool
     :param upper: Ony significant when hex_num==True. If True, output is upper case. Otherwise, lower case.
     :type upper: bool
-    :param sort: If True the output is sorted from lowest to highest.
-    :type sort: bool
-    :param rsort: Ignored if sort is True. When True, the output is sorted from highest to lowest
+    :param rsort: When True, the output is sorted from highest to lowest. Otherwise, output is sorted lowest to highest
     :type rsort: bool
     :param strip: Only significant when hex_num==True. If true, leading '0x' is removed
     :return: List of int or hex str as described above
@@ -758,7 +767,7 @@ for _v in _fmt_map.values():  # Add the minimum size the date/time array needs t
     _v.update(max=max([_i for _i in _v.values() if not isinstance(_i, bool)]))
 
 
-def date_to_epoch(date_time, fmt=0, utc=False):
+def date_to_epoch(date_time, fmt=0):
     """Converts a date and time string to epoch time. Originally intended for various date formats in FOS.
 
     WARNING: Time zone to UTC conversion not yet implemented.
@@ -794,8 +803,6 @@ def date_to_epoch(date_time, fmt=0, utc=False):
     :type date_time: str
     :param fmt: Format. See table above
     :type fmt: int
-    :param utc: If True, convert time to UTC
-    :type utc: bool
     :return: Epoch time. 0 If an error was encountered.
     :rtype: float
     """
@@ -919,7 +926,7 @@ def wrap_text(buf, max_len, prepend_buf=None):
     return rl
 
 
-# Case statments fir get_input()
+# Case statements fir get_input()
 def _get_input_bool(parser, k, d):
     parser.add_argument('-' + str(k), help=d['h'], action='store_true', required=d.get('r', True))
 
@@ -968,7 +975,7 @@ def get_input(desc, param_d):
         ip=dict(r=True, h='Required: IP address'),
         id=dict(r=True, h='Required: User ID'),
         pw=dict(r=True, h='Required: Password'),
-        s=dict(d='none', h='Optional: "none" for HTTP, "self" for self signed HTTPS. Default is "none"'),
+        s=dict(d='none', h='Optional: "none" for HTTP, "self" for self-signed HTTPS. Default is "none"'),
         fid=dict(d=128, t=int, v=gen_util.range_to_list('1-128'), h='Optional: Fabric ID. The default is 128'),
         flag=dict(t='flag', h='Optional: Sample boolean')
     )
@@ -1068,7 +1075,7 @@ def _match_str_exact(test_l, search_term, ignore_case=False):
     :param test_list: Input list of strings to test against
     :type test_list: tuple, list
     :param search_term: Match test
-    :param ignore_case: Default is False. If True, ignores case in search_term. Not that keys are always case sensitive
+    :param ignore_case: Default is False. If True, ignores case in search_term. Not that keys are always case-sensitive
     :type ignore_case: bool
     :type search_term: str
     :return: List of matches
@@ -1114,7 +1121,7 @@ def match_str(test_l, search_term, ignore_case=False, stype='exact'):
 
     **Summary of wild card strings**
 
-    Search the web for 'python fnmatch.fnmatch' for additional informaiton
+    Search the web for 'python fnmatch.fnmatch' for additional information
 
     *         matches everything
     ?         matches any single character
@@ -1123,7 +1130,7 @@ def match_str(test_l, search_term, ignore_case=False, stype='exact'):
 
     **Summary of ReGex strings**
 
-    Search the web for 'regex' for additional information. A regex match must match the begining of the string. A regex
+    Search the web for 'regex' for additional information. A regex match must match the beginning of the string. A regex
     search must match any instance of the regex in the string.
 
     abc…          Letters
@@ -1155,7 +1162,7 @@ def match_str(test_l, search_term, ignore_case=False, stype='exact'):
     :type test_l: list, tuple
     :param search_term: text to test against. Maybe a regex, wildcard, or exact match
     :type search_term: str
-    :param ignore_case: Default is False. If True, ignores case in search_term. Not that keys are always case sensitive
+    :param ignore_case: Default is False. If True, ignores case in search_term. Not that keys are always case-sensitive
     :type ignore_case: bool
     :param stype: Valid options are keys in _match_str_d
     :param stype: str

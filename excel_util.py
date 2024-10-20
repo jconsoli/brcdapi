@@ -63,25 +63,31 @@ details.
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.0.3     | 15 May 2024   | Added hidden parameter to read_sheet() and read_workbook()                            |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.4     | 20 Oct 2024   | Added comments and conditional formatting, cf, to cell_update()                       |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
-
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
-__date__ = '15 May 2024'
+__date__ = '20 Oct 2024'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.3'
+__version__ = '4.0.4'
 
 import openpyxl as xl
 import openpyxl.utils.cell as xl_util
+from openpyxl.comments import Comment
+from openpyxl import Workbook
 import fnmatch
 import re
 import os
 import brcdapi.log as brcdapi_log
 import brcdapi.file as brcdapi_file
 import brcdapi.gen_util as gen_util
+
+_DEFAULT_COMMENT_WIDTH = 400
+_DEFAULT_COMMENT_HEIGHT = 100
 
 # Use this to create a sheet name that is not only valid for Excel but can have a link. Note when creating a link to a
 # sheet in Excel, there are additional restrictions on the sheet name. For example, it cannot contain a space. Sample
@@ -200,7 +206,7 @@ def save_report(wb, file_name='Report.xlsx', creator='Consoli-Solutions, LLC'):
     :param creator: Name of person or organization creating this document.
     :type creator: str
     """
-    wb.properties.creator = 'Consoli-Solutions, LLC'
+    wb.properties.creator = creator
     wb.save(brcdapi_file.full_file_name(file_name, '.xlsx'))
 
 
@@ -238,8 +244,6 @@ def cell_match_val(sheet, val, col=None, row=None, num=1):
     :return: List of cell references where value found. If num == 1: just one str is returned. None if not found
     :rtype: str, list, None
     """
-    global Found
-    
     col_list = [xl_util.get_column_letter(i) for i in range(1, sheet.max_column)] if col is None \
         else gen_util.convert_to_list(col)
     row_list = [i for i in range(1, sheet.max_row)] if row is None else gen_util.convert_to_list(row)
@@ -340,7 +344,8 @@ def read_sheet(sheet, order='col', granularity=2, hidden=True):
     return sl, al
 
 
-def cell_update(sheet, row, col, buf, font=None, align=None, fill=None, link=None, border=None):
+def cell_update(sheet, row, col, buf, font=None, align=None, fill=None, link=None, border=None, comments=None, cf=None,
+                dv=None, comment_width=_DEFAULT_COMMENT_WIDTH, comment_height=_DEFAULT_COMMENT_HEIGHT):
     """A convenient way to set cell properties and the cell value in a single call.
 
     :param sheet: openpyxl worksheet
@@ -361,6 +366,18 @@ def cell_update(sheet, row, col, buf, font=None, align=None, fill=None, link=Non
     :type link: None, xl_styles
     :param border: Border type to apply to cell
     :type border: None, xl_styles
+    :param comments: Cell comments
+    :type comments: None, str, list
+    :param cf: Conditional formatting rule
+    :type cf: None, openpyxl.formatting.rule.Rule
+    :param dv: Data validation
+    :type dv: None, openpyxl.worksheet.datavalidation.DataValidation
+    :param comment_width: Width of comment pop-up. The default is _DEFAULT_COMMENT_WIDTH
+    :type comment_width: int
+    :param comment_height: Height of comment pop-up. The default is _DEFAULT_COMMENT_HEIGHT
+    :type comment_height: int
+    :return: None
+    :rtype: None
     """
     cell = xl_util.get_column_letter(col) + str(row)
     if font is not None:
@@ -375,6 +392,15 @@ def cell_update(sheet, row, col, buf, font=None, align=None, fill=None, link=Non
         sheet[cell].hyperlink = link
     if buf is not None:
         sheet[cell] = buf
+    if comments is not None:
+        comment = Comment(comments, 'Consoli Solutions, LLC')
+        comment.width = comment_width
+        comment.height = comment_height
+        sheet[cell].comment = comment
+    if cf is not None:
+        sheet.conditional_formatting.add(cell, cf)
+    if dv is not None:
+        dv.add(cell)
 
 
 def read_workbook(file, dm=0, order='row', sheets=None, skip_sheets=None, echo=False, hidden=True):
@@ -410,8 +436,8 @@ def read_workbook(file, dm=0, order='row', sheets=None, skip_sheets=None, echo=F
     :type skip_sheets: None, list, tuple, str
     :param echo: If True, print read/write status to STD_OUT
     :type echo: bool
-    :param hiden: If True, read hiden rows from sheet
-    :type hiden: bool
+    :param hidden: If True, read hidden rows from sheet
+    :type hidden: bool
     :return el: Errors. Empty if no errors.
     :rtype el: list
     :return sl: List of dictionaries, one for each sheet, with the file, sheet name, and excel_util.read_sheet() output.

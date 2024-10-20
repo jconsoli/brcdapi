@@ -12,74 +12,75 @@ The license is free for single customer use (internal applications). Use of this
 redistribution, or service delivery for commerce requires an additional license. Contact jack@consoli-solutions.com for
 details.
 
-:mod:`port.py` - Methods to configure ports.
-
-Description::
+**Description**
 
     A collection of methods to perform common port functions. For examples on how to use these functions, see
     brocade-rest-api-examples/port_config.py. While most of the API requests are pretty straight forward and don't need,
     a driver there are a few things that need special attention and therefore have a library method.
 
-Public Methods & Data::
+**Public Methods & Data**
 
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | Method                | Description                                                                           |
-    +=======================+=======================================================================================+
-    | bind_addresses        | Binds port addresses to ports. Requires FOS 9.1 or higher.                            |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | clear_stats           | Clear all statistical counters associated with a port or list of ports.               |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | decommission_port     | Decommissions a port or list of ports                                                 |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | default_port_config   | Disables and sets an FC port or list of FC ports to their factory default state.      |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | disable_port          | Disables a port or list of ports on a specific logical switch.                        |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | enable_port           | Enables a port or list of ports on a specific logical switch.                         |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | port_enable_disable   | Enables or disables a port or list of ports. Typically, enable_port() or              |
-    |                       | port_disable() is called externally instead of this method.                           |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | ports_to_list         | Converts ports to a list of ports. Many sources for ports return None, a single port, |
-    |                       | or just the port (no slot on fixed port switches) and sometimes the port is an        |
-    |                       | integer. The API always wants to see ports in 's/p' notation.                         |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | port_range_to_list    | Converts a CSV list of ports to ranges as text. Ports are converted to standard s/p   |
-    |                       | notation and sorted by slot. The original order may not be preserved. For example:    |
-    |                       | "5/0-2, 9, 2/6-5, 5/6-8" is returned as:                                              |
-    |                       | ['5/0', '5/1', '5/2', '5/6', '5/7', '5/8', '0/9', '2/5', '2/6']                       |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | release_pod           | Releases a POD license for a port or list of ports.                                   |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | reserve_pod           | Reserves a POD license for a port or list of ports                                    |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | set_mode              | Set the mode (E-Port only, F-Port only, or any).                                      |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | sort_ports            | Sorts a list of ports. This is useful because if port_l is a list of ports in 's/p'   |
-    |                       | notation, .sort() performs an ASCII sort which does not return the desired results.   |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | is_port               | Tests a value to determine if it is a valid port                                      |
-    +-----------------------+---------------------------------------------------------------------------------------+
++-----------------------+-------------------------------------------------------------------------------------------+
+| Method                | Description                                                                               |
++=======================+===========================================================================================+
+| bind_addresses        | Binds port addresses to ports. Requires FOS 9.1 or higher.                                |
++-----------------------+-------------------------------------------------------------------------------------------+
+| clear_stats           | Clear all statistical counters associated with a port or list of ports.                   |
++-----------------------+-------------------------------------------------------------------------------------------+
+| decommission_port     | Decommissions a port or list of ports                                                     |
++-----------------------+-------------------------------------------------------------------------------------------+
+| default_port_config   | Disables and sets an FC port or list of FC ports to their factory default state.          |
++-----------------------+-------------------------------------------------------------------------------------------+
+| disable_port          | Disables a port or list of ports on a specific logical switch.                            |
++-----------------------+-------------------------------------------------------------------------------------------+
+| enable_port           | Enables a port or list of ports on a specific logical switch.                             |
++-----------------------+-------------------------------------------------------------------------------------------+
+| is_port               | Tests a value to determine if it is a valid port                                          |
++-----------------------+-------------------------------------------------------------------------------------------+
+| port_enable_disable   | Enables or disables a port or list of ports. Typically, enable_port() or                  |
+|                       | port_disable() is called externally instead of this method.                               |
++-----------------------+-------------------------------------------------------------------------------------------+
+| ports_to_list         | Converts ports to a list of ports. Many sources for ports return None, a single port, or  |
+|                       | just the port (no slot on fixed port switches) and sometimes the port is an integer. The  |
+|                       | API always wants to see ports in 's/p' notation.                                          |
++-----------------------+-------------------------------------------------------------------------------------------+
+| port_range_to_list    | Converts a CSV list of ports to ranges as text. Ports are converted to standard s/p       |
+|                       | notation and sorted by slot. The original order may not be preserved. For example:        |
+|                       | "5/0-2, 9, 2/6-5, 5/6-8" is returned as:                                                  |
+|                       | ['5/0', '5/1', '5/2', '5/6', '5/7', '5/8', '0/9', '2/5', '2/6']                           |
++-----------------------+-------------------------------------------------------------------------------------------+
+| release_pod           | Releases a POD license for a port or list of ports.                                       |
++-----------------------+-------------------------------------------------------------------------------------------+
+| reserve_pod           | Reserves a POD license for a port or list of ports                                        |
++-----------------------+-------------------------------------------------------------------------------------------+
+| set_mode              | Set the mode (E-Port only, F-Port only, or any).                                          |
++-----------------------+-------------------------------------------------------------------------------------------+
+| sort_ports            | Sorts a list of ports. Sorting is by slot, port, ge port. This is useful because if       |
+|                       | port_l is a list of ports in 's/p' notation, .sort() performs an ASCII sort which does    |
+|                       | not return the desired results.                                                           |
++-----------------------+-------------------------------------------------------------------------------------------+
 
-Version Control::
+**Version Control**
 
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | Version   | Last Edit     | Description                                                                       |
-    +===========+===============+===================================================================================+
-    | 4.0.0     | 04 Aug 2023   | Re-Launch                                                                         |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 4.0.1     | 06 Mar 2024   | Documentation updates only.                                                       |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
++-----------+---------------+---------------------------------------------------------------------------------------+
+| Version   | Last Edit     | Description                                                                           |
++===========+===============+=======================================================================================+
+| 4.0.0     | 04 Aug 2023   | Re-Launch                                                                             |
++-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.1     | 06 Mar 2024   | Documentation updates only.                                                           |
++-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.2     | 20 Oct 2024   | Use brcdapi.gen_util.slot_port() to determine slot and port numbers.                  |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
-__date__ = '06 Mar 2024'
+__date__ = '20 Oct 2024'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.1'
+__version__ = '4.0.2'
 
 import collections
 import brcdapi.util as brcdapi_util
@@ -101,37 +102,37 @@ def ports_to_list(i_port_l):
     :return: List of ports in s/p notation. If i_port_l is None, an empty list is returned
     :rtype: list
     """
-    temp_l = list() if i_port_l is None else [str(i_port_l)] if isinstance(i_port_l, (int, str)) else \
-        [str(p) for p in i_port_l]
-    return [p if '/' in p else '0/' + p for p in temp_l]
+    return [p if '/' in p else '0/' + p for p in [str(b) for b in gen_util.convert_to_list(i_port_l)]]
 
 
 def sort_ports(i_port_l):
-    """Converts ports to a list of ports in s/p notation. Duplicates are removed. Sorting is by slot then by port.
+    """Sorts a list of ports in s/p notation. Duplicates are removed. Sorting is by slot, port, ge port.
 
-    :param i_port_l: Port or list of ports
+    :param i_port_l: Port or list of ports in s/p notation
     :type i_port_l: int, str, list, tuple
     :return: List of sorted ports in s/p notation. If i_port_l is None, an empty list is returned
     :rtype: list
     """
     wd = dict()  # Working dictionary of slots which contains a dictionary of ports
     for port in ports_to_list(i_port_l):
-        t = port.split('/')
-        if int(t[0]) not in wd:
-            wd.update({int(t[0]): dict(p=dict(), ge=dict())})
-        try:
-            wd[int(t[0])]['p'].update({int(t[1]): port})
-        except ValueError:
-            wd[int(t[0])]['ge'].update({t[1]: port})  # It's a ge port
+        slot, port_num, ge_port = gen_util.slot_port(port)
+        if slot not in wd:
+            wd.update({slot: dict(p=list(), ge=list())})
+        if isinstance(port_num, int):
+            wd[slot]['p'].append(port_num)
+        else:
+            wd[slot]['ge'].append(ge_port)  # It's a ge port
+
     # Now sort them and create the return list
     rl = list()
     slot_l = list(wd.keys())
     slot_l.sort()
     for slot in slot_l:
+        slot_str = str(slot) + '/'
         for key in ('p', 'ge'):
-            port_l = list(wd[slot][key].keys())
+            port_l = gen_util.remove_duplicates(wd[slot][key])
             port_l.sort()
-            rl.extend([wd[slot][key][port] for port in port_l])
+            rl.extend([slot_str + str(port) for port in port_l])
 
     return rl
 

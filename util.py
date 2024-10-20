@@ -38,22 +38,24 @@ Only GET is valid in the 'methods' leaf of uti_map
 |                       | used for logic that determines an issue whereby the request can't be sent to the      |
 |                       | switch API based on problems found with the input to the method.                      |
 +-----------------------+---------------------------------------------------------------------------------------+
-| mask_ip_addr          | Replaces IP address with xxx.xxx.xxx.123 or all x depending on keep_last              |
-+-----------------------+---------------------------------------------------------------------------------------+
-| vfid_to_str           | Converts a FID to a string, '?vf-id=xx' to be appended to a URI that requires a FID   |
-+-----------------------+---------------------------------------------------------------------------------------+
 | add_uri_map           | Builds out the URI map and adds it to the session. Intended to be called once         |
 |                       | immediately after login                                                               |
 +-----------------------+---------------------------------------------------------------------------------------+
-| split_uri             | Strips out leading '/rest/'. Optionally remove 'running' and 'operations'             |
+| format_uri            | Formats a full URI                                                                    |
++-----------------------+---------------------------------------------------------------------------------------+
+| fos_to_dict           | Converts a FOS version into a dictionary to be used for comparing for version numbers |                                                                  |
++-----------------------+---------------------------------------------------------------------------------------+
+| mask_ip_addr          | Replaces IP address with xxx.xxx.xxx.123 or all x depending on keep_last              |
 +-----------------------+---------------------------------------------------------------------------------------+
 | session_cntl          | Returns the control dictionary (uri map) for the uri                                  |
 +-----------------------+---------------------------------------------------------------------------------------+
-| format_uri            | Formats a full URI                                                                    |
+| split_uri             | Strips out leading '/rest/'. Optionally remove 'running' and 'operations'             |
 +-----------------------+---------------------------------------------------------------------------------------+
 | uri_d                 | Returns the dictionary in the URI map for a specified URI                             |
 +-----------------------+---------------------------------------------------------------------------------------+
 | validate_fid          | Validates a FID or list of FIDs                                                       |
++-----------------------+---------------------------------------------------------------------------------------+
+| vfid_to_str           | Converts a FID to a string, '?vf-id=xx' to be appended to a URI that requires a FID   |
 +-----------------------+---------------------------------------------------------------------------------------+
 
 **Version Control**
@@ -66,18 +68,19 @@ Only GET is valid in the 'methods' leaf of uti_map
 | 4.0.1     | 06 Mar 2024   | Added brocade-maps and brocade-fibrechannel-routing to common URIs. Added         |
 |           |               | validate_fid()                                                                    |
 +-----------+---------------+-----------------------------------------------------------------------------------+
-| 4.0.2     | 03 Apr 2024   | Added common URIs                                                                 |
+| 4.0.2     | 26 Jun 2024   | Moved fos_to_dict() from brcddb.util.util to here.                                |
++-----------+---------------+-----------------------------------------------------------------------------------+
+| 4.0.3     | 20 Oct 2024   | Added several URIs.                                                               |
 +-----------+---------------+-----------------------------------------------------------------------------------+
 """
-
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
-__date__ = '06 Mar 2024'
+__date__ = '20 Oct 2024'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.1'
+__version__ = '4.0.3'
 
 import pprint
 import copy
@@ -136,7 +139,9 @@ bfs_name = bfs_uri + '/name'
 bfs_did = bfs_uri + '/domain-id'
 bfs_fcid_hex = bfs_uri + '/fcid-hex'
 bfs_principal = bfs_uri + '/principal'
+bfs_isprincipal = bfs_uri + '/is-principal'
 bfs_op_status = bfs_uri + '/operational-status'
+bfs_op_status_str = bfs_uri + '/operational-status-string'
 bfs_fab_user_name = bfs_uri + '/fabric-user-friendly-name'
 bfs_sw_user_name = bfs_uri + '/user-friendly-name'
 bfs_banner = bfs_uri + '/banner'
@@ -146,7 +151,8 @@ bfs_dls = bfs_uri + '/dynamic-load-sharing'
 bfs_domain_name = bfs_uri + '/domain-name'
 bfs_model = bfs_uri + '/model'
 bfs_vf_id = bfs_uri + '/vf-id'
-bfs_ag_mode = bfs_uri + '/ag-mode'
+bfs_ag_mode = bfs_uri + '/ag-mode'  # Depracated
+bfs_ag_mode_str = bfs_uri + '/ag-mode-string'
 bfs_enabled_state = bfs_uri + '/is-enabled-state'
 bfc_up_time = bfs_uri + '/up-time'
 # Commonly used URIs: brocade-fibrechannel-configuration
@@ -164,7 +170,8 @@ bfc_max_flogi_rate = bfcfp_uri + '/max-flogi-rate-per-switch'
 bfc_stage_interval = bfcfp_uri + '/stage-interval'
 bfc_free_fdisc = bfcfp_uri + '/free-fdisc'
 bfc_max_flogi_rate_port = bfcfp_uri + '/max-flogi-rate-per-port'
-bfc_fport_enforce_login = bfcfp_uri + '/enforce-login'
+bfc_fport_enforce_login = bfcfp_uri + '/enforce-login'  # Depracated
+bfc_fport_enforce_login_str = bfcfp_uri + '/enforce-login-string'
 # Commonly used URIs: brocade-fibrechannel-configuration/switch-configuration
 bfc_sw_uri = 'brocade-fibrechannel-configuration/switch-configuration'
 bfc_xisl_en = bfc_sw_uri + '/xisl-enabled'
@@ -182,7 +189,7 @@ fru_blade_pn = fru_uri + '/blade/part-number'
 # Commonly used URIs: brocade-chassis/chassis
 bcc_uri = 'brocade-chassis/chassis'
 bc_mfg = bcc_uri + '/manufacturer'
-bc_product_name = bcc_uri + '/product-name'
+bc_product_name = bcc_uri + '/product-name'  # product-name
 bc_serial_num = bcc_uri + '/serial-number'
 bc_vf = bcc_uri + '/vf-supported'
 bc_time_alive = bcc_uri + '/time-alive'
@@ -231,11 +238,13 @@ bc_max_rest = bcmic_uri + '/max-rest-sessions'
 bc_https_ka = bcmic_uri + '/https-keep-alive-enabled'
 bc_https_ka_to = bcmic_uri + '/https-keep-alive-timeout'
 # Commonly used URIs: brocade-fabric/fabric-switch
-bfsw_uri = 'brocade-fabric/fabric-switch'
+bfsw_uri = 'brocade-fabric/fabric-switch'  # I think this entire branch is depracated
 bf_sw_user_name = bfsw_uri + '/switch-user-friendly-name'  # Depracated? Use bfs_sw_user_name
-# brocade-fabric/fabric-switch/switch-user-friendly-name
 bf_sw_wwn = bfsw_uri + '/name'
-bf_fw_version = bfsw_uri + '/firmware-version'
+bf_fw_version = bfsw_uri + '/firmware-version'  # Depracated?
+bfsw_ipv4 = bfsw_uri + '/ip-address'
+bfsw_mask =  bfsw_uri + '/subnet-mask'
+bfsw_ipv6 = bfsw_uri + '/ipv6-address'
 # Commonly used URIs: brocade-fibrechannel-logical-switch
 bfls_uri = 'brocade-fibrechannel-logical-switch/fibrechannel-logical-switch'
 bfls_sw_wwn = bfls_uri + '/switch-wwn'
@@ -361,9 +370,11 @@ bifc_pod = bifc_uri + '/pod-license-state'
 fc_auto_neg = 'fibrechannel/auto-negotiate'
 fc_name = 'fibrechannel/name'  # The port number in s/p notation
 fc_enabled = 'fibrechannel/is-enabled-state'
-fc_op_status = 'fibrechannel/operational-status'
+fc_op_status = 'fibrechannel/operational-status'  # Depracated
+fc_op_status_str = 'fibrechannel/operational-status-string'
 fc_state = 'fibrechannel/physical-state'
-fc_port_type = 'fibrechannel/port-type'
+fc_port_type = 'fibrechannel/port-type'  # Depracated
+fc_port_type_str = 'fibrechannel/port-type-string'
 fc_fcid_hex = 'fibrechannel/fcid-hex'
 fc_neighbor_node_wwn = 'fibrechannel/neighbor-node-wwn'
 fc_neighbor = 'fibrechannel/neighbor'
@@ -1088,3 +1099,68 @@ def validate_fid(in_fid):
     except TypeError:
         return ' FIDs must be integers in the range 1-128'
     return ''
+
+
+# _letter_to_num_d is used in fos_to_dict() to convert a patch level release to a number for numerical comparison.
+# The easy thing to do would have been to treat the letter as utf-8 and convert to it's integer value. Although that
+# should work in a mainframe environment, which is EBCDIC, a mainframe wasn't available for testing.
+_letter_to_num_d = dict(a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9, j=10, k=11, l=12, m=13, n=14, o=15, p=16, q=17,
+                        r=18, s=19, t=20, u=21, v=22, w=23, x=24, y=25, z=26)
+
+
+def fos_to_dict(version_in, valid_check=True):
+    """Converts a FOS version into a dictionary to be used for comparing for version numbers
+
+    +-----------+-------+-------------------------------------------------------------------------------+
+    | Key       | Type  |Description                                                                    |
+    +===========+=======+===============================================================================+
+    | version   | str   | Same as version_in                                                            |
+    +-----------+-------+-------------------------------------------------------------------------------+
+    | major     | int   | In example 9.1.0b, this is 9                                                  |
+    +-----------+-------+-------------------------------------------------------------------------------+
+    | feature   | int   | In example 9.1.0b, this is 1                                                  |
+    +-----------+-------+-------------------------------------------------------------------------------+
+    | minor     | int   | In example 9.1.0b, this is 0                                                  |
+    +-----------+-------+-------------------------------------------------------------------------------+
+    | bug       | int   | In example 9.1.0b, this is 2 (converted to a numeric for easier comparisons). |
+    |           |       | In example 9.1.0, this is 0.                                                  |
+    +-----------+-------+-------------------------------------------------------------------------------+
+    | patch     | str   | In example 9.1.0b, this is an empty str. In 9.1.0b_01, this is "_01"          |
+    +-----------+-------+-------------------------------------------------------------------------------+
+
+    :param version_in: FOS version
+    :type version_in: str
+    :param valid_check: If True, creates an exception entry in the log if the version of FOS is not valid
+    :type valid_check: bool
+    :return: Dictionary as described above
+    :rtype dict
+    """
+    global _letter_to_num_d
+
+    try:
+        version = version_in.lower()
+        if version[0] == 'v':
+            version = version[1:]
+        version_l = version.split('.')
+        if len(version_l[2]) > 1:
+            try:
+                bug = _letter_to_num_d[version_l[2][1:2]]
+                patch = version_l[2][2:] if len(version_l[2]) > 1 else ''
+            except KeyError:
+                bug = 0
+                patch = version_l[2][1:]
+        else:
+            bug = 0
+            patch = ''
+        return dict(version=str(version_in),
+                    major=int(version_l[0]),
+                    feature=int(version_l[1]),
+                    minor=int(version_l[2][0:1]),
+                    bug=bug,
+                    patch=patch)
+    except (IndexError, TypeError, ValueError, AttributeError):
+        if valid_check:
+            brcdapi_log.exception(['Invalid FOS version: ' + str(version_in), 'Type: ' + str(type(version_in))],
+                                  echo=True)
+
+    return dict(version=str(version_in), major=0, feature=0, minor=0, bug=0, patch='')

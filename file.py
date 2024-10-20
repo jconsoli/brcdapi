@@ -54,15 +54,17 @@ General purpose file operations.
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.0.3     | 15 May 2024   | Fixed full_file_name() when dot is False and the file name has a '.' in it.           |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.4     | 20 Oct 2024   | Fixed typo in error message                                                           |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
-__date__ = '15 May 2024'
+__date__ = '20 Oct 2024'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.3'
+__version__ = '4.0.4'
 
 import json
 import os
@@ -174,7 +176,7 @@ def write_file(file, content_l):
     except PermissionError:
         el.append('You do not have permission to write ' + file + '.')
     except BaseException as e:
-        el.extend(['Unexcpected error while writing ' + str(file), str(type(e)) + str(e)])
+        el.extend(['Unexpected error while writing ' + str(file), str(type(e)) + str(e)])
     return el
 
 
@@ -287,7 +289,7 @@ def full_file_name(file, extension, prefix=None, dot=False):
     :rtype: str
     """
     if isinstance(file, str):
-        if not dot or (dot and not '.' in file):
+        if not dot or (dot and '.' not in file):
             x = len(extension)
             p = '' if prefix is None else prefix
             return p + file + extension if len(file) < x or file[len(file)-x:].lower() != extension.lower() \
