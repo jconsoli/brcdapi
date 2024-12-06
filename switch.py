@@ -2,7 +2,7 @@
 Copyright 2023, 2024 Consoli Solutions, LLC.  All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
-the License. You may also obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+the License. You may also obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
 "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific
@@ -11,8 +11,6 @@ language governing permissions and limitations under the License.
 The license is free for single customer use (internal applications). Use of this module in the production,
 redistribution, or service delivery for commerce requires an additional license. Contact jack@consoli-solutions.com for
 details.
-
-:mod:`switch.py` - Methods to create, delete, and modify logical switches.
 
 **Description**
 
@@ -23,40 +21,39 @@ details.
 
 **Public Methods**
 
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | Method                | Description                                                                           |
-    +=======================+=======================================================================================+
-    | add_ports             | Move ports to a logical switch. Ports cannot be moved if they have any special        |
-    |                       | configurations so this method automatically sets all ports to be moved back to the    |
-    |                       | factory default setting. Furthermore, moving ports takes a long time. So as not to    |
-    |                       | incur an HTTP session timeout, this method breaks up port moves into smaller chunks.  |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | create_switch         | Create a logical switch. Creating a logical switch requires that the chassis be VF    |
-    |                       | enabled. It's easier to set the switch type at switch creation time. This method is a |
-    |                       | little more convenient to use.                                                        |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | delete_switch         | Sets all ports to their default configuration, moves those ports to the default       |
-    |                       | switch and then deletes the switch.                                                   |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | disable_switch        | Disable a logical switch                                                              |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | enable_switch         | Enable a logical switch                                                               |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | fibrechannel_switch   | Set switch configuration parameters for                                               |
-    |                       | brocade-fibrechannel-switch/fibrechannel-switch. Some requests require the WWN and    |
-    |                       | some require an ordered dictionary. This method automatically finds the switch WWN if |
-    |                       | it's not already known and handles the ordered dictionary. I'm sure I went over board |
-    |                       | with the ordered list but rather than figure out what needed the ordered list and     |
-    |                       | needed a WWN, since I have this method I use it for everything except enabling and    |
-    |                       | disabling switches.                                                                   |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | logical_switches      | Returns a list of logical switches with the default switch first. It's fairly common  |
-    |                       | to need a list of logical switches with the ability to discern which one is the       |
-    |                       | default so this method is provided as a convenience.                                  |
-    +-----------------------+---------------------------------------------------------------------------------------+
-    | switch_wwn            | Reads and returns the logical switch WWN from the API. I needed this method for       |
-    |                       | fibrechannel_switch() so I figured I may as well make it public.                      |
-    +-----------------------+---------------------------------------------------------------------------------------+
++-----------------------+-------------------------------------------------------------------------------------------+
+| Method                | Description                                                                               |
++=======================+===========================================================================================+
+| add_ports             | Move ports to a logical switch. Ports cannot be moved if they have any special            |
+|                       | configurations so this method automatically sets all ports to be moved back to the        |
+|                       | factory default setting. Furthermore, moving ports takes a long time. So as not to incur  |
+|                       | an HTTP session timeout, this method breaks up port moves into smaller chunks.            |
++-----------------------+-------------------------------------------------------------------------------------------+
+| create_switch         | Create a logical switch. Creating a logical switch requires that the chassis be VF        |
+|                       | enabled. It's easier to set the switch type at switch creation time. This method is a     |
+|                       | little more convenient to use.                                                            |
++-----------------------+-------------------------------------------------------------------------------------------+
+| delete_switch         | Sets all ports to their default configuration, moves those ports to the default switch    |
+|                       | and then deletes the switch.                                                              |
++-----------------------+-------------------------------------------------------------------------------------------+
+| disable_switch        | Disable a logical switch                                                                  |
++-----------------------+-------------------------------------------------------------------------------------------+
+| enable_switch         | Enable a logical switch                                                                   |
++-----------------------+-------------------------------------------------------------------------------------------+
+| fibrechannel_switch   | Set switch configuration parameters for                                                   |
+|                       | brocade-fibrechannel-switch/fibrechannel-switch. Some requests require the WWN and some   |
+|                       | require an ordered dictionary. This method automatically finds the switch WWN if it's not |
+|                       | already known and handles the ordered dictionary. I'm sure I went over board with the     |
+|                       | ordered list but rather than figure out what needed the ordered list and needed a WWN,    |
+|                       | since I have this method I use it for everything except enabling and disabling switches.  |
++-----------------------+-------------------------------------------------------------------------------------------+
+| logical_switches      | Returns a list of logical switches with the default switch first. It's fairly common to   |
+|                       | need a list of logical switches with the ability to discern which one is the default, so  |
+|                       | this method is provided as a convenience.                                                 |
++-----------------------+-------------------------------------------------------------------------------------------+
+| switch_wwn            | Reads and returns the logical switch WWN from the API. I needed this method for           |
+|                       | fibrechannel_switch() so I figured I may as well make it public.                          |
++-----------------------+-------------------------------------------------------------------------------------------+
 
 **WARNING**
     * Circuits and tunnels are not automatically removed from GE ports when moving them to another logical switch
@@ -70,26 +67,27 @@ details.
       port addresses. This module can be used to create a FICON switch but if you attempt to enable the ports, you an
       error is returned stating "Port enable failed because port not bound in FICON LS".
 
-Version Control::
+**Version Control**
 
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | Version   | Last Edit     | Description                                                                       |
-    +===========+===============+===================================================================================+
-    | 4.0.0     | 04 Aug 2023   | Re-Launch                                                                         |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 4.0.1     | 06 Mar 2024   | Changed add_ports() to return counts of successful and failed port moves. Added   |
-    |           |               | best flag and skip_default to add_ports().                                        |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
++-----------+---------------+---------------------------------------------------------------------------------------+
+| Version   | Last Edit     | Description                                                                           |
++===========+===============+=======================================================================================+
+| 4.0.0     | 04 Aug 2023   | Re-Launch                                                                             |
++-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.1     | 06 Mar 2024   | Changed add_ports() to return counts of successful and failed port moves. Added       |
+|           |               | best flag and skip_default to add_ports().                                            |
++-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.2     | 06 Dec 2024   | Fixed case where SSH login was not performed. Effected debug modes only.              |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
-
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
-__date__ = '06 Mar 2024'
+__date__ = '06 Dec 2024'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.1'
+__version__ = '4.0.2'
 
 import pprint
 import collections
@@ -320,7 +318,7 @@ def add_ports(session, to_fid, from_fid, ports=None, ge_ports=None, echo=False, 
 
     # Not all port configurations can be reset via the API. For now, just reset everything again via the CLI
     if len(all_ports_l) > 0:
-        if not session['ssh_fault']:
+        if not session.get('ssh_fault', False):
             for port in ports_l + ge_ports_l:
                 response = fos_cli.send_command(session, from_fid, 'portcfgdefault ' + fos_cli.cli_port(port))
                 # Not doing anything with the response. At least not yet anyway.

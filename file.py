@@ -2,7 +2,7 @@
 Copyright 2023, 2024 Consoli Solutions, LLC.  All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
-the License. You may also obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+the License. You may also obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
 "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific
@@ -56,15 +56,17 @@ General purpose file operations.
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.0.4     | 20 Oct 2024   | Fixed typo in error message                                                           |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.5     | 06 Dec 2024   | Skip inaccessible files in read_full_directory().                                     |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
-__date__ = '20 Oct 2024'
+__date__ = '06 Dec 2024'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.4'
+__version__ = '4.0.5'
 
 import json
 import os
@@ -224,8 +226,8 @@ def file_properties(folder, file):
     :type folder: str
     :param file: Name of file to read
     :type file: str
-    :return: List of file file contents.
-    :rtype: list
+    :return: See dictionary definition above in the function description.
+    :rtype: dict
     """
     stats = os.stat(os.path.join(folder, file))
     return dict(
@@ -261,14 +263,14 @@ def read_full_directory(folder, skip_sys=False):
     rl = list()
     try:
         for file in os.listdir(folder):
+            if skip_sys and len(file) > 1 and (file[0:1] == '$' or file[0:1] == '~'):
+                continue
             full_path = os.path.join(folder, file)
             if os.path.isfile(full_path):
-                if skip_sys and len(file) > 2 and file[0:2] == '~$':
-                    continue
                 rl.append(file_properties(folder, file))
             else:
                 rl.extend(read_full_directory(full_path, skip_sys))
-    except PermissionError:
+    except (FileExistsError, FileNotFoundError, PermissionError):
         pass
 
     return rl

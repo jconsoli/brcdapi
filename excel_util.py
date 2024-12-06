@@ -2,7 +2,7 @@
 Copyright 2023, 2024 Consoli Solutions, LLC.  All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
-the License. You may also obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+the License. You may also obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
 "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific
@@ -65,15 +65,17 @@ details.
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.0.4     | 20 Oct 2024   | Added comments and conditional formatting, cf, to cell_update()                       |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.5     | 06 Dec 2024   | Added hidden parameter to copy_worksheet()                                            |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
-__date__ = '20 Oct 2024'
+__date__ = '06 Dec 2024'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.4'
+__version__ = '4.0.5'
 
 import openpyxl as xl
 import openpyxl.utils.cell as xl_util
@@ -345,7 +347,7 @@ def read_sheet(sheet, order='col', granularity=2, hidden=True):
 
 
 def cell_update(sheet, row, col, buf, font=None, align=None, fill=None, link=None, border=None, comments=None, cf=None,
-                dv=None, comment_width=_DEFAULT_COMMENT_WIDTH, comment_height=_DEFAULT_COMMENT_HEIGHT):
+                dv=None, number_format=None, comment_width=_DEFAULT_COMMENT_WIDTH, comment_height=_DEFAULT_COMMENT_HEIGHT):
     """A convenient way to set cell properties and the cell value in a single call.
 
     :param sheet: openpyxl worksheet
@@ -372,6 +374,8 @@ def cell_update(sheet, row, col, buf, font=None, align=None, fill=None, link=Non
     :type cf: None, openpyxl.formatting.rule.Rule
     :param dv: Data validation
     :type dv: None, openpyxl.worksheet.datavalidation.DataValidation
+    :param number_format: See openpyxl number_format for details
+    :type number_format: None, str
     :param comment_width: Width of comment pop-up. The default is _DEFAULT_COMMENT_WIDTH
     :type comment_width: int
     :param comment_height: Height of comment pop-up. The default is _DEFAULT_COMMENT_HEIGHT
@@ -401,6 +405,8 @@ def cell_update(sheet, row, col, buf, font=None, align=None, fill=None, link=Non
         sheet.conditional_formatting.add(cell, cf)
     if dv is not None:
         dv.add(cell)
+    if number_format is not None:
+        sheet[cell].number_format = number_format
 
 
 def read_workbook(file, dm=0, order='row', sheets=None, skip_sheets=None, echo=False, hidden=True):
@@ -520,7 +526,7 @@ def read_workbook(file, dm=0, order='row', sheets=None, skip_sheets=None, echo=F
 
 
 def copy_worksheet(wb, sheet_index, sheet_name, sheet_l, col_width_l=None, font=None, align=None, fill=None,
-                   border=None):
+                   border=None, hidden=False):
     """Typically used to copy a worksheet from one workbook to another
 
     :param wb: openpyxl Workbook
@@ -541,6 +547,8 @@ def copy_worksheet(wb, sheet_index, sheet_name, sheet_l, col_width_l=None, font=
     :type fill: None, xl_styles
     :param border: Border type to apply to cell
     :type border: None, xl_styles
+    :param hidden: If True, set the sheet state to hidden
+    :type hidden: bool
     :return: List of error messages
     :rtype: list
     """
@@ -552,6 +560,8 @@ def copy_worksheet(wb, sheet_index, sheet_name, sheet_l, col_width_l=None, font=
 
             # Create the sheet and set up the column widths
             sheet = wb.create_sheet(index=sheet_index, title=sheet_name)
+            if hidden:
+                sheet.sheet_state = 'hidden'
             col = 1
             for width in gen_util.convert_to_list(col_width_l):
                 sheet.column_dimensions[xl_util.get_column_letter(col)].width = width
@@ -577,7 +587,7 @@ def copy_worksheet(wb, sheet_index, sheet_name, sheet_l, col_width_l=None, font=
     return el
 
 
-def find_headers(hdr_row_l, hdr_l=None, warn=False):
+def find_headers(hdr_row_l, hdr_l=None, warn=False, plus_one=False):
     """Match columns to headers. Duplicate headers are ignored. Optionally warn if a duplicate is encountered.
 
     :param hdr_row_l: Typically, al[0] from sl, al = excel_util.read_sheet(sheet, 'row')
@@ -586,6 +596,8 @@ def find_headers(hdr_row_l, hdr_l=None, warn=False):
     :type hdr_l: str, list, tuple, None
     :param warn: If True, add an exception message to the log warning that there are multiple column headers
     :type warn: bool
+    :param plus_one: Lists begin with index zero. Excel columns begin with 1. If True, returns an Excel column
+    :type plus_one: bool
     :return: Dictionary of headers. Key is the header in hdr_l. The value is the index into hdr_row where it was found.
              if not found, the value is None
     :rtype: dict, None
@@ -609,5 +621,10 @@ def find_headers(hdr_row_l, hdr_l=None, warn=False):
                 if hdr_row_l[col] == buf:
                     rd[buf] = col
                     break
+
+    # Adjust for Excel column numbering.
+    if plus_one:
+        for key in rd.keys():
+            rd[key] += 1
 
     return rd

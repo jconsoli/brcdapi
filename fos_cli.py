@@ -2,7 +2,7 @@
 Copyright 2023, 2024 Consoli Solutions, LLC.  All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
-the License. You may also obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+the License. You may also obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
 "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific
@@ -12,37 +12,55 @@ The license is free for single customer use (internal applications). Use of this
 redistribution, or service delivery for commerce requires an additional license. Contact jack@consoli-solutions.com for
 details.
 
-:mod:`fos_cli` - Methods to login via SSH, send  commands, and logout.
+**Description**
+
+Methods to login via SSH, send  commands, and logout.
 
 **WARNING**
 
-This module was written as an expedient to send "portaddress --bind" commands to FOS for the switch_config.py
-application found at https://github.com/jconsoli/applications. It does a simple login and sends commands. It doesn't
+This module was written as an expedient to handle a few commands for things not yet supported via the API. It doesn't
 do anything with prompts and doesn't perform any error checking.
+**Public Methods & Data**
 
-Search for brocade_fos_command.py at https://github.com/brocade for a more complete CLI module. It was not used here
-because that module was written for Ansible. Rather than re-work it to fit my needs, I just took a quick and dirty way
-out.
++-----------------------+-------------------------------------------------------------------------------------------+
+| Method                | Description                                                                               |
++=======================+===========================================================================================+
+| login                 | Performs an SSH login                                                                     |
++-----------------------+-------------------------------------------------------------------------------------------+
+| logout                | Logout of an SSH session                                                                  |
++-----------------------+-------------------------------------------------------------------------------------------+
+| send_command          | Sends a FOS command via an SSH connection to a FOS switch                                 |
++-----------------------+-------------------------------------------------------------------------------------------+
+| parse_cli             | If cmd begins with 'fos_cli/' the remaining portion of cmd is returned. Otherwise, None   |
+|                       | is returned.                                                                              |
++-----------------------+-------------------------------------------------------------------------------------------+
+| cli_port              | Strips out "0/" in "0/port_num" for fixed port switches                                   |
++-----------------------+-------------------------------------------------------------------------------------------+
+| cli_wait              | Introduces a sleep. This is necessary to allow the API and CLI to sync up                 |
++-----------------------+-------------------------------------------------------------------------------------------+
+| verbose_debug         | Sets or clears verbose debugging                                                          |
++-----------------------+-------------------------------------------------------------------------------------------+
 
-Version Control::
+**Version Control**
 
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | Version   | Last Edit     | Description                                                                       |
-    +===========+===============+===================================================================================+
-    | 4.0.0     | 04 Aug 2023   | Re-Launch                                                                         |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 4.0.1     | 06 Mar 2024   | Added cli_port() and cli_wait()                                                   |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
++-----------+---------------+---------------------------------------------------------------------------------------+
+| Version   | Last Edit     | Description                                                                           |
++===========+===============+=======================================================================================+
+| 4.0.0     | 04 Aug 2023   | Re-Launch                                                                             |
++-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.1     | 06 Mar 2024   | Added cli_port() and cli_wait()                                                       |
++-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.2     | 06 Dec 2024   | Fixed SSH logout when no SSH login was performed. Limited to debug modes only.        |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
-
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
-__date__ = '06 Mar 2024'
+__date__ = '06 Dec 2024'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.1'
+__version__ = '4.0.2'
 
 import time
 import paramiko
@@ -68,10 +86,13 @@ def login(session, timeout=_DEFAULT_TIMEOUT, force=False):
     :return err_msgs: List of error messages
     :rtype err_msgs: list
     """
+    if session.get('debug', False):
+        session['ssh_fault'] = True
+        return ['SSH login not supported while in debug mode']
     if force:
         session['ssh_fault'] = False
-    if session['ssh_fault']:
-        return ''  # An error message was posted when ssh_fault was set so no need to repeat the message
+    if session.get('ssh_fault', False):
+        return list()  # An error message was posted when ssh_fault was set so no need to repeat the message
     ssh = paramiko.SSHClient()
     ssh.load_system_host_keys()
     ssh.set_missing_host_key_policy(paramiko.client.WarningPolicy())
@@ -94,8 +115,9 @@ def logout(session):
     :type session: dict
     :rtype: None
     """
-    if session['ssh_login'] is not None:
-        session['ssh_login'].close()
+    if isinstance(session, dict):
+        if session.get('ssh_login') is not None:
+            session['ssh_login'].close()
         session['ssh_login'], session['ssh_fault'] = None, False
 
 
@@ -114,11 +136,15 @@ def send_command(session, fid, cmd):
     global _verbose_debug
 
     response_l = list()
-    if session['ssh_fault']:
-        return ''  # An error for the login fault has already been presented so no need to do anything else.
+    if session.get('ssh_fault', False):
+        return response_l  # An error for the login fault has already been presented so no need to do anything else.
+    if session.get('debug', False):
+        session['ssh_fault'] = True
+        brcdapi_log.log('Sending commands via SSH not supported while in debug mode', echo=True)
+        return response_l
 
     # Make sure there is an SSH login
-    if session['ssh_login'] is None:
+    if session.get('ssh_login') is None:
         el = login(session)
         if len(el) > 0:
             el.append('Could not login while attempting to process ' + cmd)

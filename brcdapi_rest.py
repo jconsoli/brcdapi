@@ -2,7 +2,7 @@
 Copyright 2023, 2024 Consoli Solutions, LLC.  All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
-the License. You may also obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+the License. You may also obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
 "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific
@@ -12,7 +12,9 @@ The license is free for single customer use (internal applications). Use of this
 redistribution, or service delivery for commerce requires an additional license. Contact jack@consoli-solutions.com for
 details.
 
-:mod:`brcdapi_rest` - Provides a single interface, _api_request(), to the RESTConf API in FOS.
+**Description**
+
+Provides a single interface, _api_request(), to the RESTConf API in FOS.
 
 Methods in this module are used to establish, modify, send requests, and terminate sessions. Also does the following:
 
@@ -27,48 +29,50 @@ Methods in this module are used to establish, modify, send requests, and termina
 This is a thin interface. Logging is only performed in debug mode. It is the responsibility of the next higher layer,
 such as the brcddb libraries, to control what gets printed to the log.
 
-Public Methods::
+**Public Methods**
 
-    +---------------------------+-----------------------------------------------------------------------------------+
-    | Method                    | Description                                                                       |
-    +===========================+===================================================================================+
-    | api_request()             | Single interface to the FOS REST API. Performs a Rest API request. Handles low    |
-    |                           | levels protocol errors and retries when the switch is busy. Also cleans up empty  |
-    |                           | responses that are returned as errors when they are just empty lists.             |
-    +---------------------------+-----------------------------------------------------------------------------------+
-    | get_request()             | Fill out full URI and add debug wrapper around a GET before calling api_request() |
-    +---------------------------+-----------------------------------------------------------------------------------+
-    | login()                   | Adds a wrapper around brcdapi.fos_auth.login()                                    |
-    +---------------------------+-----------------------------------------------------------------------------------+
-    | logout()                  | Adds a wrapper around brcdapi.fos_auth.logout()                                   |
-    +---------------------------+-----------------------------------------------------------------------------------+
-    | send_request()            | Performs a Rest API request. Use get_request() for GET. Use this for all other    |
-    |                           | '/rest/running/' requests                                                         |
-    +---------------------------+-----------------------------------------------------------------------------------+
-    | set_url_options()         | Sets or clears the flag to issue an OPTIONS request prior to making any requests  |
-    +---------------------------+-----------------------------------------------------------------------------------+
-    | operations_request()      | Performs an operations branch Rest API request and polls for status completion    |
-    +---------------------------+-----------------------------------------------------------------------------------+
++-----------------------+-------------------------------------------------------------------------------------------+
+| Method                | Description                                                                               |
++=======================+===========================================================================================+
+| api_request()         | Single interface to the FOS REST API. Performs a Rest API request. Handles lowlevel       |
+|                       | protocol errors and retries when the switch is busy. Also cleans up empty responses that  |
+|                       | are returned as errors when they are just empty lists.                                    |
++-----------------------+-------------------------------------------------------------------------------------------+
+| get_request()         | Fill out full URI and add debug wrapper around a GET before calling api_request()         |
++-----------------------+-------------------------------------------------------------------------------------------+
+| login()               | Adds a wrapper around brcdapi.fos_auth.login()                                            |
++-----------------------+-------------------------------------------------------------------------------------------+
+| logout()              | Adds a wrapper around brcdapi.fos_auth.logout()                                           |
++-----------------------+-------------------------------------------------------------------------------------------+
+| send_request()        | Performs a Rest API request. Use get_request() for GET. Use this for all other            |
+|                       | '/rest/running/' requests                                                                 |
++-----------------------+-------------------------------------------------------------------------------------------+
+| set_url_options()     | Sets or clears the flag to issue an OPTIONS request prior to making any requests          |
++-----------------------+-------------------------------------------------------------------------------------------+
+| operations_request()  | Performs an operations branch Rest API request and polls for status completion            |
++-----------------------+-------------------------------------------------------------------------------------------+
 
-Version Control::
+**Version Control**
 
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | Version   | Last Edit     | Description                                                                       |
-    +===========+===============+===================================================================================+
-    | 4.0.0     | 04 Aug 2023   | Re-Launch                                                                         |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 4.0.1     | 06 Mar 2024   | Removed deprecated vfid_to_str()                                                  |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
++-----------+---------------+---------------------------------------------------------------------------------------+
+| Version   | Last Edit     | Description                                                                           |
++===========+===============+=======================================================================================+
+| 4.0.0     | 04 Aug 2023   | Re-Launch                                                                             |
++-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.1     | 06 Mar 2024   | Removed deprecated vfid_to_str()                                                      |
++-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.2     | 06 Dec 2024   | Replaced old header format with standard file header.                                 |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
-__date__ = '06 Mar 2024'
+__date__ = '06 Dec 2024'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.1'
+__version__ = '4.0.2'
 
 import http.client
 import re
@@ -93,7 +97,7 @@ _DEBUG = False
 # 1 - Do not perform any I/O. Read all responses from file into response and fake a successful login
 _DEBUG_MODE = 1
 # _DEBUG_PREFIX is only used when _DEBUG == True. Folder where all the json dumps of API requests are read/written.
-_DEBUG_PREFIX = 'gsh_raw_230826/'
+_DEBUG_PREFIX = '200802_raw/'
 _verbose_debug = False  # When True, prints data structures. Only useful for debugging.
 _req_pending = False  # When True, the script is waiting for a response from a switch
 _control_c_pend = False  # When True, a keyboard interrupt is pending a request to complete

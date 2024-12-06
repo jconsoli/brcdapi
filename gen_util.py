@@ -2,7 +2,7 @@
 Copyright 2023, 2024 Consoli Solutions, LLC.  All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
-the License. You may also obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+the License. You may also obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
 "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific
@@ -78,6 +78,8 @@ details.
 +---------------------------+---------------------------------------------------------------------------------------|
 | remove_duplicates         | Removes duplicate entries in a list                                                   |
 +---------------------------+---------------------------------------------------------------------------------------|
+| remove_leading_char       | Removes leading characters. Typically used to remove "0" from numbers as str.         |
++---------------------------+---------------------------------------------------------------------------------------|
 | remove_none               | Removes list entries whose value is None                                              |
 +---------------------------+---------------------------------------------------------------------------------------|
 | resolve_multiplier        | Converts str representation of a number with a multiplier. Supported conversions      |
@@ -92,7 +94,7 @@ details.
 | sort_obj_str              | Sorts a list of dictionaries based on the value for a key or list of keys. Value      |
 |                           | must be a string.                                                                     |
 +---------------------------+---------------------------------------------------------------------------------------|
-| sp_range_to_list          | Returns a list of port based on a range of ports using s/p notation.                  |
+| sp_range_to_list          | Returns a list of ports based on a range of ports using s/p notation.                 |
 +---------------------------+---------------------------------------------------------------------------------------|
 | str_to_num                | Converts str to an int if it can be represented as an int, otherwise float.           |
 |                           | 12.0 is returned as a float.                                                          |
@@ -121,15 +123,17 @@ details.
 | 4.0.5     | 20 Oct 2024   | Added error checking to slot_port(), removed unused variables in range_to_list() and  |
 |           |               | date_to_epoch(),                                                                      |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.6     | 06 Dec 2024   | Added remove_leading_char()                                                           |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
-__date__ = '20 Oct 2024'
+__date__ = '06 Dec 2024'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.5'
+__version__ = '4.0.6'
 
 import re
 import fnmatch
@@ -410,6 +414,31 @@ def remove_duplicates(obj_list):
         return [obj for obj in obj_list if not (obj in seen or seen_add(obj))]
     except TypeError:
         return obj_list
+
+
+def remove_leading_char(obj, char):
+    """Removes leading characters in a list or string
+
+    :param obj: String or list of strings.
+    :type obj: str, list, tuple, None
+    :param char:
+    :return: Same type as the input except for tuple which is returned as list
+    :rtype: str, list, None
+    """
+    rl, ri = list(), 0
+    for buf in convert_to_list(obj):
+        if not isinstance(buf, str):
+            e_buf = 'Object in obj was ' + str(type(buf)) + ' at index ' + str(ri) + '. Objects must be type str.'
+            brcdapi_log.exception(e_buf, echo=True)
+            raise TypeError
+        i = 0  # If len(buf) == 0, i never gets initialized in the loop below
+        for i in range(0, len(buf)):
+            if buf[i] != char:
+                break
+        rl.append(buf[i:] if i < len(buf)-1 else '')
+        ri += 1
+
+    return None if obj is None else rl[0] if isinstance(obj, str) else rl
 
 
 def remove_none(obj_list):
@@ -966,31 +995,13 @@ def get_input(desc, param_d):
 
     Returns a dictionary of arguments. The key is the option, without the leading -. Value is the entered value.
 
-    Sample:
-
-    py sample.py -ip 10.1.2.3 -id admin -pw password -fid 4 -flag
-
-    sample_desc = 'This is an example'
-    args_d = dict(
-        ip=dict(r=True, h='Required: IP address'),
-        id=dict(r=True, h='Required: User ID'),
-        pw=dict(r=True, h='Required: Password'),
-        s=dict(d='none', h='Optional: "none" for HTTP, "self" for self-signed HTTPS. Default is "none"'),
-        fid=dict(d=128, t=int, v=gen_util.range_to_list('1-128'), h='Optional: Fabric ID. The default is 128'),
-        flag=dict(t='flag', h='Optional: Sample boolean')
-    )
-
-    values_d = get_input(sample_desc, args_d)
-
-    Returns: dict(ip='10.1.2.3', id='admin', pw='password', s='none', fid='128', flag=True)
-
     Dictionaries of param_d detail:
 
     +-------+---------------+---------------------------------------------------------------------------------------+
     | Key   | Type          | Description                                                                           |
     +=======+===============+=======================================================================================+
     | d     | any           | The return value for any optional parameter when not specified. Default is None.      |
-    |       |               | WARNING: This can be anything you want. Dictionaries, pointers, ect. Keep in mind     |
+    |       |               | WARNING: This can be anything you want. Dictionaries, pointers, etc. Keep in mind     |
     |       |               | that the power to do whatever you want also gives you the power to do some pretty     |
     |       |               | stupid stuff.                                                                         |
     +-------+---------------+---------------------------------------------------------------------------------------+
@@ -1002,7 +1013,7 @@ def get_input(desc, param_d):
     |       |               | "type=t". Supported types are: bool, int, float, str, list. If ommitted, "type=" is   |
     |       |               | not specified. argparse treats the argument as a str by default.                      |
     +-------+---------------+---------------------------------------------------------------------------------------+
-    | v     | list, tuple   | Valid options                                                                         |
+    | v     | list, tuple   | Valid parameter options                                                               |
     +-------+---------------+---------------------------------------------------------------------------------------+
 
     :param desc: General module description displayed with -h
@@ -1046,7 +1057,7 @@ def get_input(desc, param_d):
 
 
 def sp_range_to_list(port_range):
-    """Returns a list of port based on a range of ports using s/p notation
+    """Returns a list of ports based on a range of ports using s/p notation
 
     :param port_range: CSV list of port ranges in s/p notation
     :type port_range: str, None
@@ -1162,7 +1173,7 @@ def match_str(test_l, search_term, ignore_case=False, stype='exact'):
     :type test_l: list, tuple
     :param search_term: text to test against. Maybe a regex, wildcard, or exact match
     :type search_term: str
-    :param ignore_case: Default is False. If True, ignores case in search_term. Not that keys are always case-sensitive
+    :param ignore_case: Default is False. If True, ignores case in search_term. Note that keys are always case-sensitive
     :type ignore_case: bool
     :param stype: Valid options are keys in _match_str_d
     :param stype: str
