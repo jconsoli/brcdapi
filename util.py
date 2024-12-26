@@ -43,7 +43,7 @@ Only GET is valid in the 'methods' leaf of uti_map
 +-----------------------+---------------------------------------------------------------------------------------+
 | format_uri            | Formats a full URI                                                                    |
 +-----------------------+---------------------------------------------------------------------------------------+
-| fos_to_dict           | Converts a FOS version into a dictionary to be used for comparing for version numbers |                                                                  |
+| fos_to_dict           | Converts a FOS version into a dictionary to be used for comparing for version numbers |
 +-----------------------+---------------------------------------------------------------------------------------+
 | mask_ip_addr          | Replaces IP address with xxx.xxx.xxx.123 or all x depending on keep_last              |
 +-----------------------+---------------------------------------------------------------------------------------+
@@ -75,15 +75,17 @@ Only GET is valid in the 'methods' leaf of uti_map
 | 4.0.4     | 06 Dec 2024   | Use stats_uri instead of explicit values for fibrechannel-statistics. Added       |
 |           |               | bc_support_sn                                                                     |
 +-----------+---------------+-----------------------------------------------------------------------------------+
+| 4.0.5     | 26 Dec 2024   | Updated comments only.                                                            |
++-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
-__date__ = '06 Dec 2024'
+__date__ = '26 Dec 2024'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.4'
+__version__ = '4.0.5'
 
 import pprint
 import copy
@@ -154,7 +156,7 @@ bfs_dls = bfs_uri + '/dynamic-load-sharing'
 bfs_domain_name = bfs_uri + '/domain-name'
 bfs_model = bfs_uri + '/model'
 bfs_vf_id = bfs_uri + '/vf-id'
-bfs_ag_mode = bfs_uri + '/ag-mode'  # Depracated
+bfs_ag_mode = bfs_uri + '/ag-mode'  # Deprecated
 bfs_ag_mode_str = bfs_uri + '/ag-mode-string'
 bfs_enabled_state = bfs_uri + '/is-enabled-state'
 bfc_up_time = bfs_uri + '/up-time'
@@ -173,7 +175,7 @@ bfc_max_flogi_rate = bfcfp_uri + '/max-flogi-rate-per-switch'
 bfc_stage_interval = bfcfp_uri + '/stage-interval'
 bfc_free_fdisc = bfcfp_uri + '/free-fdisc'
 bfc_max_flogi_rate_port = bfcfp_uri + '/max-flogi-rate-per-port'
-bfc_fport_enforce_login = bfcfp_uri + '/enforce-login'  # Depracated
+bfc_fport_enforce_login = bfcfp_uri + '/enforce-login'  # Deprecated
 bfc_fport_enforce_login_str = bfcfp_uri + '/enforce-login-string'
 # Commonly used URIs: brocade-fibrechannel-configuration/switch-configuration
 bfc_sw_uri = 'brocade-fibrechannel-configuration/switch-configuration'
@@ -242,12 +244,12 @@ bc_max_rest = bcmic_uri + '/max-rest-sessions'
 bc_https_ka = bcmic_uri + '/https-keep-alive-enabled'
 bc_https_ka_to = bcmic_uri + '/https-keep-alive-timeout'
 # Commonly used URIs: brocade-fabric/fabric-switch
-bfsw_uri = 'brocade-fabric/fabric-switch'  # I think this entire branch is depracated
-bf_sw_user_name = bfsw_uri + '/switch-user-friendly-name'  # Depracated? Use bfs_sw_user_name
+bfsw_uri = 'brocade-fabric/fabric-switch'  # I think this entire branch is deprecated
+bf_sw_user_name = bfsw_uri + '/switch-user-friendly-name'  # Deprecated? Use bfs_sw_user_name
 bf_sw_wwn = bfsw_uri + '/name'
-bf_fw_version = bfsw_uri + '/firmware-version'  # Depracated?
+bf_fw_version = bfsw_uri + '/firmware-version'  # Deprecated?
 bfsw_ipv4 = bfsw_uri + '/ip-address'
-bfsw_mask =  bfsw_uri + '/subnet-mask'
+bfsw_mask = bfsw_uri + '/subnet-mask'
 bfsw_ipv6 = bfsw_uri + '/ipv6-address'
 # Commonly used URIs: brocade-fibrechannel-logical-switch
 bfls_uri = 'brocade-fibrechannel-logical-switch/fibrechannel-logical-switch'
@@ -375,10 +377,10 @@ bifc_pod = bifc_uri + '/pod-license-state'
 fc_auto_neg = 'fibrechannel/auto-negotiate'
 fc_name = 'fibrechannel/name'  # The port number in s/p notation
 fc_enabled = 'fibrechannel/is-enabled-state'
-fc_op_status = 'fibrechannel/operational-status'  # Depracated
+fc_op_status = 'fibrechannel/operational-status'  # Deprecated
 fc_op_status_str = 'fibrechannel/operational-status-string'
 fc_state = 'fibrechannel/physical-state'
-fc_port_type = 'fibrechannel/port-type'  # Depracated
+fc_port_type = 'fibrechannel/port-type'  # Deprecated
 fc_port_type_str = 'fibrechannel/port-type-string'
 fc_fcid_hex = 'fibrechannel/fcid-hex'
 fc_neighbor_node_wwn = 'fibrechannel/neighbor-node-wwn'
@@ -1107,7 +1109,7 @@ def validate_fid(in_fid):
 
 
 # _letter_to_num_d is used in fos_to_dict() to convert a patch level release to a number for numerical comparison.
-# The easy thing to do would have been to treat the letter as utf-8 and convert to it's integer value. Although that
+# The easy thing to do would have been to treat the letter as utf-8 and convert to its integer value. Although that
 # should work in a mainframe environment, which is EBCDIC, a mainframe wasn't available for testing.
 _letter_to_num_d = dict(a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9, j=10, k=11, l=12, m=13, n=14, o=15, p=16, q=17,
                         r=18, s=19, t=20, u=21, v=22, w=23, x=24, y=25, z=26)
