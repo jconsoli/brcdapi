@@ -58,15 +58,17 @@ General purpose file operations.
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.0.5     | 06 Dec 2024   | Skip inaccessible files in read_full_directory().                                     |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.6     | 26 Dec 2024   | Added "full" parameter to read_directory()                                            |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
-__date__ = '06 Dec 2024'
+__date__ = '26 Dec 2024'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.5'
+__version__ = '4.0.6'
 
 import json
 import os
@@ -101,11 +103,13 @@ def read_dump(file):
     return obj
 
 
-def read_directory(folder):
+def read_directory(folder, full=False):
     """Reads in the contents of a folder (directory) and returns the list of files only (no directories) in that folder
 
     :param folder: Name of the folder
     :type folder: str
+    :param full: If true, Include the full relative path in the return list. Otherwise, just the file name.
+    :type full: bool
     :return: List of file names in the folder. List is empty if the folder doesn't exist
     :rtype: str
     """
@@ -116,7 +120,10 @@ def read_directory(folder):
                 full_path = os.path.join(folder, file)
                 try:
                     if os.path.isfile(full_path) and len(file) > 2 and file[0:2] != '~$':
-                        rl.append(file)
+                        if full:
+                            rl.append(full_path)
+                        else:
+                            rl.append(file)
                 except PermissionError:
                     pass  # It's probably a system file
         except PermissionError:
