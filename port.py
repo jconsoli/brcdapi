@@ -2,7 +2,7 @@
 Copyright 2023, 2024 Consoli Solutions, LLC.  All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
-the License. You may also obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+the License. You may also obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
 "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific
@@ -71,21 +71,23 @@ details.
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.0.2     | 20 Oct 2024   | Use brcdapi.gen_util.slot_port() to determine slot and port numbers.                  |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.3     | 27 Dec 2024   | Added unbind_addresses() and added portcfgdefault via CLI to default_port_config()    |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
-
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
-__date__ = '20 Oct 2024'
+__date__ = '27 Dec 2024'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.2'
+__version__ = '4.0.3'
 
 import collections
 import brcdapi.util as brcdapi_util
 import brcdapi.brcdapi_rest as brcdapi_rest
-import brcdapi.fos_auth as brcdapi_auth
+import brcdapi.fos_auth as fos_auth
+import brcdapi.fos_cli as fos_cli
 import brcdapi.log as brcdapi_log
 import brcdapi.gen_util as gen_util
 
@@ -216,6 +218,9 @@ def default_port_config(session, fid, i_port_l):
     port_l = ports_to_list(i_port_l)
     if len(port_l) == 0:
         return brcdapi_util.GOOD_STATUS_OBJ
+    check_port_d = dict()  # For faster lookup, this is a dictionary of port in port_l
+    for port in port_l:
+        check_port_d.update({port: True})
 
     # Not all features are supported on all platforms. In most cases, even if you disable the unsupported feature, FOS
     # returns an error. To get around this, I read the port configuration and only add parameters to send to the switch
@@ -223,9 +228,10 @@ def default_port_config(session, fid, i_port_l):
 
     # Read in the port configurations
     obj = brcdapi_rest.get_request(session, 'running/brocade-interface/fibrechannel', fid)
-    if brcdapi_auth.is_error(obj):
+    if fos_auth.is_error(obj):
         brcdapi_log.log('Failed to read brocade-interface/fibrechannel for fid ' + str(fid), echo=True)
         return obj
+
     # Put all the ports in a dictionary for easy lookup
     port_d = dict()
     for port in obj['fibrechannel']:
@@ -262,13 +268,33 @@ def default_port_config(session, fid, i_port_l):
 
     # Now modify the port(s)
     if len(pl) > 0:
-        return brcdapi_rest.send_request(session,
-                                         'running/brocade-interface/fibrechannel',
-                                         'PATCH',
-                                         {'fibrechannel': pl},
-                                         fid)
+        obj = brcdapi_rest.send_request(session,
+                                        'running/brocade-interface/fibrechannel',
+                                        'PATCH',
+                                        {'fibrechannel': pl},
+                                        fid)
+        if fos_auth.is_error(obj):
+            # Until all port configurations to default are supported by the API, we'll get errors, so no echo.
+            brcdapi_log.exception(fos_auth.formatted_error_msg(obj))
 
-    return brcdapi_util.GOOD_STATUS_OBJ  # The port list was empty if we get here.
+    # Unbind the port addresses if they were bound. This could have been written better. I forgot that although the
+    # bound addresses and flag indicating they are bound are in running/brocade-interface/fibrechannel. Changing
+    # it is in an operations branch. So I shoe horned this in.
+    unbind_d, fc_l = dict(), obj.get('fibrechannel', list())
+    for port_d in [d for d in fc_l if check_port_d.get(d['name'], False) and d.get('user-bound-enabled', False)]:
+        unbind_d.update({port_d['name']: port_d['fcid-hex'][0:2] + port_d['fcid-hex'][4:]})
+    if len(unbind_d) > 0:
+        unbind_addresses(session, fid, unbind_d)
+
+    # As of FOS v9.2, long distance settings could not be set or cleared via the API, so just do it via the CLI
+    if len(port_l) > 0:
+        if not session.get('ssh_fault', False):
+            for port in port_l:
+                response = fos_cli.send_command(session, fid, 'portcfgdefault ' + fos_cli.cli_port(port))
+                # Not doing anything with the response. At least not yet anyway.
+            fos_cli.cli_wait()  # Let the API and CLI sync up. No value uses the default wiat time.
+
+    return brcdapi_util.GOOD_STATUS_OBJ  # Since all defaults aren't supported by the API, anything else is too complex
 
 
 def port_enable_disable(session, fid, enable_flag, i_port_l, persistent=False, echo=False):
@@ -308,7 +334,7 @@ def port_enable_disable(session, fid, enable_flag, i_port_l, persistent=False, e
                                     'PATCH',
                                     {'fibrechannel': pl},
                                     fid)
-    if brcdapi_auth.is_error(obj):
+    if fos_auth.is_error(obj):
         return obj
 
     if persistent and enable_flag:
@@ -565,6 +591,32 @@ def bind_addresses(session, fid, port_d, echo=False):
                                     'POST',
                                     {'port-operation-parameters': port_l},
                                     fid=fid)
-    brcdapi_log.log('Error' if brcdapi_auth.is_error(obj) else 'Success' + ' binding addresses.', echo)
+    brcdapi_log.log('Error' if fos_auth.is_error(obj) else 'Success' + ' binding addresses.', echo)
+
+    return obj
+
+
+def unbind_addresses(session, fid, port_d, echo=False):
+    """Unbinds port addresses. Requires FOS 9.1 or higher.
+
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
+    :type session: dict
+    :param fid: Fabric ID
+    :type fid: None, int
+    :param port_d: Key is the port number. Value is the port address in hex (str).
+    :type port_d: dict
+    :param echo: If True, the list of ports for each move is echoed to STD_OUT
+    :type echo: bool
+    :return: brcdapi_rest status object for the first error encountered of the last request
+    :rtype: dict
+    """
+    port_l = [{'name': k, 'operation-type': 'port-address-unbind', 'user-port-address': v}
+              for k, v in port_d.items()]
+    obj = brcdapi_rest.send_request(session,
+                                    'operations/port',
+                                    'POST',
+                                    {'port-operation-parameters': port_l},
+                                    fid=fid)
+    brcdapi_log.log('Error' if fos_auth.is_error(obj) else 'Success' + ' binding addresses.', echo)
 
     return obj

@@ -65,11 +65,12 @@ __version__ = '4.0.2'
 import time
 import paramiko
 import brcdapi.log as brcdapi_log
+import brcdapi.fos_auth as fos_auth
 
 _FOS_CLI = 'fos_cli/'
 _FOS_CLI_LEN = len(_FOS_CLI)
 _DEFAULT_TIMEOUT = 15  # Default timeout when setting up SSH session in login()
-_DEFAULT_WAIT = 10  # Time to sleep waiting for the CLI and API to sync up
+_DEFAULT_WAIT = 20  # Time to sleep waiting for the CLI and API to sync up
 
 _verbose_debug = False  # When True, prints data structures. Only useful for debugging.
 

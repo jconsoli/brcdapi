@@ -79,15 +79,17 @@ details.
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.0.2     | 06 Dec 2024   | Fixed case where SSH login was not performed. Effected debug modes only.              |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.3     | 27 Dec 2024   | Moved all port config default stuff to brcdapi.port.default_port_config()             |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
-__date__ = '06 Dec 2024'
+__date__ = '27 Dec 2024'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.2'
+__version__ = '4.0.3'
 
 import pprint
 import collections
@@ -96,12 +98,10 @@ import brcdapi.fos_auth as brcdapi_auth
 import brcdapi.log as brcdapi_log
 import brcdapi.port as brcdapi_port
 import brcdapi.util as brcdapi_util
-import brcdapi.fos_cli as fos_cli
 
 # It takes about 10 sec + 500 msec per port to move per API request. MAX_PORTS_TO_MOVE defines the number of ports that
 # can be moved in any single Rest request so as not to encounter an HTTP connection timeout.
 MAX_PORTS_TO_MOVE = 32
-_cli_wait_time = 20  # It takes a while for the API and the CLI to sync up
 
 _FC_SWITCH = 'running/' + brcdapi_util.bfs_uri
 _FC_LS = 'running/' + brcdapi_util.bfls_uri
@@ -293,7 +293,7 @@ def add_ports(session, to_fid, from_fid, ports=None, ge_ports=None, echo=False, 
     :return fault_l: Ports in s/p notation that were not added
     :rtype fault_l: list
     """
-    global _FC_LS, MAX_PORTS_TO_MOVE, _cli_wait_time
+    global _FC_LS, MAX_PORTS_TO_MOVE
 
     success_l, fault_l = list(), list()
     if skip_default:
@@ -310,19 +310,10 @@ def add_ports(session, to_fid, from_fid, ports=None, ge_ports=None, echo=False, 
 
     # Set all ports to the default configuration and disable before moving.
     all_ports_l = ports_l + ge_ports_l
-    obj = brcdapi_port.default_port_config(session, from_fid, ports_l + ge_ports_l)
-    # Until this gets straightened out in FOS, there will always be an error if long distance settings are in place.
-    # if brcdapi_auth.is_error(obj):
-    #     brcdapi_log.exception('Failed to set all ports to the default configuration', echo=echo)
-    #     return success_l, all_ports_l
-
-    # Not all port configurations can be reset via the API. For now, just reset everything again via the CLI
-    if len(all_ports_l) > 0:
-        if not session.get('ssh_fault', False):
-            for port in ports_l + ge_ports_l:
-                response = fos_cli.send_command(session, from_fid, 'portcfgdefault ' + fos_cli.cli_port(port))
-                # Not doing anything with the response. At least not yet anyway.
-            fos_cli.cli_wait(_cli_wait_time)  # Let the API and CLI sync up
+    obj = brcdapi_port.default_port_config(session, from_fid, all_ports_l)
+    if brcdapi_auth.is_error(obj):
+        brcdapi_log.exception('Failed to set all ports to the default configuration', echo=echo)
+        return success_l, all_ports_l
 
     # Move the ports, FOS returns an error if ports_l is an empty list in: 'port-member-list': {'port-member': ports_l}
     # so I have to custom build the content. Furthermore, it takes about 400 msec per port to move so to avoid an HTTP
@@ -356,21 +347,20 @@ def add_ports(session, to_fid, from_fid, ports=None, ge_ports=None, echo=False, 
         # Retry failures one port at a time. Otherwise, a failure one on port results in the entire list not being moved
         if len(retry_l) > 0:
             brcdapi_log.log('Retrying ports ' + ', '.join(retry_l), echo=echo)
-            fos_cli.cli_wait(_cli_wait_time)  # Maybe the API and CLI aren't in sync yet.
-        for port in retry_l:
-            sub_content = {'fabric-id': to_fid}
-            if ge_flag:
-                sub_content.update({'ge-port-member-list': {'port-member': [port]}})
-            else:
-                sub_content.update({'port-member-list': {'port-member': [port]}})
-            obj = brcdapi_rest.send_request(session,
-                                            _FC_LS,
-                                            'POST',
-                                            {'fibrechannel-logical-switch': sub_content})
-            if brcdapi_auth.is_error(obj):
-                fault_l.append(port)
-            else:
-                success_l.append(port)
+            for port in retry_l:
+                sub_content = {'fabric-id': to_fid}
+                if ge_flag:
+                    sub_content.update({'ge-port-member-list': {'port-member': [port]}})
+                else:
+                    sub_content.update({'port-member-list': {'port-member': [port]}})
+                obj = brcdapi_rest.send_request(session,
+                                                _FC_LS,
+                                                'POST',
+                                                {'fibrechannel-logical-switch': sub_content})
+                if brcdapi_auth.is_error(obj):
+                    fault_l.append(port)
+                else:
+                    success_l.append(port)
 
     return success_l, fault_l
 
