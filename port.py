@@ -1,5 +1,5 @@
 """
-Copyright 2023, 2024 Consoli Solutions, LLC.  All rights reserved.
+Copyright 2023, 2024, 2025 Consoli Solutions, LLC.  All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
 the License. You may also obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0
@@ -53,8 +53,6 @@ details.
 +-----------------------+-------------------------------------------------------------------------------------------+
 | reserve_pod           | Reserves a POD license for a port or list of ports                                        |
 +-----------------------+-------------------------------------------------------------------------------------------+
-| set_mode              | Set the mode (E-Port only, F-Port only, or any).                                          |
-+-----------------------+-------------------------------------------------------------------------------------------+
 | sort_ports            | Sorts a list of ports. Sorting is by slot, port, ge port. This is useful because if       |
 |                       | port_l is a list of ports in 's/p' notation, .sort() performs an ASCII sort which does    |
 |                       | not return the desired results.                                                           |
@@ -73,15 +71,17 @@ details.
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.0.3     | 27 Dec 2024   | Added unbind_addresses() and added portcfgdefault via CLI to default_port_config()    |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.4     | 04 Jan 2025   | Updated comments only.                                                                |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
-__date__ = '27 Dec 2024'
+__copyright__ = 'Copyright 2023, 2024, 2025 Consoli Solutions, LLC'
+__date__ = '04 Jan 2025'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.3'
+__version__ = '4.0.4'
 
 import collections
 import brcdapi.util as brcdapi_util

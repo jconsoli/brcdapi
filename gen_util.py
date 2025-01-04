@@ -1,5 +1,5 @@
 """
-Copyright 2023, 2024 Consoli Solutions, LLC.  All rights reserved.
+Copyright 2023, 2024, 2025 Consoli Solutions, LLC.  All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
 the License. You may also obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0
@@ -12,11 +12,9 @@ The license is free for single customer use (internal applications). Use of this
 redistribution, or service delivery for commerce requires an additional license. Contact jack@consoli-solutions.com for
 details.
 
-:mod:`brcdapi.gen_util` - General purpose utility functions
-
 **Description**
 
-  Contains miscellaneous utility methods not specific to FOS
+Contains miscellaneous utility methods not specific to FOS
 
 **Public Methods & Data**
 
@@ -88,6 +86,8 @@ details.
 | slot_port                 | Separate the slot and port number from s/p port reference. Can also be used to        |
 |                           | validate s/p notation.                                                                |
 +---------------------------+---------------------------------------------------------------------------------------|
+| slot_port_dict            | Returns a dictionary for the port number as type, slot, and port.                     |
++---------------------------+---------------------------------------------------------------------------------------|
 | sort_obj_num              | Sorts a list of dictionaries based on the value for a key. Value must be a number.    |
 |                           | Key may be in '/' format.                                                             |
 +---------------------------+---------------------------------------------------------------------------------------|
@@ -125,15 +125,17 @@ details.
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.0.6     | 06 Dec 2024   | Added remove_leading_char()                                                           |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.7     | 04 Jan 2025   | Added parseargs_login_nr_d and slot_port_dict()                                       |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
-__date__ = '06 Dec 2024'
+__copyright__ = 'Copyright 2023, 2024, 2025 Consoli Solutions, LLC'
+__date__ = '04 Jan 2025'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.6'
+__version__ = '4.0.7'
 
 import re
 import fnmatch
@@ -155,11 +157,18 @@ parseargs_login_d['id'] = dict(h='Required. User ID.')
 parseargs_login_d['pw'] = dict(h='Required. Password.')
 parseargs_login_d['s'] = dict(r=False, d='self', v=('self', 'none'), h=_http_help)
 
+parseargs_login_nr_d = collections.OrderedDict()
+parseargs_login_nr_d['ip'] = dict(r=False, d=None, h='Optional. IP address.')
+parseargs_login_nr_d['id'] = dict(r=False, d=None, h='Optional. User ID.')
+parseargs_login_nr_d['pw'] = dict(r=False, d=None, h='Optional. Password.')
+parseargs_login_nr_d['s'] = dict(r=False, d='self', v=('self', 'none'), h=_http_help)
+
 parseargs_login_false_d = collections.OrderedDict()
 parseargs_login_false_d['ip'] = dict(r=False, d=None, h=_login_false_help + 'IP address.')
 parseargs_login_false_d['id'] = dict(r=False, d=None, h=_login_false_help + 'User ID.')
 parseargs_login_false_d['pw'] = dict(r=False, d=None, h=_login_false_help + 'Password.')
 parseargs_login_false_d['s'] = dict(r=False, d='self', h=_http_help)
+
 parseargs_log_d = dict(
     sup=dict(
         r=False, d=False, t='bool',
@@ -496,7 +505,7 @@ def is_valid_zone_name(zone_name):
 def slot_port(port):
     """Separate the slot and port number from s/p port reference. Can also be used to validate s/p notation.
 
-    :param port: Port number in s/p notation
+    :param port: Port number in s/p (slot/port) notation. If s is missing, it is assumed to be 0
     :type port: str
     :return slot: Slot number. None if not in standard s/p notation
     :rtype slot: int, None
@@ -522,6 +531,54 @@ def slot_port(port):
         echo=True
     )
     return None, None, None
+
+
+def slot_port_dict(port):
+    """Returns a dictionary for the port number as follows:
+
+    +-------+-------+-----------------------+
+    | Key   | Type  | Description           |
+    +=======+=======+=======================|
+    | type  | str   | 'fc', 'ge', or 'xge'  |
+    +-------+-------+-----------------------+
+    | slot  | int   | Slot number           |
+    +-------+-------+-----------------------+
+    | port  | int   | Port numer            |
+    +-------+-------+-----------------------+
+
+    :param port: Port number in s/p notation
+    :type port: str
+    :return: Disctionary as described above in the function header. None if port is invalid.
+    :rtype: dict, None
+    """
+    port_d = dict()
+    slot, port, ge_port = slot_port(port)
+    if slot is None:
+        return None  # port wasn't valid if slot is None
+    if port is not None:
+        return dict(type='fc', slot=slot, port=port)
+    elif ge_port is not None:
+        port_type = 'xge' if 'xge' in ge_port else 'ge'
+        return dict(type=port_type, slot=slot, port=int(ge_port.replace('ge', '').replace('x', '')))
+
+    ml = ['ERROR: Unexpected results from slot_port:',
+          '  slot: ' + str(type(slot)) + ' ' + str(slot),
+          '  port: ' + str(type(port)) + str(port)]
+    brcdapi_log.exception(ml, echo=True)
+    if isinstance(port, str):
+        temp_l = port.split('/')
+        if len(temp_l) == 1:
+            temp_l.insert(0, '0')
+        if len(temp_l) == 2:
+            try:
+                if temp_l[1].isnumeric():
+                    return int(temp_l[0]), int(temp_l[1]), None
+                else:
+                    return int(temp_l[0]), None, temp_l[1]
+            except (ValueError, IndexError):
+                pass
+
+    return None
 
 
 def is_di(di):
