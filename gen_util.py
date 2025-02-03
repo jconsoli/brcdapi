@@ -41,6 +41,8 @@ Contains miscellaneous utility methods not specific to FOS
 | get_struct_from_obj       | Returns a Python data structure for a key using / notation in obj with everything     |
 |                           | not in the key, k, filtered out                                                       |
 +---------------------------+---------------------------------------------------------------------------------------|
+| format_text               | Formats text into paragraphs and bulleted lists.                                      |
++---------------------------+---------------------------------------------------------------------------------------|
 | is_di                     | Determines if a str is a d,i pair (used in zoning)                                    |
 +---------------------------+---------------------------------------------------------------------------------------|
 | int_list_to_range         | Converts a list of integers to ranges as text.                                        |
@@ -127,15 +129,17 @@ Contains miscellaneous utility methods not specific to FOS
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.0.7     | 04 Jan 2025   | Added parseargs_login_nr_d and slot_port_dict()                                       |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.8     | 03 Feb 2025   | Added format_text.                                                                    |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2023, 2024, 2025 Consoli Solutions, LLC'
-__date__ = '04 Jan 2025'
+__date__ = '03 Feb 2025'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.7'
+__version__ = '4.0.8'
 
 import re
 import fnmatch
@@ -226,6 +230,39 @@ month_to_num = dict(
 )
 num_to_month = ('Inv', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec')
 _tz_utc_offset = dict(est=-4, edt=-5, cst=-5, cdt=-6, pst=-6, pdt=-7)
+
+# _format_text_xxx are the control structures for formatting text. Used in format_text()
+_format_text_bx_d = dict(
+    b1=dict(char_key='b1_char', prefix_key='b1_prefix', ordered_default_prefix=' ', nonordered_default_prefix='  '),
+    b2=dict(char_key='b2_char', prefix_key='b2_prefix', ordered_default_prefix='     ',
+            nonordered_default_prefix='      '),
+    b3=dict(char_key='b3_char', prefix_key='b3_prefix', ordered_default_prefix='         ',
+            nonordered_default_prefix='          '),
+)
+_format_text_d = dict(
+    p1_prefix='', p2_prefix='    ', p3_prefix='        ',
+    p1_max=80, p2_max=80, p3_max=80,
+    b1_prefix=_format_text_bx_d['b1']['nonordered_default_prefix'],
+    b2_prefix=_format_text_bx_d['b2']['nonordered_default_prefix'],
+    b3_prefix=_format_text_bx_d['b3']['nonordered_default_prefix'],
+    b1_char='*', b2_char='-', b3_char='~',
+    b1_max=80, b2_max=80, b3_max=80,
+)
+_format_text_next_bullet_initial_d=dict()
+for _i in range(1, 10):
+    _format_text_next_bullet_initial_d.update({str(_i): str(_i) + '.'})
+for _buf in ('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u',
+             'v', 'w', 'x', 'y', 'z'):
+    _format_text_next_bullet_initial_d.update({_buf: _buf + '.', _buf.upper(): _buf.upper() + '.'})
+_format_text_next_bullet_d = {
+    'a.': 'b.', 'b.': 'c.', 'c.': 'd.', 'd.': 'e.', 'e.': 'f.', 'f.': 'g.', 'g.': 'h.', 'h.': 'i.', 'i.': 'j.',
+    'j.': 'k.', 'k.': 'l.', 'l.': 'm.', 'm.': 'n.', 'n.': 'o.', 'o.': 'p.', 'p.': 'q.', 'q.': 'r.', 'r.': 's.',
+    's.': 't.', 't.': 'u.', 'u.': 'v.', 'v.': 'w.', 'w.': 'x.', 'x.': 'y.', 'y.': 'z.', 'z.': 'a.', 'A.': 'B.',
+    'B.': 'C.', 'C.': 'D.', 'D.': 'E.', 'E.': 'F.', 'F.': 'G.', 'G.': 'H.', 'H.': 'I.', 'I.': 'J.', 'J.': 'K.',
+    'K.': 'L.', 'L.': 'M.', 'M.': 'N.', 'N.': 'O.', 'O.': 'P.', 'P.': 'Q', 'Q.': 'R.', 'R.': 'S.', 'S.': 'T.',
+    'T.': 'U.', 'U.': 'V.', 'V.': 'W.', 'W.': 'X.', 'X.': 'Y.', 'Y.': 'Z.', 'Z.': 'A.', '1.': '2.', '2.': '3.',
+    '3.': '4.','4.': '5.', '5.': '6.', '6.': '7.', '8.': '9.', '9.': '1.',
+}
 
 
 def remove_duplicate_char(buf, char):
@@ -1256,3 +1293,385 @@ def match_str(test_l, search_term, ignore_case=False, stype='exact'):
         return list()
 
     return _match_str_d[stype](test_l, search_term, ignore_case)
+
+
+#################################################################
+#                                                               #
+#     Functions used for the case statements in format_text()   #
+#                                                               #
+#################################################################
+def _format_text_px(input_buf, max_len, prefix, subsequent_prefix=None):
+    """ Formats text for p1, p2, and p3.
+
+    :param input_buf: The text to format.
+    :type input_buf: str
+    :param max_len: The maximum length per formatted text line
+    :type max_len: int
+    :param prefix: The prefix for the new line or each new paragraph
+    :type prefix: str
+    :param subsequent_prefix: The prefix for each line after the first line in a paragraph. If None, set to prefix
+    :type subsequent_prefix: str, None
+    :return: A list of formatted text (type str).
+    :rtype: list
+    """
+    rl = list()
+
+    working_prefix, subsequent_prefix = prefix, prefix if subsequent_prefix is None else subsequent_prefix
+    buf_l = input_buf.split(' ')
+    cur_line = buf_l.pop(0) if len(buf_l) > 0 else ''
+    for buf in buf_l:
+        if len(working_prefix) + len(cur_line) + len(buf) > max_len:
+            rl.append(working_prefix + cur_line)
+            cur_line, working_prefix = buf, subsequent_prefix
+        else:
+            cur_line += ' ' + buf
+    if len(cur_line) > 0:
+        rl.append(working_prefix + cur_line)
+    elif len(buf_l) == 0:  # It's just a line feed
+        rl.append(cur_line)
+
+    return rl
+
+
+def _format_text_bx(input_buf, max_len, prefix, bullet_char):
+    """ Formats text for b1, b2, and b3.
+
+    :param input_buf: The text to format.
+    :type input_buf: str
+    :param max_len: The maximum length per formatted text line
+    :type max_len: int
+    :param prefix: The prefix for each new line
+    :return: A list of formatted text (type str).
+    :rtype: list
+    """
+    global _format_text_d
+
+    return _format_text_px(
+        input_buf,
+        max_len,
+        prefix + bullet_char + ' ',
+        subsequent_prefix = pad_string('', len(prefix) + len(bullet_char) + 1, ' ')
+    )
+
+
+def _format_text_bx_char(input_buf, bullet_level):
+    """ Sets the bullet character.
+
+    :param input_buf: The text to format.
+    :type input_buf: str
+    :bullet_level: The bullet level:  'b1', 'b2', or 'b3'
+    :type bullet_level: str
+    :return: Empty list.
+    :rtype: list
+    """
+    global _format_text_d, _format_text_next_bullet_initial_d, _format_text_bx_d
+
+    char_key = _format_text_bx_d[bullet_level]['char_key']
+    prefix_key = _format_text_bx_d[bullet_level]['prefix_key']
+    try:
+        _format_text_d[char_key] = _format_text_next_bullet_initial_d[str(input_buf)]
+        _format_text_d[prefix_key] = _format_text_bx_d[bullet_level]['ordered_default_prefix']
+    except KeyError:
+        _format_text_d[char_key] = str(input_buf)
+
+    return list()
+
+
+def _format_text_p1(input_buf):
+    """ Formats text for p1.
+
+    :param input_buf: The text to format.
+    :type input_buf: str
+    :return: A list of formatted text (type str).
+    :rtype: list
+    """
+    global _format_text_d
+
+    return _format_text_px(input_buf, _format_text_d['p1_max'], _format_text_d['p1_prefix'])
+
+
+def _format_text_p2(input_buf):
+    """ Formats text for p2. See _format_text_p1 for parameter definitions."""
+    global _format_text_d
+
+    return _format_text_px(input_buf, _format_text_d['p2_max'], _format_text_d['p2_prefix'])
+
+
+def _format_text_p3(input_buf):
+    """ Formats text for p2. See _format_text_p1 for parameter definitions."""
+    global _format_text_d
+
+    return _format_text_px(input_buf, _format_text_d['p3_max'], _format_text_d['p3_prefix'])
+
+
+def _format_text_b1(input_buf):
+    """ Formats text for b1. See _format_text_p1 for parameter definitions."""
+    global _format_text_d, _format_text_next_bullet_d
+
+    bullet = _format_text_d['b1_char']
+    _format_text_d['b1_char'] = _format_text_next_bullet_d.get(_format_text_d['b1_char'], _format_text_d['b1_char'])
+
+    return _format_text_bx(input_buf, _format_text_d['b1_max'], _format_text_d['b1_prefix'], bullet)
+
+
+def _format_text_b2(input_buf):
+    """ Formats text for b2. See _format_text_p1 for parameter definitions."""
+    global _format_text_d, _format_text_next_bullet_d
+
+    bullet = _format_text_d['b2_char']
+    _format_text_d['b2_char'] = _format_text_next_bullet_d.get(_format_text_d['b2_char'], _format_text_d['b2_char'])
+
+    return _format_text_bx(input_buf, _format_text_d['b2_max'], _format_text_d['b2_prefix'], bullet)
+
+
+def _format_text_b3(input_buf):
+    """ Formats text for b3. See _format_text_p1 for parameter definitions."""
+    global _format_text_d, _format_text_next_bullet_d
+
+    bullet = _format_text_d['b1_char']
+    _format_text_d['b3_char'] = _format_text_next_bullet_d.get(_format_text_d['b3_char'], _format_text_d['b3_char'])
+
+    return _format_text_bx(input_buf, _format_text_d['b3_max'], _format_text_d['b3_prefix'], bullet)
+
+
+def _format_text_p1_prefix(input_buf):
+    """ Sets the prefix for p1. See _format_text_p1 for parameter definitions."""
+    global _format_text_d
+
+    _format_text_d['p1_prefix'] = input_buf
+
+    return list()
+
+
+def _format_text_p2_prefix(input_buf):
+    """ Sets the prefix for p2. See _format_text_p1 for parameter definitions."""
+    global _format_text_d
+
+    _format_text_d['p2_prefix'] = input_buf
+
+    return list()
+
+
+def _format_text_p3_prefix(input_buf):
+    """ Sets the prefix for p3. See _format_text_p1 for parameter definitions."""
+    global _format_text_d
+
+    _format_text_d['p3_prefix'] = input_buf
+
+    return list()
+
+
+def _format_text_p1_max(input_buf):
+    """ Formats text for p2. See _format_text_p1 for parameter definitions."""
+    global _format_text_d
+
+    _format_text_d['p1_max'] = int(input_buf)
+
+    return list()
+
+
+def _format_text_p2_max(input_buf):
+    """ Formats text for p2. See _format_text_p1 for parameter definitions."""
+    global _format_text_d
+
+    _format_text_d['p2_max'] = int(input_buf)
+
+    return list()
+
+
+def _format_text_p3_max(input_buf):
+    """ Formats text for p2. See _format_text_p1 for parameter definitions."""
+    global _format_text_d
+
+    _format_text_d['p3_max'] = int(input_buf)
+
+    return list()
+
+
+def _format_text_b1_prefix(input_buf):
+    """ Sets the prefix text for b1. See _format_text_p1 for parameter definitions."""
+    global _format_text_d
+
+    _format_text_d['b1_prefix'] = input_buf
+
+    return list()
+
+
+def _format_text_b2_prefix(input_buf):
+    """ Sets the prefix text for b2. See _format_text_p1 for parameter definitions."""
+    global _format_text_d
+
+    _format_text_d['b2_prefix'] = input_buf
+
+    return list()
+
+
+def _format_text_b3_prefix(input_buf):
+    """ Sets the prefix text for b3. See _format_text_p1 for parameter definitions."""
+    global _format_text_d
+
+    _format_text_d['b2_prefix'] = input_buf
+
+    return list()
+
+
+def _format_text_b1_char(input_buf):
+    """ Sets the bullet character for b1. See _format_text_p1 for parameter definitions."""
+    return _format_text_bx_char(input_buf, 'b1')
+
+
+def _format_text_b2_char(input_buf):
+    """ Sets the bullet character for b2. See _format_text_p1 for parameter definitions."""
+    return _format_text_bx_char(input_buf, 'b2')
+
+
+def _format_text_b3_char(input_buf):
+    """ Sets the bullet character for b3. See _format_text_p1 for parameter definitions."""
+    return _format_text_bx_char(input_buf, 'b3')
+
+
+def _format_text_b1_max(input_buf):
+    """ Sets the maximum characters for b1 line. See _format_text_p1 for parameter definitions."""
+    global _format_text_d
+
+    _format_text_d['b1_max'] = int(input_buf)
+
+    return list()
+
+
+def _format_text_b2_max(input_buf):
+    """ Sets the maximum characters for b2 line. See _format_text_p1 for parameter definitions."""
+    global _format_text_d
+
+    _format_text_d['b2_max'] = int(input_buf)
+
+    return list()
+
+
+def _format_text_b3_max(input_buf):
+    """ Sets the maximum characters for b3 line. See _format_text_p1 for parameter definitions."""
+    global _format_text_d
+
+    _format_text_d['b3_max'] = int(input_buf)
+
+    return list()
+
+
+_format_text_action_d = dict(
+    p1=_format_text_p1, p2=_format_text_p2, p3=_format_text_p3,
+    b1=_format_text_b1, b2=_format_text_b2, b3=_format_text_p3,
+    p1_prefix=_format_text_p1_prefix, p2_prefix=_format_text_p2_prefix, p3_prefix=_format_text_p3_prefix,
+    p1_max=_format_text_p1_max, p2_max=_format_text_p2_max, p3_max=_format_text_p3_max,
+    b1_prefix=_format_text_b1_prefix, b2_prefix=_format_text_b2_prefix, b3_prefix=_format_text_b3_prefix,
+    b1_char=_format_text_b1_char, b2_char=_format_text_b2_char, b3_char=_format_text_b3_char,
+)
+
+
+def format_text(text_l):
+    """Formats text into paragraphs and bulleted lists. The input is a list of dictionaries as follows:
+
+    WARNING: Paragraph and bullet formatting is stored in global memory. This includes the last bullet. If the last
+    bullet was 2, the next bullet will be 3. Typically, bullets are re-set before each bullet.
+
+    +-----------+-------+-------------------------------------------------------------------------------------------+
+    | Key       | Type  | Value                                                                                     |
+    +===========+=======+===========================================================================================+
+    | p1        | *     | Paragraph one, p1, text. Anything you put in here will be converted to a string. See      |
+    |           |       | p1_prefix and p1_max for formatting control.                                              |
+    | p2        | *     | Same as p1, but uses p2_prefix and p2_max for formatting control.                         |
+    | p3        | *     | Same as p1, but uses p3_prefix and p3_max for formatting control.                         |
+    +-----------+-------+-------------------------------------------------------------------------------------------+
+    | b1        | *     | Similar to p1, but this is used for bulleted lists. See b1_prefix and b1_char for         |
+    |           |       | formatting control.                                                                       |
+    | b2        | *     | Same as b1, but uses b2_prefix and b2_char for formatting.                                |
+    | b3        | *     | Same as b1, but uses b3_prefix and b3_char for formatting.                                |
+    +-----------+-------+-------------------------------------------------------------------------------------------+
+    | p1_prefix | str   | How to start each line. The intended use for having different paragraph types is to       |
+    |           |       | support indented paragraphs. Default: An empty string.                                    |
+    | p2_prefix | str   | Same as p1_prefix. Default: 4 spaces.                                                     |
+    | p3_prefix | str   | Same as p1_prefix. Default: 8 spaces.                                                     |
+    +-----------+-------+-------------------------------------------------------------------------------------------+
+    | p1_max    | int   | Maximum line length for p1. Default: 80                                                   |
+    | p2_max    | int   | Maximum line length for p2. Default: 80                                                   |
+    | p3_max    | int   | Maximum line length for p3. Default: 80                                                   |
+    +-----------+-------+-------------------------------------------------------------------------------------------+
+    | b1_prefix | str   | Characters to insert before b1 bullets. Default: 2 spaces.                                |
+    | b2_prefix | str   | Characters to insert before b2 bullets. Default: 6 spaces.                                |
+    | b3_prefix | str   | Characters to insert before b3 bullets. Default: 10 spaces.                               |
+    |           |       |                                                                                           |
+    |           |       | **WARNING** I added a "." after each numbered or lettered bullet and set the prefix to    |
+    |           |       | the default less one space to account for the extra character. I did not keep track of    |
+    |           |       | which prefix had been modified to account for this. This means the indentation will be    |
+    |           |       | off if you change this when using bulleted lists. I doubt I'll ever have the need to get  |
+    |           |       | around to supporting it.                                                                  |
+    +-----------+-------+-------------------------------------------------------------------------------------------+
+    | b1_char   | str,  | Character(s) to use for b1 bullets. This character is always followed by a single space   |
+    |           | int,  | before begining the b1 bullet text. If the string is of length 1 and is a letter a-z or   |
+    |           | None  | A-Z, each subsequent bullet is incremented to the next letter in the alphabet. After z,   |
+    |           |       | the next bullet begins with a. The case is maintained for all lettered bullets.           |
+    |           |       | Similarly, numbers 1-9 are used for numbered bullets and increment up to 9. After 9,      |
+    |           |       | bullets begin with 1. Default: *                                                          |
+    | b2_char   | str,  | Same as be b1_char. Default: -                                                            |
+    | b3_char   | str,  | Same as be b1_char. Default: ~                                                            |
+    +-----------+-------+-------------------------------------------------------------------------------------------+
+    | b1_max    | int   | Maximum line length for b1. Default: 80                                                   |
+    | b2_max    | int   | Maximum line length for b2. Default: 80                                                   |
+    | b3_max    | int   | Maximum line length for b3. Default: 80                                                   |
+    +-----------+-------+-------------------------------------------------------------------------------------------+
+
+    For example, to format the following with a maximum line length of 100:
+
+    The quick brown fox jumps over the lazy dog.
+
+        An indented paragraph
+
+    A numbered list, begining with 1:
+
+      1 Item one
+          a Sub-bullet a
+      2  Item two
+      3  Item three
+
+    Is defined as follows:
+
+        test_list = [
+            # Remember that dictionaries are only processed in order when they are ordered. Typically, I bundle all
+            # formatting in one dictionary and then use a seperate list entry for the paragraphs and bullets. Since
+            # p1_prefix and p2_prefix are the defaults, I could have left them out.
+            dict(p1_prefix='', p1_max=100, p2_prefix='    ', p2_max=100, b1_char=1, b2_char='a'),
+            dict(p1='The quick brown fox jumps over the lazy dog'),
+            dict(p1=''),  # Inserts an empty line.
+            dict(p2='An indented paragraph'),
+            dict(p1=''),
+            dict(p1='A numbered list, beginning with 1:'),
+            dict(p1=''),
+            dict(b1='Item one'),
+            dict(b2='Sub-bullet a'),
+            dict(b1='Item two'),
+            dict(b1='Item three'),
+        ]
+
+    :param text_l: Dictionary or list of dictionaries as described above.
+    :type text_l: list, dict, None
+    :return: List of text to print
+    :rtype: list
+    """
+    global _format_text_action_d
+
+    i, previous_d, rl, el = 0, None, list(), list()
+    for d in convert_to_list(text_l):
+        if not isinstance(d, dict):
+            el.append('Expected type dict at list index ' + str(i) + '. Got ' + str(type(d)) + ' instead.')
+            el.append('previous_d was type: ' + str(type(previous_d)) + ': ' + str(previous_d))
+            continue
+        for k, v in d.items():
+            try:
+                rl.extend(_format_text_action_d[k](v))
+            except KeyError:
+                el.append('Invalid key: ' + str(k))
+        i += 1
+
+    if len(el) > 0:
+        brcdapi_log.exception(el, echo=True)
+
+    return rl
