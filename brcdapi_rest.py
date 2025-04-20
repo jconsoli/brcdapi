@@ -1,5 +1,5 @@
 """
-Copyright 2023, 2024 Consoli Solutions, LLC.  All rights reserved.
+Copyright 2023, 2024, 2025 Consoli Solutions, LLC.  All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
 the License. You may also obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0
@@ -63,16 +63,18 @@ such as the brcddb libraries, to control what gets printed to the log.
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.0.2     | 06 Dec 2024   | Replaced old header format with standard file header.                                 |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.3     | 12 Apr 2025   | FOS 9.2 updates                                                                       |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
-__date__ = '06 Dec 2024'
+__date__ = '12 Apr 2025'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.2'
+__version__ = '4.0.3'
 
 import http.client
 import re
@@ -267,8 +269,7 @@ def _check_methods(session, in_uri):
             if supported_methods == brcdapi_util.op_no:
                 return True
     elif 'brocade-module-version' not in uri:  # We haven't built the map yet so 'brocade-module-version' won't be there
-        brcdapi_log.log('UNKNOWN URI: ' + uri + '. Check the log for details.', echo=True)  # For the user
-        brcdapi_log.exception('UNKNOWN URI: ' + uri)  # For the log
+        brcdapi_log.exception('UNKNOWN URI: ' + uri, echo=False)  # For the log
 
     return False
 

@@ -1,5 +1,5 @@
 """
-Copyright 2023, 2024 Consoli Solutions, LLC.  All rights reserved.
+Copyright 2023, 2024, 2025 Consoli Solutions, LLC.  All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
 the License. You may also obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0
@@ -77,15 +77,17 @@ Only GET is valid in the 'methods' leaf of uti_map
 +-----------+---------------+-----------------------------------------------------------------------------------+
 | 4.0.5     | 26 Dec 2024   | Updated comments only.                                                            |
 +-----------+---------------+-----------------------------------------------------------------------------------+
+| 4.0.6     | 12 Apr 2025   | FOS 9.2 updates.                                                                  |
++-----------+---------------+-----------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
-__date__ = '26 Dec 2024'
+__copyright__ = 'Copyright 2023, 2024, 2025 Consoli Solutions, LLC'
+__date__ = '12 Apr 2025'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack@consoli-solutions.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.5'
+__version__ = '4.0.6'
 
 import pprint
 import copy
@@ -243,6 +245,20 @@ bc_eff_protocol = bcmic_uri + '/effective-protocol'
 bc_max_rest = bcmic_uri + '/max-rest-sessions'
 bc_https_ka = bcmic_uri + '/https-keep-alive-enabled'
 bc_https_ka_to = bcmic_uri + '/https-keep-alive-timeout'
+bc_https_sys_uptime = bcmic_uri + '/system-uptime'
+bc_https_sessions = bcmic_uri + '/user-sessions'
+bc_https_load_1 = bcmic_uri + '/one-minute-load-average'
+bc_https_load_5 = bcmic_uri + '/five-minutes-load-average'
+bc_https_load_15 = bcmic_uri + '/fifteen-minutes-load-average'
+bc_https_total_mem = bcmic_uri + '/total-memory'
+bc_https_used_mem = bcmic_uri + '/used-memory'
+bc_https_free_mem = bcmic_uri + '/free-memory'
+bc_https_shared_mem = bcmic_uri + '/shared-memory'
+bc_https_cache_mem = bcmic_uri + '/buffer-cache-memory'
+# Commonly used URIs: brocade-chassis/version
+bcv_uri = 'brocade-chassis/version'
+bc_version_kernal = bcv_uri + '/kernel'
+bc_version_fos = bcv_uri + '/fabric-os'
 # Commonly used URIs: brocade-fabric/fabric-switch
 bfsw_uri = 'brocade-fabric/fabric-switch'  # I think this entire branch is deprecated
 bf_sw_user_name = bfsw_uri + '/switch-user-friendly-name'  # Deprecated? Use bfs_sw_user_name
