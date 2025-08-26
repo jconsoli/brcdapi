@@ -2,6 +2,11 @@
 
 Consoli Solutions, LLC
 jack@consoli-solutions.com
+jack_consoli@yahoo.com
+
+**Update 25 August 2025**
+
+* Error messaging improvements
 
 **Update 20 Oct 2024**
 
