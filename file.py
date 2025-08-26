@@ -1,5 +1,5 @@
 """
-Copyright 2023, 2024 Consoli Solutions, LLC.  All rights reserved.
+Copyright 2023, 2024, 2025 Consoli Solutions, LLC.  All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
 the License. You may also obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0
@@ -60,18 +60,22 @@ General purpose file operations.
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.0.6     | 26 Dec 2024   | Added "full" parameter to read_directory()                                            |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.7     | 25 Aug 2025   | Added error checking to full_file_name()                                              |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
-__date__ = '26 Dec 2024'
+__copyright__ = 'Copyright 2023, 2024, 2025 Consoli Solutions, LLC'
+__date__ = '25 Aug 2024'
 __license__ = 'Apache License, Version 2.0'
-__email__ = 'jack@consoli-solutions.com'
+__email__ = 'jack_consoli@yahoo.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.6'
+__version__ = '4.0.7'
 
 import json
 import os
+import chardet
+import brcdapi.log as brcdapi_log
 
 
 def write_dump(obj, file):
@@ -155,6 +159,7 @@ def read_file(file, remove_blank=True, rc=True):
     # get "NameError: name 'open' is not defined".
     # f = open(file, 'r', encoding='utf-8', errors='ignore')
     #  So I read as bytes, decoded using utf-8 and then had to ignore errors.
+    # ToDo - Does this work for mainframes (EBCDIC)?
     f = open(file, 'rb')
     data = f.read().decode('utf-8', errors='ignore')
     f.close()
@@ -284,23 +289,33 @@ def read_full_directory(folder, skip_sys=False):
 
 
 def full_file_name(file, extension, prefix=None, dot=False):
-    """Checks to see if an extension is already in the file name and adds it if necessary
+    """Adds extension if the file name doesn't already end with it. Intended for file extensions, but can be used to
+    add any string to the end of any strings passed as "file". The test for extension is not case sensitive.
 
-    :param file: File name. If None, None is returned
+    :param file: File name. If None, None is returned. Allowing None is useful when file names are optional script input
     :type file: str, None
-    :param extension: The file extension
+    :param extension: The file extension. It must include the leading "."
     :type extension: str
     :param prefix: A prefix to add. Typically, a folder name. If a folder, don't forget the last character must be '/'
     :type prefix: None, str
-    :param dot: If True, return file as is if there is a "." in it.
+    :param dot: If True, only add append extension if "." is not in file.
     :type dot: bool
-    :return: File name with the extension and prefix added
-    :rtype: str
+    :return: File name with the extension and prefix added. None if file is not type str.
+    :rtype: str, None
     """
-    if isinstance(file, str):
-        if not dot or (dot and '.' not in file):
-            x = len(extension)
-            p = '' if prefix is None else prefix
-            return p + file + extension if len(file) < x or file[len(file)-x:].lower() != extension.lower() \
-                else p + file
-    return file
+    # Validate the input
+    if not isinstance(file, str):
+        if file is not None:
+            brcdapi_log.exception('Invalid file name type: ' + str(type(file)), echo=True)
+        return None
+
+    p = prefix if isinstance(prefix, str) else ''
+
+    # If "." is already in file and dot == True, don't add the extension.
+    if dot and '.' in file:
+        return p + file
+
+    # Add the extension if necessary. I didn't use ".endswitch" because the Windows file system is not case sensitive.
+    x = len(extension)
+    return p + file + extension if len(file) < x or file[len(file)-x:].lower() != extension.lower() else p + file
+

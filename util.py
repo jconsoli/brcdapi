@@ -60,39 +60,49 @@ Only GET is valid in the 'methods' leaf of uti_map
 
 **Version Control**
 
-+-----------+---------------+-----------------------------------------------------------------------------------+
-| Version   | Last Edit     | Description                                                                       |
-+===========+===============+===================================================================================+
-| 4.0.0     | 04 Aug 2023   | Re-Launch                                                                         |
-+-----------+---------------+-----------------------------------------------------------------------------------+
-| 4.0.1     | 06 Mar 2024   | Added brocade-maps and brocade-fibrechannel-routing to common URIs. Added         |
-|           |               | validate_fid()                                                                    |
-+-----------+---------------+-----------------------------------------------------------------------------------+
-| 4.0.2     | 26 Jun 2024   | Moved fos_to_dict() from brcddb.util.util to here.                                |
-+-----------+---------------+-----------------------------------------------------------------------------------+
-| 4.0.3     | 20 Oct 2024   | Added several URIs.                                                               |
-+-----------+---------------+-----------------------------------------------------------------------------------+
-| 4.0.4     | 06 Dec 2024   | Use stats_uri instead of explicit values for fibrechannel-statistics. Added       |
-|           |               | bc_support_sn                                                                     |
-+-----------+---------------+-----------------------------------------------------------------------------------+
-| 4.0.5     | 26 Dec 2024   | Updated comments only.                                                            |
-+-----------+---------------+-----------------------------------------------------------------------------------+
-| 4.0.6     | 12 Apr 2025   | FOS 9.2 updates.                                                                  |
-+-----------+---------------+-----------------------------------------------------------------------------------+
++-----------+---------------+---------------------------------------------------------------------------------------+
+| Version   | Last Edit     | Description                                                                           |
++===========+===============+=======================================================================================+
+| 4.0.0     | 04 Aug 2023   | Re-Launch                                                                             |
++-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.1     | 06 Mar 2024   | Added brocade-maps and brocade-fibrechannel-routing to common URIs. Added             |
+|           |               | validate_fid()                                                                        |
++-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.2     | 26 Jun 2024   | Moved fos_to_dict() from brcddb.util.util to here.                                    |
++-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.3     | 20 Oct 2024   | Added several URIs.                                                                   |
++-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.4     | 06 Dec 2024   | Use stats_uri instead of explicit values for fibrechannel-statistics. Added           |
+|           |               | bc_support_sn                                                                         |
++-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.5     | 26 Dec 2024   | Updated comments only.                                                                |
++-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.6     | 12 Apr 2025   | FOS 9.2 updates.                                                                      |
++-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.7     | 25 Aug 2025   | Moved sec policies from chassis to fabric. Updated default methods with 9.1.1b.       |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2023, 2024, 2025 Consoli Solutions, LLC'
-__date__ = '12 Apr 2025'
+__date__ = '25 Aug 2025'
 __license__ = 'Apache License, Version 2.0'
-__email__ = 'jack@consoli-solutions.com'
+__email__ = 'jack_consoli@yahoo.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.6'
+__version__ = '4.0.7'
 
+import sys
+import types
+import importlib
 import pprint
 import copy
 import brcdapi.log as brcdapi_log
 import brcdapi.gen_util as gen_util
+
+
+class Found(Exception):
+    pass
+
 
 # Common HTTP error codes and reason messages
 HTTP_OK = 200
@@ -264,9 +274,6 @@ bfsw_uri = 'brocade-fabric/fabric-switch'  # I think this entire branch is depre
 bf_sw_user_name = bfsw_uri + '/switch-user-friendly-name'  # Deprecated? Use bfs_sw_user_name
 bf_sw_wwn = bfsw_uri + '/name'
 bf_fw_version = bfsw_uri + '/firmware-version'  # Deprecated?
-bfsw_ipv4 = bfsw_uri + '/ip-address'
-bfsw_mask = bfsw_uri + '/subnet-mask'
-bfsw_ipv6 = bfsw_uri + '/ipv6-address'
 # Commonly used URIs: brocade-fibrechannel-logical-switch
 bfls_uri = 'brocade-fibrechannel-logical-switch/fibrechannel-logical-switch'
 bfls_sw_wwn = bfls_uri + '/switch-wwn'
@@ -468,7 +475,6 @@ bfr_pc = bfr_uri + '/proxy-config'
 bfr_tdc = bfr_uri + '/translate-domain-config'
 bfr_std = bfr_uri + '/stale-translate-domain'
 
-
 class VirtualFabricIdError(Exception):
     pass
 
@@ -500,12 +506,13 @@ FABRIC_OBJ = SWITCH_PORT_OBJ + 1  # URI is associated with a fabric
 FABRIC_SWITCH_OBJ = FABRIC_OBJ + 1  # URI is associated with a fabric containing switch objects
 FABRIC_ZONE_OBJ = FABRIC_SWITCH_OBJ + 1  # URI is associated with a fabric containing zoning objects
 
-op_no = 0  # Used in the op field in session
-op_not_supported = 1
-op_yes = 2
+# op_no* is used in the op field in session to determine if OPTIONS has been requested for the associated URI
+op_no = 0  # OPTIONS has not been requested. Using defaults.
+op_not_supported = 1  # OPTIONS is not supported for the URI
+op_yes = 2  # OPTIONS has been requested. Defaults for the URI have been replaced with the actual methods supported.
 
-"""Below is the default URI map. It was built against FOS 9.1. It is necessary because there is not way to retrieve the
-FID or area from the FOS API. An # RFE was submitted to get this information. This information is used to build
+"""Below is the default URI map. It was built against FOS 9.1. It is necessary because there is no way to retrieve the
+FID or area from the FOS API. An RFE was submitted to get this information. This information is used to build
 default_uri_map. Up to the time this was written, all keys (branches) were unique regardless of the URL type. In
 FOS 9.1, a new URL type, "operations" was introduced. Although it appears that all keys are still unique, separate keys
 for each type were added because it does not appear that anyone in engineering is thinking they need to be unique.
@@ -535,259 +542,381 @@ for each type were added because it does not appear that anyone in engineering i
 +---------------+-----------+-----------+-------+-------------------------------------------------------------------+
 """
 default_uri_map = {
-    'auth-token': dict(area=NULL_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+    'auth-token': dict(area=NULL_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
     'brocade-module-version': dict(area=NULL_OBJ, fid=False, methods=()),
     'brocade-module-version/module': dict(area=NULL_OBJ, fid=False, methods=('GET', 'HEAD', 'OPTIONS')),
     'login': dict(area=SESSION_OBJ, fid=False, methods=('POST',)),
     'logout': dict(area=SESSION_OBJ, fid=False, methods=('POST',)),
     'running': {
         'brocade-fibrechannel-switch': {
-            'fibrechannel-switch': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'switch-fabric-statistics': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'topology-domain': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'topology-route': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'topology-error': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+            'fibrechannel-switch': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'switch-fabric-statistics': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'topology-domain': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'topology-route': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'topology-error': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
         },
         'brocade-application-server': {
            'application-server-device': dict(area=CHASSIS_OBJ, id=False, methods=('GET', 'HEAD', 'OPTIONS')),
         },
         'brocade-fibrechannel-logical-switch': {
-            'fibrechannel-logical-switch': dict(area=CHASSIS_SWITCH_OBJ, fid=False, methods=('OPTIONS', 'GET')),
+            'fibrechannel-logical-switch': dict(
+                area=CHASSIS_SWITCH_OBJ,
+                fid=False,
+                methods=('OPTIONS', 'DELETE', 'GET', 'HEAD', 'POST', 'PATCH')
+            ),
         },
         'brocade-interface': {
-            'fibrechannel': dict(area=SWITCH_PORT_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'fibrechannel-statistics': dict(area=SWITCH_PORT_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'fibrechannel-performance': dict(area=SWITCH_PORT_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'fibrechannel-statistics-db': dict(area=SWITCH_PORT_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+            'fibrechannel': dict(area=SWITCH_PORT_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'fibrechannel-statistics': dict(
+                area=SWITCH_PORT_OBJ,
+                fid=True,
+                methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')
+            ),
+            'fibrechannel-performance': dict(area=SWITCH_PORT_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'fibrechannel-statistics-db': dict(area=SWITCH_PORT_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
             'extension-ip-interface': dict(area=SWITCH_PORT_OBJ, fid=True, methods=('GET', 'DELETE')),
-            'fibrechannel-lag': dict(area=SWITCH_PORT_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'gigabitethernet': dict(area=SWITCH_PORT_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'gigabitethernet-statistics': dict(area=SWITCH_PORT_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'logical-e-port': dict(area=SWITCH_PORT_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'portchannel': dict(area=SWITCH_PORT_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'portchannel-statistics': dict(area=SWITCH_PORT_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'fibrechannel-router-statistics': dict(area=SWITCH_PORT_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+            'fibrechannel-lag': dict(area=SWITCH_PORT_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'gigabitethernet': dict(area=SWITCH_PORT_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'gigabitethernet-statistics': dict(area=SWITCH_PORT_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'logical-e-port': dict(area=SWITCH_PORT_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'portchannel': dict(area=SWITCH_PORT_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'portchannel-statistics': dict(area=SWITCH_PORT_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'fibrechannel-router-statistics': dict(area=SWITCH_PORT_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
         },
         'brocade-media': {
-            'media-rdp': dict(area=SWITCH_PORT_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+            'media-rdp': dict(area=SWITCH_PORT_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
         },
         'brocade-fabric': {
-            'access-gateway': dict(area=FABRIC_SWITCH_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'fabric-switch': dict(area=FABRIC_SWITCH_OBJ, fid=False, methods=('OPTIONS', 'GET')),
+            'access-gateway': dict(area=FABRIC_SWITCH_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD')),
+            'fabric-switch': dict(area=FABRIC_SWITCH_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD')),
         },
         'brocade-fibrechannel-routing': {
-            'routing-configuration': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'lsan-zone': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'lsan-device': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'edge-fabric-alias': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'fibrechannel-router': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'router-statistics': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'proxy-config': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'translate-domain-config': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'stale-translate-domain': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+            'routing-configuration': dict(
+                area=SWITCH_OBJ,
+                fid=True,
+                methods=('OPTIONS', 'DELETE', 'GET', 'HEAD', 'POST', 'PATCH')
+            ),
+            'lsan-zone': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'lsan-device': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'edge-fabric-alias': dict(
+                area=SWITCH_OBJ,
+                fid=True,
+                methods=('OPTIONS', 'DELETE', 'GET', 'HEAD', 'POST', 'PATCH')
+            ),
+            'fibrechannel-router': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'router-statistics': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'proxy-config': dict(
+                area=SWITCH_OBJ,
+                fid=True,
+                methods=('OPTIONS', 'DELETE', 'GET', 'HEAD', 'POST', 'PATCH')
+            ),
+            'translate-domain-config': dict(
+                area=SWITCH_OBJ,
+                fid=True,
+                methods=('OPTIONS', 'DELETE', 'GET', 'HEAD', 'POST', 'PATCH')
+            ),
+            'stale-translate-domain': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'DELETE', 'GET', 'HEAD')),
          },
         'brocade-zone': {
-            'defined-configuration': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'effective-configuration': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'fabric-lock': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+            'defined-configuration': dict(
+                area=FABRIC_OBJ,
+                fid=True,
+                methods=('OPTIONS', 'DELETE', 'GET', 'HEAD', 'POST', 'PATCH')
+            ),
+            'effective-configuration': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'fabric-lock': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
         },
         'brocade-fibrechannel-diagnostics': {
-            'fibrechannel-diagnostics': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+            'fibrechannel-diagnostics': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
         },
         'brocade-fdmi': {
-            'hba': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'port': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+            'hba': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'port': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
         },
         'brocade-name-server': {
-            'fibrechannel-name-server': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+            'fibrechannel-name-server': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
         },
         'brocade-fabric-traffic-controller': {
-            'fabric-traffic-controller-device': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+            'fabric-traffic-controller-device': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
         },
         'brocade-fibrechannel-configuration': {
-            'switch-configuration': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'f-port-login-settings': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'port-configuration': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'zone-configuration': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'fabric': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'chassis-config-settings': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+            'switch-configuration': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'f-port-login-settings': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'port-configuration': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'zone-configuration': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'fabric': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'chassis-config-settings': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            # fos-settings is not in the REST API documentation. The OPTIONS request returns 'reason': 'OK',
+            # 'status': 200. The response is a list, as expected, but contains None. GET completes successfully with:
+            # 'reason': 'OK', 'status': 200, but there is no response body. I suspect these are chassis related
+            # settings, but everything else in this branch is logical switch related. If someone ever uses fos-settings,
+            # they have a little debugging to do and likely will have to open a defect with FOS engineering.
             'fos-settings': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
         },
         'brocade-logging': {
-            'audit': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'syslog-server': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'log-setting': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'log-quiet-control': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'raslog': dict(area=CHASSIS_OBJ, fid=False,  methods=('OPTIONS', 'GET')),
-            'raslog-module': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'supportftp': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'error-log': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'audit-log': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'management-session-login-information': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
+            'audit': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'syslog-server': dict(
+                area=CHASSIS_OBJ,
+                fid=False,
+                methods=('OPTIONS', 'DELETE', 'GET', 'HEAD', 'POST', 'PATCH')
+            ),
+            'log-setting': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'log-quiet-control': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'raslog': dict(area=CHASSIS_OBJ, fid=False,  methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'raslog-module': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'supportftp': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'error-log': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD')),
+            'audit-log': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD')),
+            'management-session-login-information': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD')),
         },
         'brocade-fibrechannel-trunk': {
-            'trunk': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'performance': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'trunk-area': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+            'trunk': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'performance': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'trunk-area': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'DELETE', 'GET', 'HEAD', 'POST')),
         },
         'brocade-ficon': {
-            'cup': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'logical-path': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'rnid': dict(area=SWITCH_PORT_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'switch-rnid': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'lirr': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'rlir': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+            'cup': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'logical-path': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'rnid': dict(area=SWITCH_PORT_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'switch-rnid': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'lirr': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'rlir': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
         },
         'brocade-fru': {
-            'power-supply': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'fan': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'blade': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'history-log': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'sensor': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'wwn': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
+            'power-supply': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD')),
+            'fan': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD')),
+            'blade': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'history-log': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD')),
+            'sensor': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD')),
+            'wwn': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD')),
         },
         'brocade-chassis': {
-            'chassis': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'ha-status': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'credit-recovery': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'management-interface-configuration': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'management-ethernet-interface': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'management-port-track-configuration':  dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'management-port-connection-statistics': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'sn-chassis': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'version': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
+            'chassis': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'ha-status': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD')),
+            'credit-recovery': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'management-interface-configuration': dict(
+                area=CHASSIS_OBJ,
+                fid=False,
+                methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')
+            ),
+            'management-ethernet-interface': dict(
+                area=CHASSIS_OBJ,
+                fid=False,
+                methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')
+            ),
+            'management-port-track-configuration':  dict(
+                area=CHASSIS_OBJ,
+                fid=False,
+                methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')
+            ),
+            'management-port-connection-statistics': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD')),
+            'sn-chassis': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD')),
+            'version': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD')),
         },
         'brocade-maps': {
-            'maps-config': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'rule': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'maps-policy': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'group': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'dashboard-rule': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'dashboard-history': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'dashboard-misc': dict(area=SWITCH_OBJ, fid=True, methods=('GET', 'PUT')),
-            'credit-stall-dashboard': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'oversubscription-dashboard': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'system-resources': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'paused-cfg': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'monitoring-system-matrix': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'switch-status-policy-report': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'fpi-profile': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'maps-violation': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'backend-ports-history': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'gigabit-ethernet-ports-history': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'maps-device-login': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'quarantined-devices': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+            'maps-config': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'rule': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'DELETE', 'GET', 'HEAD', 'POST', 'PATCH')),
+            'maps-policy': dict(
+                area=SWITCH_OBJ,
+                fid=True,
+                methods=('OPTIONS', 'DELETE', 'GET', 'HEAD', 'POST', 'PATCH')
+            ),
+            'group': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'DELETE', 'GET', 'HEAD', 'POST', 'PATCH')),
+            'dashboard-rule': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'dashboard-history': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'dashboard-misc': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'credit-stall-dashboard': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'oversubscription-dashboard': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'system-resources': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'paused-cfg': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'DELETE', 'GET', 'HEAD', 'POST')),
+            'monitoring-system-matrix': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'switch-status-policy-report': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'fpi-profile': dict(
+                area=SWITCH_OBJ,
+                fid=True,
+                methods=('OPTIONS', 'DELETE', 'GET', 'HEAD', 'POST', 'PATCH')
+            ),
+            'maps-violation': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'backend-ports-history': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'gigabit-ethernet-ports-history': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'maps-device-login': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'quarantined-devices': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
         },
         'brocade-time': {
-            'clock-server': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'time-zone': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'ntp-clock-server': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'ntp-clock-server-key': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
+            'clock-server': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'time-zone': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'ntp-clock-server': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD')),
+            'ntp-clock-server-key': dict(
+                area=CHASSIS_OBJ,
+                fid=False,
+                methods=('OPTIONS', 'DELETE', 'GET', 'HEAD', 'POST')
+            ),
         },
         'brocade-security': {
-            'sec-crypto-cfg': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'sec-crypto-cfg-template': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
+            'sec-crypto-cfg': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'sec-crypto-cfg-template': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD')),
             'sec-crypto-cfg-template-action': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS',)),
-            'password-cfg': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'user-specific-password-cfg': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'user-config': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'ldap-role-map': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'sshutil': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'sshutil-key': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'sshutil-known-host': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'sshutil-public-key': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
+            'password-cfg': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'user-specific-password-cfg': dict(
+                area=CHASSIS_OBJ,
+                fid=False,
+                methods=('OPTIONS', 'DELETE', 'GET', 'HEAD', 'POST', 'PATCH')
+            ),
+            'user-config': dict(
+                area=CHASSIS_OBJ,
+                fid=False,
+                methods=('OPTIONS', 'DELETE', 'GET', 'HEAD', 'POST', 'PATCH')
+            ),
+            'ldap-role-map': dict(
+                area=CHASSIS_OBJ,
+                fid=False,
+                methods=('OPTIONS', 'DELETE', 'GET', 'HEAD', 'POST', 'PATCH')
+            ),
+            'sshutil': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'sshutil-key': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'DELETE', 'GET', 'HEAD', 'POST')),
+            'sshutil-known-host': dict(
+                area=CHASSIS_OBJ,
+                fid=False,
+                methods=('OPTIONS', 'DELETE', 'GET', 'HEAD', 'POST')
+            ),
+            'sshutil-public-key': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'DELETE', 'GET', 'HEAD')),
             'sshutil-public-key-action': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS',)),
             'password': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS',)),
             'security-certificate-generate': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS',)),
             'security-certificate-action': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'DELETE')),
-            'security-certificate': dict(area=CHASSIS_OBJ, fid=False,  methods=('OPTIONS', 'GET')),
-            'radius-server': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'tacacs-server': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'ldap-server': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'auth-spec': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'ipfilter-policy': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'ipfilter-rule': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'security-certificate-extension': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'role-config': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'rbac-class': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'management-rbac-map': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'security-violation-statistics': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'acl-policy': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'defined-fcs-policy-member-list': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'active-fcs-policy-member-list': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'defined-scc-policy-member-list': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'active-scc-policy-member-list': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'defined-dcc-policy-member-list': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'active-dcc-policy-member-list': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'security-policy-size': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'authentication-configuration': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'dh-chap-authentication-secret': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'policy-distribution-config': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
+            'security-certificate': dict(area=CHASSIS_OBJ, fid=False,  methods=('OPTIONS', 'GET', 'HEAD')),
+            'radius-server': dict(
+                area=CHASSIS_OBJ,
+                fid=False,
+                methods=('OPTIONS', 'DELETE', 'GET', 'HEAD', 'POST', 'PATCH')
+            ),
+            'tacacs-server': dict(
+                area=CHASSIS_OBJ,
+                fid=False,
+                methods=('OPTIONS', 'DELETE', 'GET', 'HEAD', 'POST', 'PATCH')
+            ),
+            'ldap-server': dict(
+                area=CHASSIS_OBJ,
+                fid=False,
+                methods=('OPTIONS', 'DELETE', 'GET', 'HEAD', 'POST', 'PATCH')
+            ),
+            'auth-spec': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'ipfilter-policy': dict(
+                area=CHASSIS_OBJ,
+                fid=False,
+                methods=('OPTIONS', 'DELETE', 'GET', 'HEAD', 'POST', 'PATCH')
+            ),
+            'ipfilter-rule': dict(
+                area=CHASSIS_OBJ,
+                fid=False,
+                methods=('OPTIONS', 'DELETE', 'GET', 'HEAD', 'POST')
+            ),
+            'security-certificate-extension': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD')),
+            'role-config': dict(
+                area=CHASSIS_OBJ,
+                fid=False,
+                methods=('OPTIONS', 'DELETE', 'GET', 'HEAD', 'POST', 'PATCH')
+            ),
+            'rbac-class': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD')),
+            'management-rbac-map': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD')),
+            'security-violation-statistics': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD')),
+            'acl-policy': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD')),
+            'authentication-configuration': dict(
+                area=CHASSIS_OBJ,
+                fid=False,
+                methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')
+            ),
+            'dh-chap-authentication-secret': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD')),
+            # Fabric based security policies
+            'defined-fcs-policy-member-list': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'active-fcs-policy-member-list': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'defined-scc-policy-member-list': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'active-scc-policy-member-list': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'defined-dcc-policy-member-list': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'active-dcc-policy-member-list': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'security-policy-size': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'policy-distribution-config': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
         },
         'brocade-license': {
-            'license': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'ports-on-demand-license-info': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'end-user-license-agreement': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
+            'license': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD')),
+            'ports-on-demand-license-info': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD')),
+            'end-user-license-agreement': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD')),
         },
         'brocade-snmp': {
-            'system': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'mib-capability': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'trap-capability': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'v1-account': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'v1-trap': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'v3-account': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'v3-trap': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'access-control': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
+            'system': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'mib-capability': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'trap-capability': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'v1-account': dict(
+                area=CHASSIS_OBJ,
+                fid=False,
+                methods=('OPTIONS', 'DELETE', 'GET', 'HEAD', 'POST', 'PATCH')
+            ),
+            'v1-trap': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'v3-account': dict(
+                area=CHASSIS_OBJ,
+                fid=False,
+                methods=('OPTIONS', 'DELETE', 'GET', 'HEAD', 'POST', 'PATCH')
+            ),
+            'v3-trap': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'access-control': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
         },
         'brocade-management-ip-interface': {
-            'management-ip-interface': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'management-interface-lldp-neighbor': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'management-interface-lldp-statistics': dict(area=CHASSIS_OBJ, fid=False,  methods=('OPTIONS', 'GET')),
+            'management-ip-interface': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
+            'management-interface-lldp-neighbor': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD')),
+            'management-interface-lldp-statistics': dict(area=CHASSIS_OBJ, fid=False,  methods=('OPTIONS', 'GET', 'HEAD')),
         },
         'brocade-firmware': {
-            'firmware-history': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
-            'firmware-config': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
+            'firmware-history': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD')),
+            'firmware-config': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')),
         },
-        'brocade-dynamic-feature-tracking': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
+        'brocade-dynamic-feature-tracking': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD')),
         'brocade-usb': {
-            'usb-file': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET')),
+            'usb-file': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD')),
         },
         'brocade-extension-ip-route': {
-            'extension-ip-route': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+            'extension-ip-route': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
         },
         'brocade-extension-ipsec-policy': {
-            'extension-ipsec-policy': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+            'extension-ipsec-policy': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
         },
         'brocade-extension-tunnel': {  # I think some of these should be SWITCH_PORT_OBJ
-            'extension-tunnel': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'extension-tunnel-statistics': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'extension-circuit': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'extension-circuit-statistics': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'circuit-qos-statistics': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'circuit-interval-statistics': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'wan-statistics': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'wan-statistics-v1': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+            'extension-tunnel': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'extension-tunnel-statistics': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'extension-circuit': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'extension-circuit-statistics': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'circuit-qos-statistics': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'circuit-interval-statistics': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'wan-statistics': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'wan-statistics-v1': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
         },
         'brocade-extension': {
-            'traffic-control-list': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'dp-hcl-status': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'global-lan-statistics': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'lan-flow-statistics': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+            'traffic-control-list': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'dp-hcl-status': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'global-lan-statistics': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'lan-flow-statistics': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
         },
         'brocade-lldp': {
-            'lldp-neighbor': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'lldp-profile': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'lldp-statistics': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'lldp-global': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+            'lldp-neighbor': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'lldp-profile': dict(
+                area=FABRIC_OBJ,
+                fid=True,
+                methods=('OPTIONS', 'DELETE', 'GET', 'HEAD', 'POST', 'PATCH')
+            ),
+            'lldp-statistics': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'lldp-global': dict(
+                area=FABRIC_OBJ,
+                fid=True,
+                methods=('OPTIONS', 'DELETE', 'GET', 'HEAD', 'POST', 'PATCH')
+            ),
         },
         'brocade-supportlink': {
             'supportlink-profile': dict(area=CHASSIS_OBJ, fid=False, methods=('GET', 'PATCH', 'HEAD', 'OPTIONS')),
-            'supportlink-history': dict(area=CHASSIS_OBJ, fid=False, methods=('GET', 'PATCH', 'HEAD', 'OPTIONS')),
+            'supportlink-history': dict(area=CHASSIS_OBJ, fid=False, methods=('OPTIONS', 'GET', 'HEAD')),
         },
         'brocade-traffic-optimizer': {
-            'performance-group-profile': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'performance-group-flows': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
-            'performance-group': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET')),
+            'performance-group-profile': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'performance-group-flows': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
+            'performance-group': dict(area=FABRIC_OBJ, fid=True, methods=('OPTIONS', 'GET', 'HEAD')),
         },
     },
     'operations': {
@@ -809,6 +938,10 @@ default_uri_map = {
         'restart': dict(area=NULL_OBJ, fid=False, methods=('POST', 'OPTIONS')),
         'sdd-quarantine': dict(area=NULL_OBJ, fid=True, methods=('POST', 'OPTIONS')),
         'security-acl-policy': dict(area=NULL_OBJ, fid=True, methods=('POST', 'OPTIONS')),
+        # 'security-acl-policy': {
+        #     'security-policy-parameters': dict(area=NULL_OBJ, fid=True, methods=('POST', 'OPTIONS')),
+        #     'security-acl-parameters': dict(area=NULL_OBJ, fid=True, methods=('POST', 'OPTIONS')),
+        # },
         'security-ipfilter': dict(area=NULL_OBJ, fid=True, methods=('POST', 'OPTIONS')),
         'security-reset-violation-statistics': dict(area=NULL_OBJ, fid=False, methods=('POST', 'OPTIONS')),
         'security-policy-distribute': dict(area=NULL_OBJ, fid=True, methods=('POST', 'OPTIONS')),
@@ -902,6 +1035,7 @@ def add_uri_map(session, rest_d):
         # Create a list of individual modules that need to be parsed
         try:
             uri = mod_d['uri']
+
             # The running leaves all have individual requests while all else are 1:1 requests.
             if '/rest/running/' in uri:
                 add_l = mod_d['objects'].get('object')
@@ -917,33 +1051,36 @@ def add_uri_map(session, rest_d):
 
         # Parse each module
         for uri_l in to_process_l:
+            try:
 
-            # Find the dictionary in the default URI map
-            d, k, default_d, last_d = None, None, default_uri_map, uri_map_d
-            for k in uri_l:
-                if default_d is not None:
-                    default_d = default_d.get(k)
-                d = last_d.get(k)
-                if d is None:
-                    d = dict()
-                    last_d.update({k: d})
-                last_d = d
+                # Find the dictionary in the default URI map
+                d, k, default_d, last_d = None, None, default_uri_map, uri_map_d
+                for k in uri_l:
+                    if default_d is not None:
+                        default_d = default_d.get(k)
+                    d = last_d.get(k)
+                    if d is None:
+                        d = dict()
+                        last_d.update({k: d})
+                    last_d = d
 
-            # Add this module (API request) to the URI map, uri_map, in the session object.
-            if isinstance(d, dict):
-                new_mod_d = copy.deepcopy(mod_d)
-                new_uri = uri + '/' + k if '/rest/running/' in uri else uri
-                if isinstance(default_d, dict):
-                    new_mod_d.update(area=default_d.get('area'),
-                                     fid=default_d.get('fid'),
-                                     methods=gen_util.convert_to_list(default_d.get('methods')),
-                                     op=op_no)
-                    new_mod_d['uri'] = new_uri
-                    last_d.update(new_mod_d)
+                # Add this module (API request) to the URI map, uri_map, in the session object.
+                if isinstance(d, dict):
+                    new_mod_d = copy.deepcopy(mod_d)
+                    new_uri = uri + '/' + k if '/rest/running/' in uri else uri
+                    if isinstance(default_d, dict):
+                        new_mod_d.update(area=default_d.get('area'),
+                                         fid=default_d.get('fid'),
+                                         methods=gen_util.convert_to_list(default_d.get('methods')),
+                                         op=op_no)
+                        new_mod_d['uri'] = new_uri
+                        last_d.update(new_mod_d)
+                    else:
+                        ml.append('UNKNOWN URI: ' + new_uri)
                 else:
-                    ml.append('UNKNOWN URI: ' + new_uri)
-            else:
-                brcdapi_log.exception(['', 'ERROR: Unexpected value in: ' + pprint.pformat(mod_d), ''], echo=True)
+                    brcdapi_log.exception(['', 'ERROR: Unexpected value in: ' + pprint.pformat(mod_d), ''], echo=True)
+            except Found:
+                pass
 
     if len(ml) > 0:
         brcdapi_log.log(ml, echo=True)
@@ -1187,3 +1324,53 @@ def fos_to_dict(version_in, valid_check=True):
                                   echo=True)
 
     return dict(version=str(version_in), major=0, feature=0, minor=0, bug=0, patch='')
+
+
+def _get_paths(path, sub_path, lib_d, mod_d):
+    """Parses library path info from sys.modules[custom_lib].__dict__ and determines the version number
+
+    :param path: Path to the Lib folder.
+    :type path: str
+    :param sub_path: Folder in the Lib folder using . notation to separate sub paths
+    :type sub_path: str
+    :param lib_d: Library, or sub-library, dictionary as returned from sys.modules[custom_lib].__dict__
+    :type lib_d: dict
+    :param mod_d: Dictionary whose key is the path and whose value is the version number.
+    :type mod_d: dict
+    :return: None
+    :rtype: None
+    """
+    for key, v in lib_d.items():
+        if isinstance(v, types.ModuleType):
+            for module in v.__dict__.values():
+                if isinstance(module, str):
+                    try:
+                        mod = importlib.import_module(module)
+                        mod_d[module] = mod.__version__
+                        break
+                    except AttributeError:
+                        _get_paths(path, sub_path, sys.modules[module].__dict__, mod_d)
+                    except ModuleNotFoundError:
+                        pass
+
+
+def get_import_modules(lib_folders=('brcdapi', 'brcddb',)):
+    """Returns a dictionary of the imported modules and versions. Only modules containing __version__ are returned.
+
+    :param lib_folders: List of Lib folders to get the versions from.
+    :type lib_folders: list, tuple
+    :return: Dictionary or formatted text of dictionary if fmt == True
+    :rtype: dict, str
+    """
+    mod_d = dict()
+
+    for custom_lib in lib_folders:
+        try:
+            lib_d = sys.modules[custom_lib].__dict__
+            path = lib_d['__path__'][0]  # I'm assuming only one path is being used for these libraries.
+            path = path[: len(path) - len(custom_lib)]
+        except (KeyError, IndexError):
+            continue
+        _get_paths(path, custom_lib, lib_d, mod_d)
+
+    return mod_d

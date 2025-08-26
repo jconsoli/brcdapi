@@ -1,8 +1,8 @@
 """
-Copyright 2023, 2024 Consoli Solutions, LLC.  All rights reserved.
+Copyright 2023, 2024, 2025 Consoli Solutions, LLC.  All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
-the License. You may also obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+the License. You may also obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
 "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific
@@ -12,41 +12,44 @@ The license is free for single customer use (internal applications). Use of this
 redistribution, or service delivery for commerce requires an additional license. Contact jack@consoli-solutions.com for
 details.
 
-:mod:`sannav.auth` - SANnav API Login, logout, and error formatting.
+**Description**
 
-Primary Methods::
+SANnav API Login, logout, and error formatting.
 
-    +-----------------------------+----------------------------------------------------------------------------------+
-    | Method                      | Description                                                                      |
-    +=============================+==================================================================================+
-    | is_error()                  | Determines if an object returned from the SANnav API is an error object          |
-    +-----------------------------+----------------------------------------------------------------------------------+
-    | formatted_error_msg()       | Formats the error message into a human readable format                           |
-    +-----------------------------+----------------------------------------------------------------------------------+
-    | login()                     | Establish a session to the FOS switch and return the session object              |
-    +-----------------------------+----------------------------------------------------------------------------------+
-    | logout()                    | Terminate a session to FOS                                                       |
-    +-----------------------------+----------------------------------------------------------------------------------+
+**Primary Methods**
 
-Version Control::
++-----------------------------+--------------------------------------------------------------------------------------+
+| Method                      | Description                                                                         |
++=============================+======================================================================================+
+| is_error()                  | Determines if an object returned from the SANnav API is an error object             |
++-----------------------------+--------------------------------------------------------------------------------------+
+| formatted_error_msg()       | Formats the error message into a human readable format                              |
++-----------------------------+--------------------------------------------------------------------------------------+
+| login()                     | Establish a session to the FOS switch and return the session object                 |
++-----------------------------+--------------------------------------------------------------------------------------+
+| logout()                    | Terminate a session to FOS                                                          |
++-----------------------------+--------------------------------------------------------------------------------------+
 
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | Version   | Last Edit     | Description                                                                       |
-    +===========+===============+===================================================================================+
-    | 4.0.0     | 04 Aug 2023   | Re-Launch                                                                         |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
-    | 4.0.1     | 06 Mar 2024   | Documentation updates only.                                                       |
-    +-----------+---------------+-----------------------------------------------------------------------------------+
+**Version Control**
+
++-----------+---------------+---------------------------------------------------------------------------------------+
+| Version   | Last Edit     | Description                                                                           |
++===========+===============+=======================================================================================+
+| 4.0.0     | 04 Aug 2023   | Re-Launch                                                                             |
++-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.1     | 06 Mar 2024   | Documentation updates only.                                                           |
++-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.2     | 25 Aug 2025   | Updated email address in __email__ only.                                              |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
-
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
-__date__ = '06 Mar 2024'
+__copyright__ = 'Copyright 2023, 2024, 2025 Consoli Solutions, LLC'
+__date__ = '25 Aug 2025'
 __license__ = 'Apache License, Version 2.0'
-__email__ = 'jack@consoli-solutions.com'
+__email__ = 'jack_consoli@yahoo.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.1'
+__version__ = '4.0.2'
 
 from pprint import pprint
 import http.client as httplib

@@ -1,5 +1,5 @@
 """
-Copyright 2023, 2024 Consoli Solutions, LLC.  All rights reserved.
+Copyright 2023, 2024, 2025 Consoli Solutions, LLC.  All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
 the License. You may also obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0
@@ -58,15 +58,17 @@ suppressed for all log messages except the final completion message.
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.0.3     | 06 Dec 2024   | Try/Except in log() to get around PyCharm issue with special characters.              |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.4     | 25 Aug 2025   | Removed obsolete "supress" parameter in open_log().                                   |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
-__date__ = '06 Dec 2024'
+__copyright__ = 'Copyright 2023, 2024, 2025 Consoli Solutions, LLC'
+__date__ = '25 Aug 2025'
 __license__ = 'Apache License, Version 2.0'
-__email__ = 'jack@consoli-solutions.com'
+__email__ = 'jack_consoli@yahoo.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.3'
+__version__ = '4.0.4'
 
 import traceback
 import datetime
@@ -169,7 +171,7 @@ def close_log(msg=None, echo=False, force=False):
         _log_obj = None
 
 
-def open_log(folder=None, suppress=False, no_log=False, version_d=None, supress=None):
+def open_log(folder=None, suppress=False, no_log=False, version_d=None):
     """Creates a log file. If the log file is already open, it is closed and a new one created.
 
     :param folder: Directory for the log file.
@@ -178,17 +180,13 @@ def open_log(folder=None, suppress=False, no_log=False, version_d=None, supress=
     :type suppress: None, bool
     :param no_log: If True, do not open the log file
     :type no_log: None, bool
-    :param version_d: Dictionary of imported modules and version numbers
+    :param version_d: Dictionary of imported modules and version numbers. See brcdapi.util.get_import_modules().
     :type version_d: None,dict
-    :param supress: Depracated due to misspelling
-    :type supress: None, bool
     :rtype: None
     """
     global _log_obj
 
     in_version_d = dict() if version_d is None else version_d
-    if supress is not None:
-        suppress = supress
 
     # Figure out what the log file name is
     log_file = 'Log_' + datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S_%f') + '.txt'
@@ -202,7 +200,7 @@ def open_log(folder=None, suppress=False, no_log=False, version_d=None, supress=
 
     # Get a handle for the log file. If the log file is already open, close it and open a new one
     if _log_obj is not None:
-        close_log('Closing this file and opening a new log file: ' + file_name, False, False)
+        close_log('Closing the current log file and opening a new log file: ' + file_name, False, False)
 
     el = list()  # Error messages
     try:

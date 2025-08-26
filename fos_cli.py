@@ -1,5 +1,5 @@
 """
-Copyright 2023, 2024 Consoli Solutions, LLC.  All rights reserved.
+Copyright 2023, 2024, 2025 Consoli Solutions, LLC.  All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
 the License. You may also obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0
@@ -52,15 +52,17 @@ do anything with prompts and doesn't perform any error checking.
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.0.2     | 06 Dec 2024   | Fixed SSH logout when no SSH login was performed. Limited to debug modes only.        |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.3     | 25 Aug 2025   | Added default_cli_wait_time()                                                         |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
-__date__ = '06 Dec 2024'
+__copyright__ = 'Copyright 2023, 2024, 2025 Consoli Solutions, LLC'
+__date__ = '25 Aug 2025'
 __license__ = 'Apache License, Version 2.0'
-__email__ = 'jack@consoli-solutions.com'
+__email__ = 'jack@consoli-solutions.com, jack_consoli@yahoo.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.2'
+__version__ = '4.0.3'
 
 import time
 import paramiko
@@ -69,8 +71,11 @@ import brcdapi.fos_auth as fos_auth
 
 _FOS_CLI = 'fos_cli/'
 _FOS_CLI_LEN = len(_FOS_CLI)
-_DEFAULT_TIMEOUT = 15  # Default timeout when setting up SSH session in login()
-_DEFAULT_WAIT = 20  # Time to sleep waiting for the CLI and API to sync up
+_DEFAULT_TIMEOUT = 15  # Default timeout in seconds when setting up SSH session in login()
+_DEFAULT_WAIT = 20  # Default number of seconds to sleep waiting for the CLI and API to sync up. IDK what this time
+                    # should be. I discovered the need to do this while setting port configurations via the CLI.
+                    # Measuring the required time would have taken additional time and expirimentation, so I just picked
+                    # a number much greater than I ever had to wait.
 
 _verbose_debug = False  # When True, prints data structures. Only useful for debugging.
 
@@ -122,7 +127,7 @@ def logout(session):
         session['ssh_login'], session['ssh_fault'] = None, False
 
 
-def send_command(session, fid, cmd):
+def send_command(session, fid, cmd, fosexec=True):
     """Sends a FOS command via an SSH connection to a FOS switch
 
     :param session: Dictionary of the session returned by fos_auth.login().
@@ -153,7 +158,7 @@ def send_command(session, fid, cmd):
             return list()
 
     # Send the command
-    full_cmd = 'fosexec --fid ' + str(fid) + ' -cmd "' + cmd + '"'
+    full_cmd = 'fosexec --fid ' + str(fid) + ' -cmd "' + cmd + '"' if fosexec else cmd
     if _verbose_debug:
         brcdapi_log.log(['FOS CLI send_command() - send:', full_cmd], echo=True)
     try:
@@ -211,6 +216,17 @@ def cli_wait(wait_time=_DEFAULT_WAIT):
     :rtype: None
     """
     time.sleep(wait_time)
+
+
+def default_cli_wait_time():
+    """Returns the default wait time used to sync FOS command execution with the API
+
+    :return: Default wait time in seconds
+    :rtype: int
+    """
+    global _DEFAULT_WAIT
+
+    return(_DEFAULT_WAIT)
 
 
 def verbose_debug(state):

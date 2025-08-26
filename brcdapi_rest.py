@@ -65,16 +65,18 @@ such as the brcddb libraries, to control what gets printed to the log.
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.0.3     | 12 Apr 2025   | FOS 9.2 updates                                                                       |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.4     | 25 Aug 2025   | FOS doesn't return OPTIONS in the OPTIONS request, so it was artificially added if a  |
+|           |               | valid response (no errors) was returned for a URI with an OPTIONS request.            |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
-
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2023, 2024 Consoli Solutions, LLC'
-__date__ = '12 Apr 2025'
+__copyright__ = 'Copyright 2023, 2024, 2025 Consoli Solutions, LLC'
+__date__ = '25 Aug 2025'
 __license__ = 'Apache License, Version 2.0'
-__email__ = 'jack@consoli-solutions.com'
+__email__ = 'jack_consoli@yahoo.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.3'
+__version__ = '4.0.4'
 
 import http.client
 import re
@@ -238,13 +240,18 @@ def _add_methods(session, http_response, in_uri):
         for t in header_l:
             if len(t) >= 2:
                 if isinstance(t[0], str) and t[0] == 'Allow':
-                    cntl_d.update(op=brcdapi_util.op_yes, methods=t[1].replace(' ', '').split(','))
+                    # OPTIONS is obviously supported if we got this far, but FOS doesn't include OPTIONS in the list of
+                    # supported methods, so it is artificially inserted.
+                    methods_l = t[1].replace(' ', '').split(',')
+                    if 'OPTIONS' not in methods_l:
+                        methods_l.append('OPTIONS')
+                    cntl_d.update(op=brcdapi_util.op_yes, methods=methods_l)
                     return
     cntl_d.update(op=brcdapi_util.op_not_supported)
 
 
 def _check_methods(session, in_uri):
-    """Checks to see if the supported methods for the uri have been added and if not, captures and adds them
+    """Returns True if the supported methods (OPTIONS) should be checked.
 
     :param session: FOS session object
     :type session: dict
@@ -664,7 +671,7 @@ def control_c():
     
     
 def set_url_options(flag):
-    """Enables of disables checking for URL OPTIONS
+    """Set or disable options checking
     
     :param flag: If True, OPTIONS for each URL are read before making any other requests
     :type flag: bool
@@ -672,7 +679,7 @@ def set_url_options(flag):
     """
     global _OPTIONS_CHECK
     
-    _OPTIONS_CHECK = False if flag else True
+    _OPTIONS_CHECK = flag
 
 
 def operations_request(session, ruri, http_method, content_d, fid=None, wait_time=5, max_try=5):
@@ -694,7 +701,7 @@ def operations_request(session, ruri, http_method, content_d, fid=None, wait_tim
     :return: Response and status in is_error() and fos_auth.formatted_error_msg() friendly format
     :rtype: dict
     """
-    obj = send_request(session, ruri, http_method, content_d)
+    obj = send_request(session, ruri, http_method, content_d, fid=fid)
     try:
         message_id = obj['show-status']['message-id']
         if obj['show-status']['status'] != 'done':
