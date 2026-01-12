@@ -56,6 +56,8 @@ do anything with prompts and doesn't perform any error checking.
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.0.4     | 19 Oct 2025   | Updated comments only.                                                                |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.5     | 12 Jan 2026   | Removed unused import.                                                                |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2024, 2025 Consoli Solutions, LLC'
@@ -64,12 +66,11 @@ __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack_consoli@yahoo.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.4'
+__version__ = '4.0.5'
 
 import time
 import paramiko
 import brcdapi.log as brcdapi_log
-import brcdapi.fos_auth as fos_auth
 
 _FOS_CLI = 'fos_cli/'
 _FOS_CLI_LEN = len(_FOS_CLI)
