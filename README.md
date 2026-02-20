@@ -1,8 +1,11 @@
 # brcdapi
 
-Consoli Solutions, LLC
-jack@consoli-solutions.com
+Jack Consoli
 jack_consoli@yahoo.com
+
+**Update 20 Feb 2026**
+* Updated copyright notice
+* Miscellaneious bug fixes
 
 **Update 25 August 2025**
 
