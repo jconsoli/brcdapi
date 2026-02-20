@@ -1,5 +1,5 @@
 """
-Copyright 2023, 2024, 2025 Consoli Solutions, LLC.  All rights reserved.
+Copyright 2023, 2024, 2025, 2026 Jack Consoli.  All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
 the License. You may also obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0
@@ -70,15 +70,17 @@ such as the brcddb libraries, to control what gets printed to the log.
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.0.5     | 19 Oct 2025   | Updated comments only.                                                                |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.6     | 20 Feb 2026   | Updated copyright notice.                                                             |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2024, 2025 Consoli Solutions, LLC'
-__date__ = '19 Oct 2025'
+__copyright__ = 'Copyright 2024, 2025, 2026 Jack Consoli'
+__date__ = '20 Feb 2026'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack_consoli@yahoo.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.5'
+__version__ = '4.0.6'
 
 import http.client
 import re
@@ -103,7 +105,7 @@ _DEBUG = False
 # 1 - Do not perform any I/O. Read all responses from file into response and fake a successful login
 _DEBUG_MODE = 1
 # _DEBUG_PREFIX is only used when _DEBUG == True. Folder where all the json dumps of API requests are read/written.
-_DEBUG_PREFIX = '200802_raw/'
+_DEBUG_PREFIX = '20251130_gsh_raw/'
 _verbose_debug = False  # When True, prints data structures. Only useful for debugging.
 _req_pending = False  # When True, the script is waiting for a response from a switch
 _control_c_pend = False  # When True, a keyboard interrupt is pending a request to complete
