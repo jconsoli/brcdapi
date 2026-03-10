@@ -3,6 +3,11 @@
 Jack Consoli
 jack_consoli@yahoo.com
 
+**10 Mar 2026**
+* Additional error check
+* Improved error feedback
+* Miscellaneous bug fixes
+
 **Update 20 Feb 2026**
 * Updated copyright notice
 * Miscellaneious bug fixes
