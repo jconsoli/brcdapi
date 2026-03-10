@@ -71,15 +71,17 @@ details.
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.0.7     | 20 Feb 2026   | Updated "created" in save_report()                                                    |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.8     | 10 Mar 2026   | Added exception handling for custom exceptions in openpyxl.                           |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2024, 2025, 2026 Jack Consoli'
-__date__ = '20 Feb 2026'
+__date__ = '10 Mar 2026'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack_consoli@yahoo.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.7'
+__version__ = '4.0.8'
 
 import openpyxl as xl
 import openpyxl.utils.cell as xl_util
@@ -120,8 +122,12 @@ def excel_datetime(v, granularity):
     global _num_to_month
 
     msec = str(v.microsecond)
+    try:
+        month = _num_to_month[v.month]
+    except IndexError:
+        month = _num_to_month[0]
     tl = [str(v.year),
-          _num_to_month[v.month] + ' ',
+          month + ' ',
           '0' + str(v.day) + ' ' if v.day < 10 else str(v.day) + ' ',
           ' 0' + str(v.hour) if v.hour < 10 else ' ' + str(v.hour),
           ':0' + str(v.minute) if v.minute < 10 else ':' + str(v.minute),
@@ -211,9 +217,25 @@ def save_report(wb, file_name='Report.xlsx', creator='Jack Consoli'):
     :type file_name: str
     :param creator: Name of person or organization creating this document.
     :type creator: str
+    :return: True if saved successfully. False otherwise.
+    :rtype: bool
     """
     wb.properties.creator = creator
-    wb.save(brcdapi_file.full_file_name(file_name, '.xlsx'))
+    try:
+        wb.save(brcdapi_file.full_file_name(file_name, '.xlsx'))
+        return True
+    except FileExistsError:
+        buf = 'A path in ' + file_name + ' does not exist.'
+    except PermissionError:
+        buf = 'Permission error writting ' + file_name + '. This typically occurs when the file is open in another '
+        buf += 'application.'
+    except BaseException as e:
+        buf = 'Error writting ' + file_name + ':' + str(e)
+
+    brcdapi_log.exception('Excel write error stack trace.', echo=False)
+    brcdapi_log.log(buf + ' For details, search the log for "Excel write error stack trace".', echo=True)
+
+    return False
 
 
 def col_to_num(cell):
@@ -455,6 +477,14 @@ def read_workbook(file, dm=0, order='row', sheets=None, skip_sheets=None, echo=F
     :rtype sl: list
     """
     el, rl = list(), list()
+
+    if not isinstance(file, str):
+        buf = 'Invalid file parameter. Expected type str. Received type ' + str(type(file)) + '.'
+        brcdapi_log.exception(buf, echo=False)
+        el.append(buf)
+        buf += ' Search the log for "Invalid file parameter" for details.'
+        return el, rl
+
     json_file = file.replace('.xlsx', '.json')
 
     if dm >= 2:
@@ -481,12 +511,15 @@ def read_workbook(file, dm=0, order='row', sheets=None, skip_sheets=None, echo=F
         el.append('File not found: ' + file)
         return el, rl
     except FileExistsError:
-        el('The folder in ' + file + ' does not exist.')
+        el.append('The folder in ' + file + ' does not exist.')
         return el, rl
     except TypeError:
         buf = 'Encountered a TypeError reading ' + file + '. This typically occurs when there is a sheet name '
         buf += 'with special characters. To fix this, rename the sheet name (sheet tab).'
         el.append(buf)
+        return el, rl
+    except BaseException as e:
+        el.append('Error reading ' + file + ':' + str(e))
         return el, rl
 
     # Figure out which sheets to skip
@@ -524,8 +557,11 @@ def read_workbook(file, dm=0, order='row', sheets=None, skip_sheets=None, echo=F
     if dm == 1 or dm == 3:
         # Write out to JSON
         brcdapi_log.log('  Writing ' + json_file, echo=echo)
-        brcdapi_file.write_dump(rl, json_file)
-        brcdapi_log.log('  Write complete', echo=echo)
+        temp_el = brcdapi_file.write_dump(rl, json_file)
+        if len(temp_el) == 0:
+            brcdapi_log.log('  Write complete', echo=echo)
+        else:
+            el.extend(temp_el)
 
     return el, rl
 

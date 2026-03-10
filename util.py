@@ -1,5 +1,5 @@
 """
-Copyright 2023, 2024, 2025 Consoli Solutions, LLC.  All rights reserved.
+Copyright 2023, 2024, 2025, 2026 Jack Consoli, LLC.  All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
 the License. You may also obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0
@@ -27,7 +27,27 @@ through the API allowing uri_map to be built dynamically.
 
 **WARNING**
 
-Only GET is valid in the 'methods' leaf of uti_map
+Only GET is valid in the 'methods' leaf of uri_map
+
+**Important Notes**
+
+Prior to 9.2, the Rest API documentation always "double clutched" the module name and main branch. For example, for
+brocade-zone, both the module name and main branch is "brocade-zone". The leaves follow.:
+
+Module Tree
+module: brocade-zone
+  +--rw brocade-zone
+    +--rw defined-configuration {fibrechannel:fibrechannel_switch_platform}?
+
+In FOS 10.0 and above, the module and main branch have different names. I'm assuming it's the branch name, not the
+module name that is used in the URI. This is also how it's documented in the Yang models.
+
+Example of FOS 10.0 new branch:
+
+Module Tree
+module: brocade-traffic-class
+  +--ro trafficClass  <-- Not the same as the module name, brocade-traffic-class
+    +--ro configuration* [trafficClassName] {fibrechannel:ip_storage_logical_switch}?
 
 **Public Methods & Data**
 
@@ -83,15 +103,20 @@ Only GET is valid in the 'methods' leaf of uti_map
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.0.8     | 19 Oct 2025   | Updated comments only.                                                                |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.9     | 20 Feb 2026   | Added ficon_sw_rnid, bz_def, bz_eff, fdmi_port, fdmi_hba, and bifc_stats              |
++-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.1.0     | 10 Mar 2026   | Added brocade-ip-storage-*, brocade-isns-*, brocade-object-server, and                |
+|           |               | brocade-traffic-class. New in 9.2 or 10.0.                                            |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2024, 2025 Consoli Solutions, LLC'
-__date__ = '19 Oct 2025'
+__copyright__ = 'Copyright 2024, 2025, 2026 Jack Consoli'
+__date__ = '10 Mar 2026'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack_consoli@yahoo.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.8'
+__version__ = '4.1.0'
 
 import sys
 import types
@@ -306,15 +331,16 @@ ficon_mihpto = ficon_cup_uri + '/mihpto'
 ficon_uam_fru = ficon_cup_uri + '/unsolicited-alert-mode-fru-enabled'
 ficon_uam_hsc = ficon_cup_uri + '/unsolicited-alert-mode-hsc-enabled'
 ficon_uam_invalid_attach = ficon_cup_uri + '/unsolicited-alert-mode-invalid-attach-enabled'
-ficon_sw_wwn = 'brocade-ficon/switch-rnid/switch-wwn'
-ficon_sw_rnid_flags = 'brocade-ficon/switch-rnid/flags'
-ficon_sw_node_params = 'brocade-ficon/switch-rnid/node-parameters'
-ficon_sw_rnid_type = 'brocade-ficon/switch-rnid/type-number'
-ficon_sw_rnid_model = 'brocade-ficon/switch-rnid/model-number'
-ficon_sw_rnid_mfg = 'brocade-ficon/switch-rnid/manufacturer'
-ficon_sw_rnid_pant = 'brocade-ficon/switch-rnid/plant'
-ficon_sw_rnid_seq = 'brocade-ficon/switch-rnid/sequence-number'
-ficon_sw_rnid_tag = 'brocade-ficon/switch-rnid/tag'
+ficon_sw_rnid = 'brocade-ficon/switch-rnid'
+ficon_sw_wwn = ficon_sw_rnid + '/switch-wwn'
+ficon_sw_rnid_flags = ficon_sw_rnid + '/flags'
+ficon_sw_node_params = ficon_sw_rnid + '/node-parameters'
+ficon_sw_rnid_type = ficon_sw_rnid + '/type-number'
+ficon_sw_rnid_model = ficon_sw_rnid + '/model-number'
+ficon_sw_rnid_mfg = ficon_sw_rnid + '/manufacturer'
+ficon_sw_rnid_pant = ficon_sw_rnid + '/plant'
+ficon_sw_rnid_seq = ficon_sw_rnid + '/sequence-number'
+ficon_sw_rnid_tag = ficon_sw_rnid + '/tag'
 
 # Commonly used URIs: media-rdp
 sfp_speed = 'media-rdp/media-speed-capability/speed'
@@ -395,9 +421,10 @@ stats_trans = stats_uri + '/frames-transmitter-unavailable-errors'
 stats_nos_in = stats_uri + '/non-operational-sequences-in'
 stats_nos_out = stats_uri + '/non-operational-sequences-out'
 stats_time = stats_uri + '/time-generated'
-# Commonly used URIs: brocade-interface/fibrechannel
+# Commonly used URIs: brocade-interface
 bifc_uri = 'brocade-interface/fibrechannel'
 bifc_pod = bifc_uri + '/pod-license-state'
+bifc_stats = 'brocade-interface/fibrechannel-statistics'
 # Commonly used URIs: fibrechannel
 fc_auto_neg = 'fibrechannel/auto-negotiate'
 fc_name = 'fibrechannel/name'  # The port number in s/p notation
@@ -435,20 +462,24 @@ fc_d_port_en = 'fibrechannel/d-port-enable'
 fc_e_port_dis = 'fibrechannel/e-port-disable'
 fc_npiv_en = 'fibrechannel/npiv-enabled'
 # Commonly used URIs: brocade-zone
-bz_def_alias = 'brocade-zone/defined-configuration/alias'
-bz_def_cfg = 'brocade-zone/defined-configuration/cfg'
-bz_eff_cfg = 'brocade-zone/effective-configuration/cfg-name'
-bz_eff_db_avail = 'brocade-zone/effective-configuration/db-avail'
-bz_eff_checksum = 'brocade-zone/effective-configuration/checksum'
-bz_eff_db_committed = 'brocade-zone/effective-configuration/db-committed'
-bz_eff_cfg_action = 'brocade-zone/effective-configuration/cfg-action'
-bz_eff_db_max = 'brocade-zone/effective-configuration/db-max'
-bz_eff_default_zone = 'brocade-zone/effective-configuration/default-zone-access'
-bz_eff_db_trans = 'brocade-zone/effective-configuration/db-transaction'
-bz_eff_trans_token = 'brocade-zone/effective-configuration/transaction-token'
-bz_eff_db_chassis_committed = 'brocade-zone/effective-configuration/db-chassis-wide-committed'
-bz_def_zone = 'brocade-zone/defined-configuration/zone'
+bz_def = 'brocade-zone/defined-configuration'
+bz_def_alias = bz_def + '/alias'
+bz_def_cfg = bz_def + '/cfg'
+bz_def_zone = bz_def + '/zone'
+bz_eff = 'brocade-zone/effective-configuration'
+bz_eff_cfg = bz_eff + '/cfg-name'
+bz_eff_db_avail = bz_eff + '/db-avail'
+bz_eff_checksum = bz_eff + '/checksum'
+bz_eff_db_committed = bz_eff + '/db-committed'
+bz_eff_cfg_action = bz_eff + '/cfg-action'
+bz_eff_db_max = bz_eff + '/db-max'
+bz_eff_default_zone = bz_eff + '/default-zone-access'
+bz_eff_db_trans = bz_eff + '/db-transaction'
+bz_eff_trans_token = bz_eff + '/transaction-token'
+bz_eff_db_chassis_committed = bz_eff + '/db-chassis-wide-committed'
 # Commonly used URIs: brocade-fdmi
+fdmi_port = 'brocade-fdmi/port'
+fdmi_hba = 'brocade-fdmi/hba'
 fdmi_port_sym = 'brocade-fdmi/port-symbolic-name'
 fdmi_node_sym = 'brocade-fdmi/node-symbolic-name'
 # Commonly used URIs: brocade-fibrechannel-routing
@@ -619,6 +650,48 @@ default_uri_map = {
             ),
             'stale-translate-domain': dict(area=SWITCH_OBJ, fid=True, methods=('OPTIONS', 'DELETE', 'GET', 'HEAD')),
          },
+        'brocade-ip-storage': dict(
+            ipStorage=dict(
+                area=FABRIC_OBJ,
+                fid=True,
+                methods=('OPTIONS', 'GET', 'HEAD')
+            ),
+        ),
+        'brocade-ip-storage-diagnostics': dict(
+            ipStorageDiagnostics=dict(
+                area=FABRIC_OBJ,
+                fid=True,
+                methods=('OPTIONS', 'GET', 'HEAD')
+            ),
+        ),
+        'brocade-ip-storage-diagnostic-reachable': dict(
+            ipStorageDiagnosticReachable=dict(
+                area=FABRIC_OBJ,
+                fid=True,
+                methods=('OPTIONS', 'GET', 'HEAD')
+            ),
+        ),
+        'brocade-isns': dict(
+            isns=dict(
+                area=FABRIC_OBJ,
+                fid=True,
+                methods=('OPTIONS', 'GET', 'HEAD')
+            ),
+        ),
+        'brocade-object-server': dict(
+            objectServer=dict(
+                area=FABRIC_OBJ,
+                fid=True,
+                methods=('OPTIONS', 'GET', 'HEAD')
+            ),
+        ),
+        'brocade-traffic-class': dict(
+            trafficClass=dict(
+                area=FABRIC_OBJ,
+                fid=True,
+                methods=('OPTIONS', 'GET', 'HEAD', 'PATCH')
+            ),
+        ),
         'brocade-zone': {
             'defined-configuration': dict(
                 area=FABRIC_OBJ,
@@ -1264,14 +1337,14 @@ def validate_fid(in_fid):
 
 
 # _letter_to_num_d is used in fos_to_dict() to convert a patch level release to a number for numerical comparison.
-# The easy thing to do would have been to treat the letter as utf-8 and convert to its integer value. Although that
-# should work in a mainframe environment, which is EBCDIC, a mainframe wasn't available for testing.
-_letter_to_num_d = dict(a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9, j=10, k=11, l=12, m=13, n=14, o=15, p=16, q=17,
-                        r=18, s=19, t=20, u=21, v=22, w=23, x=24, y=25, z=26)
+_letter_to_num_d = dict(
+    a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9, j=10, k=11, l=12, m=13, n=14,
+    o=15, p=16, q=17, r=18, s=19, t=20, u=21, v=22, w=23, x=24, y=25, z=26
+)
 
 
 def fos_to_dict(version_in, valid_check=True):
-    """Converts a FOS version into a dictionary to be used for comparing for version numbers
+    """Converts a FOS version into a dictionary to be used for comparing for version numbers. Return dict:
 
     +-----------+-------+-------------------------------------------------------------------------------+
     | Key       | Type  |Description                                                                    |
@@ -1295,29 +1368,26 @@ def fos_to_dict(version_in, valid_check=True):
     :param valid_check: If True, creates an exception entry in the log if the version of FOS is not valid
     :type valid_check: bool
     :return: Dictionary as described above
-    :rtype dict
+    :rtype: dict
     """
     global _letter_to_num_d
 
+    bug, minor, patch = 0, 0, ''
     try:
-        version = version_in.lower()
-        if version[0] == 'v':
-            version = version[1:]
-        version_l = version.split('.')
-        if len(version_l[2]) > 1:
-            try:
-                bug = _letter_to_num_d[version_l[2][1:2]]
-                patch = version_l[2][2:] if len(version_l[2]) > 1 else ''
-            except KeyError:
-                bug = 0
-                patch = version_l[2][1:]
-        else:
-            bug = 0
-            patch = ''
+        version_l = version_in.lower()[1:].split('.') if version_in[0] == 'v' else version_in.lower().split('.')
+        if len(version_l) >= 3:
+            minor = int(version_l[2][0:1]) if len(version_l) >= 3 else 0
+            if len(version_l[2]) > 1:
+                try:
+                    bug = _letter_to_num_d[version_l[2][1:2]]
+                    patch = version_l[2][2:] if len(version_l[2]) > 1 else ''
+                except KeyError:
+                    bug = 0
+                    patch = version_l[2][1:]
         return dict(version=str(version_in),
                     major=int(version_l[0]),
                     feature=int(version_l[1]),
-                    minor=int(version_l[2][0:1]),
+                    minor=minor,
                     bug=bug,
                     patch=patch)
     except (IndexError, TypeError, ValueError, AttributeError):

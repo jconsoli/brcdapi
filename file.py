@@ -66,15 +66,17 @@ General purpose file operations.
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.0.9     | 20 Feb 2026   | Updated copyright notice.                                                             |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.1.0     | 10 Mar 2026   | Consolidated file operations error messaging                                          |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2024, 2025, 2026 Jack Consoli'
-__date__ = '20 Feb 2026'
+__date__ = '10 Mar 2026'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack_consoli@yahoo.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.9'
+__version__ = '4.1.0'
 
 import json
 import os
@@ -89,12 +91,30 @@ def write_dump(obj, file):
     :type obj: dict, list
     :param file: Name of file to write to
     :type file: str
-    :rtype: None
+    :return: Error messages. An empty list indicates success.
+    :rtype: list
     """
-    with open(file, 'w') as f:
-        f.write(json.dumps(obj, sort_keys=True))
-    f.close()
+    rl = list()
 
+    if not isinstance(file, str):
+        rl.append('Invalid file name. File name must be a string, not ' + str(type(file)))
+        brcdapi_log.exception(rl, echo=True)
+
+    else:
+        try:
+            with open(file, 'w') as f:
+                f.write(json.dumps(obj, sort_keys=True))
+            f.close()
+        except FileNotFoundError:
+            rl.append('File, ' + file + ', not found')  # I don't think this can happen
+        except FileExistsError:
+            rl.append('Folder in ' + file + ' does not exist')
+        except PermissionError:
+            rl.append('Permission error writing ' + file)
+        except BaseException as e:
+            rl.append(['Unknown error reading: ' + str(file) + '. Error is:', str(e)], echo=True)
+
+    return rl
 
 def read_dump(file):
     """Reads in a file with JSON formatted data and loads into a Python object.
@@ -104,9 +124,28 @@ def read_dump(file):
     :return: The JSON file converted to standard Python data types. None if an error was encountered
     :rtype: dict, list, None
     """
-    f = open(file, 'r')
-    obj = json.load(f)
-    f.close()
+    obj = None
+
+    if not isinstance(file, str):
+        brcdapi_log.exception('Invalid file name. File name must be a string, not ' + str(type(file)), echo=True)
+        return obj
+
+    try:
+        f = open(file, 'r')
+        obj = json.load(f)
+        f.close()
+    except FileNotFoundError:
+        brcdapi_log.log(file + ' does not exist.', echo=True)
+        return None
+    except FileExistsError:
+        brcdapi_log.log('A folder in ' + file + ' does not exist.', echo=True)
+        return None
+    except PermissionError:
+        brcdapi_log.log('Permission error reading: ' + file + '.', echo=True)
+        return None
+    except BaseException as e:
+        brcdapi_log.log(['Unknown error reading: ' + file + '. Error is:', str(e)], echo=True)
+        return None
 
     return obj
 
@@ -156,17 +195,34 @@ def read_file(file, remove_blank=True, rc=True):
     :type remove_blank: bool
     :param rc: If True, remove anything beginning with # to the end of line
     :type rc: bool
-    :return: File contents.
-    :rtype: list
+    :return: File contents as a list of str. None if a file error is encountered.
+    :rtype: list, None
     """
+    if not isinstance(file, str):
+        brcdapi_log.exception('Invalid file name. File name must be a string, not ' + str(type(file)), echo=True)
+        return None
+
     # Apparently, Putty puts some weird characters in the file. Looks like there is a Python bug with the line below. I
     # get "NameError: name 'open' is not defined".
     # f = open(file, 'r', encoding='utf-8', errors='ignore')
     #  So I read as bytes, decoded using utf-8 and then had to ignore errors.
     # ToDo - Does this work for mainframes (EBCDIC)?
-    f = open(file, 'rb')
-    data = f.read().decode('utf-8', errors='ignore')
-    f.close()
+    try:
+        f = open(file, 'rb')
+        data = f.read().decode('utf-8', errors='ignore')
+        f.close()
+    except FileNotFoundError:
+        brcdapi_log.log(file + ' does not exist.', echo=True)
+        return None
+    except FileExistsError:
+        brcdapi_log.log('A folder in ' + file + ' does not exist.', echo=True)
+        return None
+    except PermissionError:
+        brcdapi_log.log('Permission error reading: ' + file + '.', echo=True)
+        return None
+    except BaseException as e:
+        brcdapi_log.log(['Unknown error reading: ' + file + '. Error is:', str(e)], echo=True)
+        return None
 
     # Every once in a while, a Windows file has just '\r' for the line end. I've never seen '\n\r' but just in case...
     content = data.replace('\r\n', '\n').replace('\n\r', '\n').replace('\r', '\n').split('\n')
@@ -185,16 +241,23 @@ def write_file(file, content_l):
     :rtype: list
     """
     el = list()
-    try:
-        with open(file, 'w') as f:
-            f.write('\n'.join(content_l))
-        f.close()
-    except FileExistsError:
-        el.append('A folder in ' + file + ' does not exist.')
-    except PermissionError:
-        el.append('You do not have permission to write ' + file + '.')
-    except BaseException as e:
-        el.extend(['Unexpected error while writing ' + str(file), str(type(e)) + str(e)])
+
+    if not isinstance(file, str):
+        el.append('Invalid file name. File name must be a string, not ' + str(type(file)))
+        brcdapi_log.exception(el, echo=True)
+
+    else:
+        try:
+            with open(file, 'w') as f:
+                f.write('\n'.join(content_l))
+            f.close()
+        except FileExistsError:
+            el.append('A folder in ' + file + ' does not exist.')
+        except PermissionError:
+            el.append('You do not have permission to write ' + file + '.')
+        except BaseException as e:
+            el.extend(['Unexpected error while writing ' + file, str(type(e)) + str(e)])
+
     return el
 
 
