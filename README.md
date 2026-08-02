@@ -3,6 +3,9 @@
 Jack Consoli
 jack_consoli@yahoo.com
 
+**02 Aug 2026**
+* Updates for FOS 10, Gen 8
+
 **10 Mar 2026**
 * Additional error check
 * Improved error feedback
