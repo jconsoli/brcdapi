@@ -72,15 +72,17 @@ such as the brcddb libraries, to control what gets printed to the log.
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.0.6     | 20 Feb 2026   | Updated copyright notice.                                                             |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.7     | 01 Aug 2026   | Added additional debug information.                                                   |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2024, 2025, 2026 Jack Consoli'
-__date__ = '20 Feb 2026'
+__date__ = '01 Aug 2026'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack_consoli@yahoo.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.6'
+__version__ = '4.0.7'
 
 import http.client
 import re
@@ -102,10 +104,10 @@ _FABRIC_BUSY_WAIT = 10  # Time, in seconds, to wait before retrying a request du
 _DEBUG = False
 # _DEBUG_MODE is only used when _DEBUG == True as follows:
 # 0 - Perform all requests normally. Write all responses to a file
-# 1 - Do not perform any I/O. Read all responses from file into response and fake a successful login
+# 1 - Do not perform any I/O. Read all GET responses from file into response and fake a successful POST or PATCH
 _DEBUG_MODE = 1
 # _DEBUG_PREFIX is only used when _DEBUG == True. Folder where all the json dumps of API requests are read/written.
-_DEBUG_PREFIX = '20251130_gsh_raw/'
+_DEBUG_PREFIX = '20260802_gsh_raw/'
 _verbose_debug = False  # When True, prints data structures. Only useful for debugging.
 _req_pending = False  # When True, the script is waiting for a response from a switch
 _control_c_pend = False  # When True, a keyboard interrupt is pending a request to complete
@@ -153,7 +155,7 @@ def _format_op_status(obj):
     return rl
 
 
-def login(user_id, pw, ip_addr, https='none'):
+def login(user_id, pw, ip_addr):
     """Performs a login to the device using fos_auth.login
 
     :param user_id: User ID
@@ -162,8 +164,6 @@ def login(user_id, pw, ip_addr, https='none'):
     :type pw: str
     :param ip_addr: IP address
     :type ip_addr: str
-    :param https: If 'CA' or 'self', uses https to login. Otherwise, http.
-    :type https: str
     :return: Session object from brcdapi.fos_auth.login()
     :rtype: dict
     """
@@ -171,9 +171,14 @@ def login(user_id, pw, ip_addr, https='none'):
 
     # Login
     if _DEBUG and _DEBUG_MODE == 1:
-        session = dict(_debug_name=ip_addr.replace('.', '_'), debug=True, uri_map=brcdapi_util.default_uri_map)
+        session = dict(
+            _debug_name=ip_addr.replace('.', '_'),
+            debug=True,
+            credential=dict(),
+            uri_map=brcdapi_util.default_uri_map
+        )
     else:
-        session = fos_auth.login(user_id, pw, ip_addr, https)
+        session = fos_auth.login(user_id, pw, ip_addr)
         if isinstance(session, dict):
             if fos_auth.is_error(session):
                 return session
@@ -301,8 +306,12 @@ def _api_request(session, uri, http_method, content):
     """
     global _DEBUG, _DEBUG_MODE, _req_pending, _control_c_pend, _verbose_debug
 
-    if _DEBUG and _DEBUG_MODE == 1 and http_method == 'OPTIONS':
-        return dict(_raw_data=dict(status=brcdapi_util.HTTP_NO_CONTENT, reason='OK'))
+    if _DEBUG and _DEBUG_MODE == 1:
+        return dict(
+            _raw_data=dict(
+                status=brcdapi_util.HTTP_NO_CONTENT if http_method == 'OPTIONS' else brcdapi_util.HTTP_OK, reason='OK'
+            )
+        )
 
     if http_method != 'OPTIONS' and _check_methods(session, uri):
         _api_request(session, uri, 'OPTIONS', dict())
@@ -310,6 +319,9 @@ def _api_request(session, uri, http_method, content):
     if _verbose_debug:
         buf = ['_api_request() - Send:', 'Method: ' + http_method, 'URI: ' + uri, 'content:', pprint.pformat(content)]
         brcdapi_log.log(buf, echo=True)
+
+    # Results of CLI commands are not immediately reflected in the API. This pause, if necessary, is to sync up.
+    fos_cli.cli_wait(session)
 
     # Set up the headers and JSON data
     header = session.get('credential')
@@ -474,7 +486,7 @@ def _retry(obj):
     return False, 0
 
 
-def api_request(session, uri, http_method, content):
+def api_request(session, uri, http_method, content, debug=False):
     """Interface in front of _api_request to handle retries when services are unavailable
 
     :param session: Session object returned from login()
@@ -484,6 +496,8 @@ def api_request(session, uri, http_method, content):
     :param http_method: Method for HTTP connect.
     :param content: The content, in Python dict, to be converted to JSON and sent to switch.
     :type content: dict, None
+    :param debug: If True, print additional debug information to the log if an error is encountered
+    :type debug: bool
     :return: Response and status in fos_auth.is_error() and fos_auth.formatted_error_msg() friendly format
     :rtype: dict
     """
@@ -501,6 +515,19 @@ def api_request(session, uri, http_method, content):
         obj = _api_request(session, uri, http_method, content)
         retry_count -= 1
         retry_flag, wait_time = _retry(obj)
+
+    if debug and fos_auth.is_error(obj):
+        brcdapi_log.exception(
+            [
+                'DEBUG:',
+                'uri:         ' + str(uri),
+                'http_method: ' + str(http_method),
+                'content:',
+                pprint.pformat(content),
+                'return:',
+                fos_auth.formatted_error_msg(obj)
+            ], echo=True)
+
     return obj
 
 
@@ -554,7 +581,7 @@ def get_request(session, ruri, fid=None):
     return json_data
 
 
-def send_request(session, ruri, http_method, content, fid=None):
+def send_request(session, ruri, http_method, content, fid=None, debug=False):
     """Performs a Rest API request. Use get_request() for GET. Use this for all other '/rest/running/' requests
 
     :param session: Session object returned from login()
@@ -566,10 +593,12 @@ def send_request(session, ruri, http_method, content, fid=None):
     :type content: dict, None
     :param fid: Fabric ID
     :type fid: int, None
+    :param debug: If True, print additional debug information to the log
+    :type debug: bool
     :return: Response and status in is_error() and fos_auth.formatted_error_msg() friendly format
     :rtype: dict
     """
-    return api_request(session, brcdapi_util.format_uri(session, ruri, fid), http_method, content)
+    return api_request(session, brcdapi_util.format_uri(session, ruri, fid), http_method, content, debug)
 
 
 def set_debug(debug, debug_mode=None, debug_folder=None):

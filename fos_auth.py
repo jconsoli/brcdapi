@@ -17,7 +17,7 @@ details.
 Login, logout, and error formatting. With the exception of error handling, typically, the remaining methods contained
 herein are only used by brcdapi.brcdapi_rest.
 
-**Primary Methods**
+**Public Methods**
 
 +-----------------------+-------------------------------------------------------------------------------------------+
 | Method                | Description                                                                               |
@@ -41,23 +41,6 @@ herein are only used by brcdapi.brcdapi_rest.
 +-----------------------+-------------------------------------------------------------------------------------------+
 | logout()              | Terminate a session to FOS                                                                |
 +-----------------------+-------------------------------------------------------------------------------------------+
-
-**Public Methods**
-
-+-----------------------------+-------------------------------------------------------------------------------------+
-| Method                      | Description                                                                         |
-+=============================+=====================================================================================+
-| basic_api_parse()           | Performs a read and basic parse of the conn.getresponse().                          |
-+-----------------------------+-------------------------------------------------------------------------------------+
-| create_error()              | Intended for use within this module and brcdapi.brcdapi_rest only. Creates a        |
-|                             | standard error object                                                               |
-+-----------------------------+-------------------------------------------------------------------------------------+
-| obj_status()                | Returns the status from API object.                                                 |
-+-----------------------------+-------------------------------------------------------------------------------------+
-| obj_reason()                | Returns the reason from API object                                                  |
-+-----------------------------+-------------------------------------------------------------------------------------+
-| obj_error_detail()          | Formats the error message detail into human readable format                         |
-+-----------------------------+-------------------------------------------------------------------------------------+
 
 **Login Session**
 
@@ -108,15 +91,17 @@ Not all parameters filled in by fos_auth.login
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.0.4     | 20 Feb 2026   | Updated copyright notice.                                                             |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.5     | 01 Aug 2026   | Removed obsolete HTTP access. Only HTTPS is supported.                                |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2024, 2025, 2026 Jack Consoli'
-__date__ = '20 Feb 2026'
+__date__ = '01 Aug 2026'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack_consoli@yahoo.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.4'
+__version__ = '4.0.5'
 
 import http.client as httplib
 import base64
@@ -187,17 +172,6 @@ def basic_api_parse(obj):
     return json_data
 
 
-def _get_connection(ip_addr, ca):
-
-    if ca == 'self':
-        return httplib.HTTPSConnection(ip_addr, context=ssl._create_unverified_context())
-    if ca == 'none':
-        return httplib.HTTPConnection(ip_addr)
-    # Assume it's a certificate
-    brcdapi_log.exception('Only "none" (HTTP) and "self" (self signed HTTPS) are supported at this time.', echo=True)
-    raise ConnectionRefusedError
-
-
 def create_error(status, reason, msg=None):
     """Creates a standard error object
 
@@ -258,7 +232,7 @@ def obj_reason(obj):
     :return: Reason
     :rtype: str
     """
-    return obj['_raw_data'].get('reason') if '_raw_data' in obj else ''
+    return obj.get('_raw_data', dict()).get('reason', 'Undefined')
 
 
 def obj_error_detail(obj):
@@ -314,7 +288,7 @@ def formatted_error_msg(obj):
     return buf
 
 
-def login(user, password, ip_addr, in_http_access=None):
+def login(user, password, ip_addr):
     """Establish a session to the FOS switch and return the session object
 
     :param user: Username to establish a session.
@@ -323,24 +297,12 @@ def login(user, password, ip_addr, in_http_access=None):
     :type password: str
     :param ip_addr: Management IP address of chassis
     :type ip_addr: str
-    :param in_http_access: 'none' or None for HTTP. For HTTPS, only 'self' is supported.
-    :type in_http_access: str, None
     :return: Session object as described in the module header. See Login Session
     :rtype: dict
     """
-    # Get and validate HTTP or HTTPS method
-    http_access = 'none' if in_http_access is None else in_http_access
-    if not isinstance(http_access, str) or http_access not in ('none', 'self'):
-        buf = 'HTTP access other than "none" and "self" has not been implemented. Entered HTTPS method was: ' +\
-              str(http_access)
-        brcdapi_log.log(buf, echo=True)
-        return create_error(brcdapi_util.HTTP_BAD_REQUEST,
-                            'Unsupported login',
-                            msg=[str(type(http_access)), str(http_access)])
-
     # Get connection token
     try:
-        conn = _get_connection(ip_addr, http_access)
+        conn = httplib.HTTPSConnection(ip_addr, context=ssl._create_unverified_context())
     except ConnectionRefusedError:
         return create_error(brcdapi_util.HTTP_NOT_FOUND, 'Connection refused').update(ip_addr=ip_addr)
     auth = user + ':' + password
@@ -376,7 +338,7 @@ def login(user, password, ip_addr, in_http_access=None):
                      ip_addr=ip_addr,
                      user_id=user,
                      user_pw=password,
-                     ishttps=False if http_access == 'none' else True,
+                     ishttps=True,
                      ssh_login=None,  # Used in fos_cli.py
                      ssh_fault=False)  # Used in fos_cli.py to indicate an SSH login was attempted but failed.
 

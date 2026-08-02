@@ -64,22 +64,23 @@ suppressed for all log messages except the final completion message.
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.0.6     | 20 Feb 2026   | Updated copyright notice.                                                             |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.7     | 01 Aug 2026   | Added "EXCEPTION:" to exception()                                                     |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2024, 2025 Jack Consoli'
-__date__ = '20 Feb 2026'
+__copyright__ = 'Copyright 2024, 2025, 2026 Jack Consoli'
+__date__ = '01 Aug 2026'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack_consoli@yahoo.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.6'
+__version__ = '4.0.7'
 
 import traceback
 import datetime
 
 _local_suppress_all = False
 _log_obj = None  # Log file handle
-
 
 def set_suppress_all():
     """Suppress all output except forced output. Useful with a playbook when only exit status is desired
@@ -148,7 +149,7 @@ def exception(msg, echo=False):
     :type echo: bool
     :return: None
     """
-    msg_list = ['brcdapi library exception call. Traceback:']
+    msg_list = ['EXCEPTION: Traceback:']
     msg_list.extend([buf.rstrip() for buf in traceback.format_stack()])  # rstrip() because log() adds a line feed
     msg_list.extend(msg if isinstance(msg, list) else [msg])
     log(msg_list, echo)

@@ -37,9 +37,6 @@ details.
 +-----------------------+-------------------------------------------------------------------------------------------+
 | is_port               | Tests a value to determine if it is a valid port                                          |
 +-----------------------+-------------------------------------------------------------------------------------------+
-| port_enable_disable   | Enables or disables a port or list of ports. Typically, enable_port() or                  |
-|                       | port_disable() is called externally instead of this method.                               |
-+-----------------------+-------------------------------------------------------------------------------------------+
 | ports_to_list         | Converts ports to a list of ports. Many sources for ports return None, a single port, or  |
 |                       | just the port (no slot on fixed port switches) and sometimes the port is an integer. The  |
 |                       | API always wants to see ports in 's/p' notation.                                          |
@@ -56,6 +53,8 @@ details.
 | sort_ports            | Sorts a list of ports. Sorting is by slot, port, ge port. This is useful because if       |
 |                       | port_l is a list of ports in 's/p' notation, .sort() performs an ASCII sort which does    |
 |                       | not return the desired results.                                                           |
++-----------------------+-------------------------------------------------------------------------------------------+
+| user_name             | Assigns user-friendly names to ports.                                                     |
 +-----------------------+-------------------------------------------------------------------------------------------+
 
 **Version Control**
@@ -79,15 +78,17 @@ details.
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.0.7     | 20 Feb 2026   | Updated copyright notice.                                                             |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.8     | 01 Aug 2026   | Remove CLI wait. This is now done automatically in brcdapi.brcdapi_rest               |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2024, 2025, 2026 Jack Consoli'
-__date__ = '20 Feb 2026'
+__date__ = '01 Aug 2026'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack_consoli@yahoo.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.7'
+__version__ = '4.0.8'
 
 import collections
 import brcdapi.util as brcdapi_util
@@ -101,9 +102,14 @@ _MAX_CHECK = 3  # Port decommission maximum number of times to poll the switch f
 _WAIT = 1  # Port decommission wait time before each status poll check
 
 
+#################################
+#                               #
+#     Utilitarian Functions     #
+#                               #
+#################################
+
 def ports_to_list(i_port_l):
-    """Converts ports to a list of ports. Many sources for ports return None, a single port, or just the port (no slot
-    on fixed port switches) and sometimes the port is an integer. The API always wants to see ports in 's/p' notation.
+    """Converts ports to a list of ports in standard s/p notation. For fixed port switches, s = 0.
 
     :param i_port_l: Port or list of ports
     :type i_port_l: int, str, list, tuple
@@ -132,8 +138,7 @@ def sort_ports(i_port_l):
             wd[slot]['ge'].append(ge_port)  # It's a ge port
 
     # Now sort them and create the return list
-    rl = list()
-    slot_l = list(wd.keys())
+    rl, slot_l = list(), list(wd.keys())
     slot_l.sort()
     for slot in slot_l:
         slot_str = str(slot) + '/'
@@ -145,28 +150,79 @@ def sort_ports(i_port_l):
     return rl
 
 
-def clear_stats(session, fid, ports_l):
+def port_range_to_list(num_range):
+    """Converts a CSV list of ports to ranges as text. Ports are converted to standard s/p notation and sorted by slot.
+    The original order may not be preserved. For example: "5/0-2, 9, 2/6-5, 5/6-8" is returned as:
+    ['5/0', '5/1', '5/2', '5/6', '5/7', '5/8', '0/9', '2/5', '2/6']
+
+    :param num_range: List of numeric values, int or float
+    :type num_range: str
+    :return: List of str for ports as described above
+    :rtype: list
+    """
+    rl = list()
+
+    slot_d = dict()
+    for buf in [b.replace(' ', '') if '/' in b else '0/' + b.replace(' ', '') for b in num_range.split(',')]:
+        temp_l = buf.split('/')
+        port_l = slot_d.get(temp_l[0])
+        if port_l is None:
+            port_l = list()
+            slot_d.update({temp_l[0]: port_l})
+        port_l.extend(gen_util.range_to_list(temp_l[1]))
+
+    for slot, port_l in slot_d.items():
+        rl.extend([slot + '/' + str(p) for p in port_l])
+
+    return rl
+
+#################################
+#                               #
+#       FOS API Actions         #
+#                               #
+#################################
+
+
+def clear_stats(session, fid, i_ports_l, echo=False, best=False):
     """Clear all statistical counters associated with a port or list of ports
 
     :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
     :param fid: Logical FID number for switch with ports. Use None if switch is not VF enabled.
     :type fid: int
-    :param ports_l: Port or list of FC ports for stats to be cleared on in s/p notation
-    :type ports_l: list
+    :param i_ports_l: Port or list of FC ports for stats to be cleared on in s/p notation
+    :type i_ports_l: list
     :return: brcdapi_rest status object
     :rtype: dict
     """
-    pl = [{'name': p, 'reset-statistics': 1} for p in ports_to_list(ports_l)]
-    if len(pl) > 0:
-        content = {'fibrechannel-statistics': pl}
-        return brcdapi_rest.send_request(session,
-                                         'running/brocade-interface/fibrechannel-statistics',
-                                         'PATCH',
-                                         content,
-                                         fid)
+    r_obj = None
 
-    return brcdapi_util.GOOD_STATUS_OBJ  # If we get here, the port list, ports_l, was empty.
+    port_l = ports_to_list(i_ports_l)
+    if len(port_l) == 0:
+        return brcdapi_util.GOOD_STATUS_OBJ
+
+    pl = [{'name': p, 'reset-statistics': 1} for p in port_l]
+    content = {'fibrechannel-statistics': pl}
+    obj = brcdapi_rest.send_request(
+        session,
+        'running/brocade-interface/fibrechannel-statistics',
+        'PATCH',
+        content,
+        fid
+    )
+    if fos_auth.is_error(obj) and best and len(port_l) > 1:
+        for port in port_l:
+            p_obj = clear_stats(session, fid, [port], echo=echo, best=best)
+            if fos_auth.is_error(p_obj):
+                buf_l = [
+                    'ERROR: clearing statistics for port: ' + port + '. FOS error message:',
+                    fos_auth.formatted_error_msg(p_obj),
+                    ]
+                brcdapi_log.log(buf_l, echo=echo)
+                if r_obj is None:
+                    r_obj = p_obj
+
+    return obj if r_obj is None else r_obj
 
 
 # default_port_config_d is used in default_port_config(). I made it public so that it could be programmatically altered
@@ -207,7 +263,7 @@ default_port_config_d['clean-address-enabled'] = False  # Disabled
 default_port_config_d['congestion-signal-enabled'] = True  # Gen7 FPIN feature
 
 
-def default_port_config(session, fid, i_port_l):
+def default_port_config(session, fid, i_port_l, echo=False, best=False):
     """Disables and sets a list of FC ports to their factory default state
 
     :param session: Session object returned from brcdapi.brcdapi_auth.login()
@@ -216,6 +272,10 @@ def default_port_config(session, fid, i_port_l):
     :type fid: int
     :param i_port_l: List of ports in the API format of s/p. For a fixed port switch for example, port 12 is '0/12'
     :type i_port_l: tuple, list, str, int
+    :param echo: If True, echo error recovery detail to STD_OUT
+    :type echo: bool
+    :param best: Not used. It's not simple. Implementation date is TBD
+    :type best: bool
     :return: The object returned from the API. If ports is an empty list, a made up good status is returned.
     :rtype: dict
     """
@@ -224,6 +284,7 @@ def default_port_config(session, fid, i_port_l):
     port_l = ports_to_list(i_port_l)
     if len(port_l) == 0:
         return brcdapi_util.GOOD_STATUS_OBJ
+
     check_port_d = dict()  # For faster lookup, this is a dictionary of ports in port_l
     for port in port_l:
         check_port_d.update({port: True})
@@ -233,7 +294,7 @@ def default_port_config(session, fid, i_port_l):
     # if they exist in the data returned from the switch
 
     # Read in the port configurations
-    obj = brcdapi_rest.get_request(session, 'running/brocade-interface/fibrechannel', fid)
+    obj = brcdapi_rest.get_request(session, 'running/' + brcdapi_util.bifc_uri, fid)
     if fos_auth.is_error(obj):
         brcdapi_log.log('Failed to read brocade-interface/fibrechannel for fid ' + str(fid), echo=True)
         return obj
@@ -275,7 +336,7 @@ def default_port_config(session, fid, i_port_l):
     # Now modify the port(s)
     if len(pl) > 0:
         obj = brcdapi_rest.send_request(session,
-                                        'running/brocade-interface/fibrechannel',
+                                        'running/' + brcdapi_util.bifc_uri,
                                         'PATCH',
                                         {'fibrechannel': pl},
                                         fid)
@@ -294,16 +355,15 @@ def default_port_config(session, fid, i_port_l):
 
     # As of FOS v9.2, long distance settings could not be set or cleared via the API, so just do it via the CLI
     if len(port_l) > 0:
-        if not session.get('ssh_fault', False):
-            for port in port_l:
-                response = fos_cli.send_command(session, fid, 'portcfgdefault ' + fos_cli.cli_port(port))
-                # Not doing anything with the response. At least not yet anyway.
-            fos_cli.cli_wait()  # Let the API and CLI sync up. No value uses the default wiat time.
+        for port in port_l:
+            # FOS doesn't like the leading 0/ for port numbers on fixed port switches.
+            response_l = fos_cli.send_command(session, fid, 'portcfgdefault ' + port.replace('0/', ''))
+            # Not doing anything with the response_l. At least not yet anyway.
 
     return brcdapi_util.GOOD_STATUS_OBJ  # Since all defaults aren't supported by the API, anything else is too complex
 
 
-def port_enable_disable(session, fid, enable_flag, i_port_l, persistent=False, echo=False):
+def _port_enable_disable(session, fid, enable_flag, i_port_l, persistent=None, echo=False, best=False):
     """Enable or disable a port or list of ports.
 
     :param session: Session object returned from brcdapi.fos_auth.login()
@@ -312,50 +372,65 @@ def port_enable_disable(session, fid, enable_flag, i_port_l, persistent=False, e
     :type fid: int
     :param enable_flag: True - enable ports. False - disable ports
     :type enable_flag: bool
-    :param i_port_l: List of ports to enable or disable
+    :param i_port_l: Port or list of ports to enable or disable
     :type i_port_l: tuple, list, str
-    :param persistent: If Ture, persistently disables the port
-    :type persistent: bool
-    :param echo: If True, print activity to STD OUT
+    :param persistent: None: No change. True: set the persistent disable bit. False: clear the persistent disable bit
+    :type persistent: None, bool
+    :param echo: If True, echo error recovery detail to STD_OUT
     :type echo: bool
+    :param best: If True, try one port at a time if there is a failure
+    :type best: bool
     :return: The object returned from the API. If ports is an empty list, a made up good status is returned.
     :rtype: dict
     """
+    r_obj = None
+
     port_l = ports_to_list(i_port_l)
     if len(port_l) == 0:
         return brcdapi_util.GOOD_STATUS_OBJ
 
     # Now enable/disable the port(s)
-    buf = ''
-    if persistent:
-        buf = 'Persistent'
-        pd = 0 if enable_flag else 1
-        pl = [{'name': p, 'persistent-disable': pd} for p in port_l]
-    else:
-        pl = [{'name': p, 'is-enabled-state': enable_flag} for p in port_l]
-    buf += ' En' if enable_flag else ' Dis'
-    brcdapi_log.log(buf + 'abling ' + str(len(port_l)) + ' ports.', echo)
-    obj = brcdapi_rest.send_request(session,
-                                    'running/brocade-interface/fibrechannel',
-                                    'PATCH',
-                                    {'fibrechannel': pl},
-                                    fid)
-    if fos_auth.is_error(obj):
-        return obj
+    buf, enable_disable_buf = '', 'Enabling' if enable_flag else 'Disabling'
+    pd = 0 if enable_flag else 1
+    brcdapi_log.log(buf + enable_disable_buf + ' ' + str(len(port_l)) + ' ports.', echo)
+    # FOS does not allow the disable bit to be altered when enabling the port. I could disable the port and alter the
+    # persistent bit at the same time, but it's easier to always make two passes.
+    process_l = [[{'name': p, 'is-enabled-state': enable_flag} for p in port_l]]
+    if persistent is not None:
+        process_l.insert(0, [{'name': p, 'persistent-disable': pd} for p in port_l])
+    for content_d in process_l:
+        obj = brcdapi_rest.send_request(
+            session,
+            'running/' + brcdapi_util.bifc_uri,
+            'PATCH',
+            {'fibrechannel': content_d},
+            fid
+        )
+        if fos_auth.is_error(obj) and best and len(port_l) > 1:
+            brcdapi_log.log('Attempting to ' + enable_disable_buf + ' one at a time.', echo)
+            for port in port_l:
+                p_obj = _port_enable_disable(
+                    session,
+                    fid,
+                    enable_flag,
+                    port,
+                    persistent=persistent,
+                    echo=echo,
+                    best=best
+                )
+                if fos_auth.is_error(p_obj):
+                    buf_l = [
+                        'ERROR: ' + enable_disable_buf + ' port: ' + port + '. FOS error message:',
+                        fos_auth.formatted_error_msg(p_obj),
+                        ]
+                    brcdapi_log.log(buf_l, echo=echo)
+                    if r_obj is None:
+                        r_obj = p_obj
 
-    if persistent and enable_flag:
-        # FOS does not permit cleaning the persistent disable bit and enabling the port in the same request
-        content_d = dict(fibrechannel=[{'name': p, 'is-enabled-state': enable_flag} for p in port_l])
-        obj = brcdapi_rest.send_request(session,
-                                        'running/brocade-interface/fibrechannel',
-                                        'PATCH',
-                                        content_d,
-                                        fid)
-
-    return obj
+    return obj if r_obj is None else r_obj
 
 
-def enable_port(session, fid, i_port_l, persistent=False, echo=False):
+def enable_port(session, fid, i_port_l, persistent=None, echo=False, best=False):
     """Enables a port or list of ports on a specific logical switch.
 
     :param session: Session object returned from brcdapi.brcdapi_auth.login()
@@ -364,17 +439,19 @@ def enable_port(session, fid, i_port_l, persistent=False, echo=False):
     :type fid: int
     :param i_port_l: List of ports to enable or disable
     :type i_port_l: tuple, list, str, in
-    :param persistent: If Ture, persistently disables the port
-    :type persistent: bool
+    :param persistent: None: No change. True: set the persistent disable bit. False: clear the persistent disable bit
+    :type persistent: None, bool
     :param echo: If True, print activity to STD OUT
     :type echo: bool
-    :return: The object returned from the API. If i_port_l is an empty list, a made up good status is returned.
+    :param best: If True, try one port at a time if there is a failure
+    :type best: bool
+    :return: The object returned from the API. First fault is errors encountered. Good status if i_port_l is empty.
     :rtype: dict
     """
-    return port_enable_disable(session, fid, True, i_port_l, persistent=persistent, echo=echo)
+    return _port_enable_disable(session, fid, True, i_port_l, persistent=persistent, echo=echo, best=best)
 
 
-def disable_port(session, fid, i_port_l, persistent=False, echo=False):
+def disable_port(session, fid, i_port_l, persistent=False, echo=False, best=False):
     """Disables a port or list of ports on a specific logical switch.
 
     :param session: Session object returned from brcdapi.brcdapi_auth.login()
@@ -383,17 +460,19 @@ def disable_port(session, fid, i_port_l, persistent=False, echo=False):
     :type fid: int
     :param i_port_l: List of ports to enable or disable
     :type i_port_l: tuple, list, str, in
-    :param persistent: If Ture, persistently disables the port
-    :type persistent: bool
-    :param echo: If True, print activity to STD OUT
+    :param persistent: None: No change. True: set the persistent disable bit. False: clear the persistent disable bit
+    :type persistent: None, bool
+    :param echo: If True, echo error recovery detail to STD_OUT
     :type echo: bool
+    :param best: If True, try one port at a time if there is a failure
+    :type best: bool
     :return: The object returned from the API. If i_port_l is an empty list, a made up good status is returned.
     :rtype: dict
     """
-    return port_enable_disable(session, fid, False, i_port_l, persistent=persistent, echo=echo)
+    return _port_enable_disable(session, fid, False, i_port_l, persistent=persistent, echo=echo, best=best)
 
 
-def decommission_port(session, fid, i_port_l, port_type, echo=False):
+def decommission_port(session, fid, i_port_l, port_type='port', persistent=False, echo=False, best=False):
     """Decommissions a port or list of ports.
 
     :param session: Session object returned from brcdapi.brcdapi_auth.login()
@@ -404,12 +483,18 @@ def decommission_port(session, fid, i_port_l, port_type, echo=False):
     :type i_port_l: tuple, list, str, int
     :param port_type: 'port' or 'qsfp-port'
     :type port_type: str
-    :param echo: If True, print activity to STD OUT
+    :param persistent: None: No change. True: set the persistent disable bit. False: clear the persistent disable bit
+    :type persistent: None, bool
+    :param echo: If True, echo error recovery detail to STD_OUT
     :type echo: bool
+    :param best: If True, try one port at a time if there is a failure
+    :type best: bool
     :return: The object returned from the API. If i_port_l is an empty list, a made up good status is returned.
     :rtype: dict
     """
     global _MAX_CHECK, _WAIT
+
+    r_obj = None
 
     port_l = ports_to_list(i_port_l)
     if len(port_l) == 0:
@@ -421,162 +506,299 @@ def decommission_port(session, fid, i_port_l, port_type, echo=False):
     for port in port_l:
         port_d_l.append({'slot-port': port, 'port-decommission-type': port_type})
     # WARNING: As of 11 July 2022, the API Guide describes the internal data structure for an RPC call.
-    return brcdapi_rest.operations_request(session,
-                                           'operations/port-decommission',
-                                           'POST',
-                                           {'port-decommission-parameters': port_d_l},
-                                           fid=fid)
+    obj = brcdapi_rest.operations_request(
+        session,
+        'operations/port-decommission',
+        'POST',
+        {'port-decommission-parameters': port_d_l},
+        fid=fid
+    )
+    if fos_auth.is_error(obj) and best and len(port_d_l) > 1:
+        buf_l = [
+            'ERROR: Decommisioning ports ' + len(port_d_l) + '. FOS error is:',
+            fos_auth.formatted_error_msg(obj),
+            'Attempting one port at a time.'
+        ]
+        brcdapi_log.log(buf_l, echo)
+        for port in port_l:
+            p_obj = decommission_port(session, fid, [port_d], port_type, echo=echo, best=best)
+            if fos_auth.is_error(p_obj):
+                buf_l = [
+                    'ERROR: Decommissioning port ' + port,
+                    'FOS error is:',
+                    fos_auth.formatted_error_msg(p_obj),
+                ]
+                brcdapi_log.log(buf_l, echo=echo)
+                if r_obj is None:
+                    r_obj = p_obj
+
+    return obj if r_obj is None else r_obj
 
 
-def reserve_pod(session, fid, ports_l):
+def reserve_pod(session, fid, i_ports_l, echo=False, best=False):
     """Reserves a POD license for a port or list of ports.
 
     :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
     :param fid: Logical FID number for switch with ports. Use None if switch is not VF enabled.
     :type fid: int
-    :param ports_l: List of ports to enable or disable
-    :type ports_l: tuple, list, str, int
+    :param i_ports_l: List of ports to enable or disable
+    :type i_ports_l: tuple, list, str, int
+    :param echo: If True, echo error recovery detail to STD_OUT
+    :type echo: bool
+    :param best: If True, try one port at a time if there is a failure
+    :type best: bool
     :return: The object returned from the API. If i_port_l is an empty list, a made up good status is returned.
     :rtype: dict
     """
-    content_l = [{'name': p, 'pod-license-state': 'reserved'} for p in ports_to_list(ports_l)]
-    if len(content_l) > 0:
-        return brcdapi_rest.send_request(session,
-                                         'running/brocade-interface/fibrechannel',
-                                         'PATCH',
-                                         {'fibrechannel': content_l},
-                                         fid)
+    r_obj = None
 
-    return brcdapi_util.GOOD_STATUS_OBJ  # If we get here, the port list, ports_l, was empty.
+    port_l = ports_to_list(i_ports_l)
+    if len(port_l) == 0:
+        return brcdapi_util.GOOD_STATUS_OBJ
+
+    content_l = [{'name': p, 'pod-license-state': 'reserved'} for p in port_l]
+    obj = brcdapi_rest.send_request(
+        session,
+        'running/' + brcdapi_util.bifc_uri,
+        'PATCH',
+        {'fibrechannel': content_l},
+        fid
+    )
+    if fos_auth.is_error(obj) and best and len(port_l) >1:
+        buf_l = [
+            'ERROR: Reserving ' + len(port_d_l) + ' ports. FOS error is:',
+            fos_auth.formatted_error_msg(obj),
+            'Attempting one port at a time.'
+        ]
+        brcdapi_log.log(buf_l, echo)
+        for port in port_l:
+            p_obj = reserve_pod(session, fid, [port], echo=echo, best=best)
+            if fos_auth.is_error(p_obj):
+                buf_l = [
+                    'ERROR: Reserving port ' + port,
+                    'FOS error is:',
+                    fos_auth.formatted_error_msg(p_obj),
+                    ]
+                brcdapi_log.log(buf_l, echo=echo)
+                if r_obj is None:
+                    r_obj = p_obj
+
+    return obj if r_obj is None else r_obj
 
 
-def release_pod(session, fid, ports_l):
+def release_pod(session, fid, i_ports_l, echo=False, best=False):
     """Releases a POD license for a port or list of ports.
 
     :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
     :param fid: Logical FID number for switch with ports. Use None if switch is not VF enabled.
     :type fid: int
-    :param ports_l: List of ports to enable or disable
-    :type ports_l: tuple, list, str, int
+    :param i_ports_l: List of ports to enable or disable
+    :type i_ports_l: tuple, list, str, int
     :return: The object returned from the API. If i_port_l is an empty list, a made up good status is returned.
     :rtype: dict
     """
-    content_l = [{'name': p, 'pod-license-state': 'released'} for p in ports_to_list(ports_l)]
-    if len(content_l) > 0:
-        return brcdapi_rest.send_request(session,
-                                         'running/brocade-interface/fibrechannel',
-                                         'PATCH',
-                                         {'fibrechannel': content_l},
-                                         fid)
+    r_obj = None
 
-    return brcdapi_util.GOOD_STATUS_OBJ  # If we get here, the port list, ports_l, was empty.
+    port_l = ports_to_list(i_ports_l)
+    if len(port_l) > 0:
+        return brcdapi_util.GOOD_STATUS_OBJ
+
+    content_l = [{'name': p, 'pod-license-state': 'released'} for p in port_l]
+    obj = brcdapi_rest.send_request(
+        session,
+        'running/' + brcdapi_util.bifc_uri,
+        'PATCH',
+        {'fibrechannel': content_l},
+        fid
+    )
+    if fos_auth.is_error(obj) and best and len(port_l) > 1:
+        buf_l = [
+            'ERROR: Releasing POD for ' + len(port_d_l) + ' ports. FOS error is:',
+            fos_auth.formatted_error_msg(obj),
+            'Attempting one port at a time.'
+        ]
+        brcdapi_log.log(buf_l, echo)
+        for port in port_l:
+            p_obj = release_pod(session, fid, [port], echo=echo, best=best)
+            if fos_auth.is_error(p_obj):
+                buf_l = [
+                    'ERROR: Releasing port ' + port,
+                    'FOS error is:',
+                    fos_auth.formatted_error_msg(p_obj),
+                    ]
+                brcdapi_log.log(buf_l, echo=echo)
+                if r_obj is None:
+                    r_obj = p_obj
+
+    return obj if r_obj is None else r_obj
 
 
-def disable_eport(session, fid, ports_l):
+def disable_eport(session, fid, i_ports_l, echo=False, best=False):
     """Disables E-Port mode for this port.
 
     :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
     :param fid: Logical FID number for switch with ports. Use None if switch is not VF enabled.
     :type fid: int
-    :param ports_l: List of ports to enable or disable
-    :type ports_l: tuple, list, str, int
+    :param i_ports_l: List of ports to enable or disable
+    :type i_ports_l: tuple, list, str, int
+    :param echo: If True, echo error recovery detail to STD_OUT
+    :type echo: bool
+    :param best: If True, try one port at a time if there is a failure
+    :type best: bool
     :return: The object returned from the API. If port_l is an empty list, a made up good status is returned.
     :rtype: dict
     """
-    content_l = [{'name': p, 'e-port-disable': 1} for p in ports_to_list(ports_l)]
-    if len(content_l) > 0:
-        return brcdapi_rest.send_request(session,
-                                         'running/brocade-interface/fibrechannel',
-                                         'PATCH',
-                                         {'fibrechannel': content_l},
-                                         fid)
+    r_obj = None
 
-    return brcdapi_util.GOOD_STATUS_OBJ  # If we get here, the port list, ports_l, was empty.
+    port_l = ports_to_list(i_ports_l)
+    if len(port_l) == 0:
+        return brcdapi_util.GOOD_STATUS_OBJ
+
+    content_l = [{'name': p, 'e-port-disable': 1} for p in port_l]
+    obj = brcdapi_rest.send_request(
+        session,
+        'running/' + brcdapi_util.bifc_uri,
+        'PATCH',
+        {'fibrechannel': content_l},
+        fid
+    )
+    if fos_auth.is_error(obj) and best and len(port_l) > 1:
+        buf_l = [
+            'ERROR: Disabling' + len(port_l) + ' E-Ports. FOS error is:',
+            fos_auth.formatted_error_msg(obj),
+            'Attempting one port at a time.'
+        ]
+        brcdapi_log.log(buf_l, echo)
+        for port in port_l:
+            p_obj = reserve_pod(session, fid, [port], echo=echo, best=best)
+            if fos_auth.is_error(p_obj):
+                buf_l = [
+                    'ERROR: Disabling E-Port ' + port,
+                    'FOS error is:',
+                    fos_auth.formatted_error_msg(p_obj),
+                    ]
+                brcdapi_log.log(buf_l, echo=echo)
+                if r_obj is None:
+                    r_obj = p_obj
+
+    return obj if r_obj is None else r_obj
 
 
-def e_port(session, fid, ports_l, mode):
-    """Disables E-Port mode for the specified ports.
+def e_port(session, fid, i_ports_l, mode, echo=False, best=False):
+    """Sets E-Port mode for the specified ports.
 
     :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
     :param fid: Logical FID number for switch with ports. Use None if switch is not VF enabled.
     :type fid: int
-    :param ports_l: List of ports to enable or disable
-    :type ports_l: tuple, list, str, int
+    :param i_ports_l: List of ports to enable or disable
+    :type i_ports_l: tuple, list, str, int
     :param mode: If True, enable E-Port capability. If False, disable E-Port capability
     :type mode: bool
+    :param echo: If True, echo error recovery detail to STD_OUT
+    :type echo: bool
+    :param best: If True, try one port at a time if there is a failure
+    :type best: bool
     :return: The object returned from the API. If port_l is an empty list, a made up good status is returned.
     :rtype: dict
     """
-    content_l = [{'name': p, 'e-port-disable': 0 if mode else 1} for p in ports_to_list(ports_l)]
-    if len(content_l) > 0:
-        return brcdapi_rest.send_request(session,
-                                         'running/brocade-interface/fibrechannel',
-                                         'PATCH',
-                                         {'fibrechannel': content_l},
-                                         fid)
+    r_obj = None
 
-    return brcdapi_util.GOOD_STATUS_OBJ  # If we get here, the port list, ports_l, was empty.
+    port_l = ports_to_list(i_ports_l)
+    if len(port_l) == 0:
+        return brcdapi_util.GOOD_STATUS_OBJ
+
+    content_l = [{'name': p, 'e-port-disable': 0 if mode else 1} for p in port_l]
+    obj = brcdapi_rest.send_request(
+        session,
+        'running/' + brcdapi_util.bifc_uri,
+        'PATCH',
+        {'fibrechannel': content_l},
+        fid
+    )
+    if fos_auth.is_error(obj) and best and len(port_l) > 1:
+        buf_l = [
+            'ERROR: Setting E-Port mode for ' + len(port_l) + ' ports. FOS error is:',
+            fos_auth.formatted_error_msg(obj),
+            'Attempting one port at a time.'
+        ]
+        brcdapi_log.log(buf_l, echo)
+        for port in port_l:
+            p_obj = e_port(session, fid, [port], mode, echo=echo, best=best)
+            if fos_auth.is_error(p_obj):
+                buf_l = [
+                    'ERROR: Setting E-Port mode for port ' + port,
+                    'FOS error is:',
+                    fos_auth.formatted_error_msg(p_obj),
+                    ]
+                brcdapi_log.log(buf_l, echo=echo)
+                if r_obj is None:
+                    r_obj = p_obj
+
+    return obj if r_obj is None else r_obj
 
 
-def n_port(session, fid, ports_l, mode):
+def n_port(session, fid, i_ports_l, mode, echo=False, best=False):
     """Enable/disables port for use as N-Ports. This is only applicable to switches configured for Access Gateway mode.
 
     :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
     :param fid: Logical FID number for switch with ports. Use None if switch is not VF enabled.
     :type fid: int
-    :param ports_l: List of ports to enable or disable
-    :type ports_l: tuple, list, str, int
+    :param i_ports_l: List of ports to enable or disable
+    :type i_ports_l: tuple, list, str, int
     :param mode: If True, enable N-Port capability. If False, disable N-Port capability
     :type mode: bool
     :param mode: If True, enable E-Port capability. If False, disable E-Port capability
     :type mode: bool
+    :param echo: If True, echo error recovery detail to STD_OUT
+    :type echo: bool
+    :param best: If True, try one port at a time if there is a failure
+    :type best: bool
     :return: The object returned from the API. If port_l is an empty list, a made up good status is returned.
     :rtype: dict
     """
-    content_l = [{'name': p, 'n-port-enabled': 1 if mode else 0} for p in ports_to_list(ports_l)]
-    if len(content_l) > 0:
-        return brcdapi_rest.send_request(session,
-                                         'running/brocade-interface/fibrechannel',
-                                         'PATCH',
-                                         {'fibrechannel': content_l},
-                                         fid)
+    r_obj = None
 
-    return brcdapi_util.GOOD_STATUS_OBJ  # If we get here, the port list, ports_l, was empty.
+    port_l = ports_to_list(i_ports_l)
+    if len(port_l) == 0:
+        return brcdapi_util.GOOD_STATUS_OBJ
+
+    content_l = [{'name': p, 'n-port-enabled': 1 if mode else 0} for p in port_l]
+    obj = brcdapi_rest.send_request(
+        session,
+        'running/' + brcdapi_util.bifc_uri,
+        'PATCH',
+        {'fibrechannel': content_l},
+        fid
+    )
+    enable_mode = 'Enable' if mode else 'Disable'
+    if fos_auth.is_error(obj) and best and len(port_l) > 1:
+        buf_l = [
+            'ERROR: ' + enable_mode + ' N-Port for ' + len(port_l) + ' ports. FOS error is:',
+            fos_auth.formatted_error_msg(obj),
+            'Attempting one port at a time.'
+        ]
+        brcdapi_log.log(buf_l, echo)
+        for port in port_l:
+            p_obj = n_port(session, fid, [port], mode, echo=echo, best=best)
+            if fos_auth.is_error(p_obj):
+                buf_l = [
+                    'ERROR: Could not ' + enable_mode + ' N-Port mode for port ' + port,
+                    'FOS error is:',
+                    fos_auth.formatted_error_msg(p_obj),
+                    ]
+                brcdapi_log.log(buf_l, echo=echo)
+                if r_obj is None:
+                    r_obj = p_obj
+
+    return obj if r_obj is None else r_obj
 
 
-def port_range_to_list(num_range):
-    """Converts a CSV list of ports to ranges as text. Ports are converted to standard s/p notation and sorted by slot.
-    The original order may not be preserved. For example: "5/0-2, 9, 2/6-5, 5/6-8" is returned as:
-    ['5/0', '5/1', '5/2', '5/6', '5/7', '5/8', '0/9', '2/5', '2/6']
-
-    :param num_range: List of numeric values, int or float
-    :type num_range: str
-    :return: List of str for ports as described above
-    :rtype: list
-    """
-    rl = list()
-
-    slot_d = dict()
-    for buf in [b.replace(' ', '') if '/' in b else '0/' + b.replace(' ', '') for b in num_range.split(',')]:
-        temp_l = buf.split('/')
-        port_l = slot_d.get(temp_l[0])
-        if port_l is None:
-            port_l = list()
-            slot_d.update({temp_l[0]: port_l})
-        port_l.extend(gen_util.range_to_list(temp_l[1]))
-
-    for slot, port_l in slot_d.items():
-        rl.extend([slot + '/' + str(p) for p in port_l])
-
-    return rl
-
-
-def bind_addresses(session, fid, port_d, echo=False):
+def bind_addresses(session, fid, port_d, echo=False, best=False):
     """Binds port addresses to ports. Requires FOS 9.1 or higher.
 
     :param session: Session object returned from brcdapi.brcdapi_auth.login()
@@ -585,24 +807,46 @@ def bind_addresses(session, fid, port_d, echo=False):
     :type fid: None, int
     :param port_d: Key is the port number. Value is the port address in hex (str).
     :type port_d: dict
-    :param echo: If True, the list of ports for each move is echoed to STD_OUT
+    :param echo: If True, echo error recovery detail to STD_OUT
     :type echo: bool
+    :param best: If True, try one port at a time if there is a failure
+    :type best: bool
     :return: brcdapi_rest status object for the first error encountered of the last request
     :rtype: dict
     """
-    port_l = [{'name': k, 'operation-type': 'port-address-bind', 'user-port-address': v, 'auto-bind': False}
-              for k, v in port_d.items()]
-    obj = brcdapi_rest.send_request(session,
-                                    'operations/port',
-                                    'POST',
-                                    {'port-operation-parameters': port_l},
-                                    fid=fid)
-    brcdapi_log.log('Error' if fos_auth.is_error(obj) else 'Success' + ' binding addresses.', echo)
+    r_obj = None
 
-    return obj
+    port_l = [
+        {'name': k, 'operation-type': 'port-address-bind', 'user-port-address': v, 'auto-bind': False}
+        for k, v in port_d.items()
+    ]
+    if len(port_l) == 0:
+        return brcdapi_util.GOOD_STATUS_OBJ
+
+    obj = brcdapi_rest.send_request(
+        session,
+        'operations/port',
+        'POST',
+        {'port-operation-parameters': port_l},
+        fid=fid
+    )
+    if fos_auth.is_error(obj)and best and len(port_l) > 1:
+        brcdapi_log.log('Attempting to bind addresses one port at a time.', echo=echo)
+        for port in port_l:
+            p_obj = bind_addresses(session, fid, {port: port_d[port]}, echo=echo, best=best)
+            if fos_auth.is_error(p_obj):
+                buf_l = [
+                    'ERROR: binding address for port: ' + port + '. FOS error message:',
+                    fos_auth.formatted_error_msg(p_obj),
+                    ]
+                brcdapi_log.log(buf_l, echo=echo)
+                if _r_obj is None:
+                    r_obj = p_obj
+
+    return obj if r_obj is None else r_obj
 
 
-def unbind_addresses(session, fid, port_d, echo=False):
+def unbind_addresses(session, fid, port_d, echo=False, best=False):
     """Unbinds port addresses. Requires FOS 9.1 or higher.
 
     :param session: Session object returned from brcdapi.brcdapi_auth.login()
@@ -611,18 +855,83 @@ def unbind_addresses(session, fid, port_d, echo=False):
     :type fid: None, int
     :param port_d: Key is the port number. Value is the port address in hex (str).
     :type port_d: dict
-    :param echo: If True, the list of ports for each move is echoed to STD_OUT
+    :param echo: If True, echo error recovery detail to STD_OUT
     :type echo: bool
+    :param best: If True, try one port at a time if there is a failure
+    :type best: bool
     :return: brcdapi_rest status object for the first error encountered of the last request
     :rtype: dict
     """
+    r_obj = None
+
     port_l = [{'name': k, 'operation-type': 'port-address-unbind', 'user-port-address': v}
               for k, v in port_d.items()]
-    obj = brcdapi_rest.send_request(session,
-                                    'operations/port',
-                                    'POST',
-                                    {'port-operation-parameters': port_l},
-                                    fid=fid)
-    brcdapi_log.log('Error' if fos_auth.is_error(obj) else 'Success' + ' binding addresses.', echo)
+    if len(port_l) == 0:
+        return brcdapi_util.GOOD_STATUS_OBJ
 
-    return obj
+    obj = brcdapi_rest.send_request(
+        session,
+        'operations/port',
+        'POST',
+        {'port-operation-parameters': port_l},
+        fid=fid
+    )
+    if fos_auth.is_error(obj) and best and len(port_l) > 1:
+            for port in port_l:
+                p_obj = unbind_addresses(session, fid, {port: port_d[port]}, echo=echo, best=best)
+                if fos_auth.is_error(p_obj):
+                    buf_l = [
+                        'ERROR: un-binding address for port: ' + port + '. FOS error message:',
+                        fos_auth.formatted_error_msg(p_obj),
+                        ]
+                    brcdapi_log.log(buf_l, echo=echo)
+                    if _r_obj is None:
+                        r_obj = p_obj
+
+    return obj if r_obj is None else r_obj
+
+
+def user_name(session, fid, port_d, echo=False, best=False):
+    """Assigns user-friendly names to ports.
+
+    :param session: Session object returned from brcdapi.brcdapi_auth.login()
+    :type session: dict
+    :param fid: Fabric ID
+    :type fid: None, int
+    :param port_d: Key is the port number. Value is the port user-name.
+    :type port_d: dict
+    :param echo: If True, echo error recovery detail to STD_OUT
+    :type echo: bool
+    :param best: If True, try one port at a time if there is a failure
+    :type best: bool
+    :return: brcdapi_rest status object for the first error encountered of the last request
+    :rtype: dict
+    """
+    r_obj = brcdapi_util.GOOD_STATUS_OBJ
+
+    # Build the content
+    content_l = list()
+    for port, port_name in port_d.items():
+        content_l.append({'name': port, 'user-friendly-name': port_name})
+
+    # Send the name change request
+    if len(content_l) > 0:
+        r_obj = brcdapi_rest.send_request(
+            session,
+            'running/' + brcdapi_util.bifc_uri,
+            'PATCH',
+            {'fibrechannel': content_l},
+            fid
+        )
+
+        # If there was an error, try setting the port names one at a time.
+        if fos_auth.is_error(r_obj) and best and len(content_l) > 0:
+            # Try naming the ports one at a time.
+            for d in content_l:
+                r_obj = brcdapi_rest.send_request(
+                    session,
+                    'running/' + brcdapi_util.bifc_uri,
+                    'PATCH',
+                    {'fibrechannel': [d]},
+                    fid
+                )

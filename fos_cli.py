@@ -34,8 +34,6 @@ do anything with prompts and doesn't perform any error checking.
 | parse_cli             | If cmd begins with 'fos_cli/' the remaining portion of cmd is returned. Otherwise, None   |
 |                       | is returned.                                                                              |
 +-----------------------+-------------------------------------------------------------------------------------------+
-| cli_port              | Strips out "0/" in "0/port_num" for fixed port switches                                   |
-+-----------------------+-------------------------------------------------------------------------------------------+
 | cli_wait              | Introduces a sleep. This is necessary to allow the API and CLI to sync up                 |
 +-----------------------+-------------------------------------------------------------------------------------------+
 | verbose_debug         | Sets or clears verbose debugging                                                          |
@@ -48,7 +46,7 @@ do anything with prompts and doesn't perform any error checking.
 +===========+===============+=======================================================================================+
 | 4.0.0     | 04 Aug 2023   | Re-Launch                                                                             |
 +-----------+---------------+---------------------------------------------------------------------------------------+
-| 4.0.1     | 06 Mar 2024   | Added cli_port() and cli_wait()                                                       |
+| 4.0.1     | 06 Mar 2024   | cli_wait()                                                       |
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.0.2     | 06 Dec 2024   | Fixed SSH logout when no SSH login was performed. Limited to debug modes only.        |
 +-----------+---------------+---------------------------------------------------------------------------------------+
@@ -60,15 +58,18 @@ do anything with prompts and doesn't perform any error checking.
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.0.6     | 20 Feb 2026   | Updated copyright notice.                                                             |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.7     | 01 Aug 2026   | Added 'ssh_last_sent' to session. Used to alleviate calling modules from having to    |
+|           |               | keep track of when the last CLI command was sent.                                     |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2024, 2025, 2026 Jack Consoli'
-__date__ = '20 Feb 2026'
+__date__ = '01 Aug 2026'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack_consoli@yahoo.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.6'
+__version__ = '4.0.7'
 
 import time
 import paramiko
@@ -98,8 +99,7 @@ def login(session, timeout=_DEFAULT_TIMEOUT, force=False):
     :rtype err_msgs: list
     """
     if session.get('debug', False):
-        session['ssh_fault'] = True
-        return ['SSH login not supported while in debug mode']
+        return list()
     if force:
         session['ssh_fault'] = False
     if session.get('ssh_fault', False):
@@ -137,7 +137,7 @@ def send_command(session, fid, cmd, fosexec=True):
 
     :param session: Dictionary of the session returned by fos_auth.login().
     :type session: dict
-    :param fid: Fabric ID
+    :param fid: Fabric ID of logical switch where commands are to be executed. Only used if fosexec is True.
     :type fid: int
     :param cmd: Command to send to switch
     :type cmd: str
@@ -147,20 +147,19 @@ def send_command(session, fid, cmd, fosexec=True):
     global _verbose_debug
 
     response_l = list()
-    if session.get('ssh_fault', False):
+    if session.get('ssh_fault', False) or session.get('debug', False):
         return response_l  # An error for the login fault has already been presented so no need to do anything else.
-    if session.get('debug', False):
-        session['ssh_fault'] = True
-        brcdapi_log.log('Sending commands via SSH not supported while in debug mode', echo=True)
-        return response_l
 
     # Make sure there is an SSH login
     if session.get('ssh_login') is None:
-        el = login(session)
-        if len(el) > 0:
-            el.append('Could not login while attempting to process ' + cmd)
-            brcdapi_log.exception(el, echo=True)
-            return list()
+        response_l = login(session)
+        if len(response_l) > 0:
+            response_l.extend([
+                'ERROR: Could not login while attempting to process ' + cmd,
+                'Check the log for details.'
+            ])
+            brcdapi_log.exception(response_l, echo=True)
+            return response_l
 
     # Send the command
     full_cmd = 'fosexec --fid ' + str(fid) + ' -cmd "' + cmd + '"' if fosexec else cmd
@@ -168,13 +167,20 @@ def send_command(session, fid, cmd, fosexec=True):
         brcdapi_log.log(['FOS CLI send_command() - send:', full_cmd], echo=True)
     try:
         stdin, stdout, stderr = session['ssh_login'].exec_command(full_cmd)
+        session['ssh_last_sent'] = int(time.time())
     except BaseException as e:
-        brcdapi_log.exception(str(type(e)) + ': ' + str(e), echo=True)
+        response_l = [
+            'ERROR: SSH login failed. Error message is:',
+            str(type(e)) + ': ' + str(e),
+            'Check the log for details.'
+        ]
+        brcdapi_log.exception(response_l, echo=True)
         return response_l
     try:
         response_l = stdout.readlines()
     except BaseException as e:
-        brcdapi_log.exception(str(type(e)) + ': ' + str(e), echo=True)
+        response_l = ['ERROR: Unexpected error while processing' + cmd + ':', str(type(e)) + ': ' + str(e)]
+        brcdapi_log.exception(response_l, echo=True)
         return response_l
     if _verbose_debug:
         brcdapi_log.log(['FOS CLI send_command() - response:'] + [str(b) for b in response_l], echo=True)
@@ -197,39 +203,30 @@ def parse_cli(cmd):
     return None
 
 
-def cli_port(port):
-    """Strips out "0/" in "0/port_num" for fixed port switches
-
-    :param port: Port number
-    :type port: str
-    :return: Port
-    :rtype: str
-    """
-    try:
-        port_l = port.split('/')
-        return port_l[1] if port_l[0] == '0' else port
-    except (IndexError, TypeError):
-        brcdapi_log.exception('Invalid port number: ' + str(type(port))) + ': ' + str(port)
-    return port
-
-
-def cli_wait(wait_time=_DEFAULT_WAIT):
+def cli_wait(session, wait_time=_DEFAULT_WAIT):
     """Introduces a sleep. This is necessary to allow the API and CLI to sync up
 
-    :param wait_time: Time in seconds to sleep
+    :param wait_time: Time in seconds to sleep. Only needed for commands that modify something. Use 0 for all else.
     :type wait_time: int
     :rtype: None
     """
-    time.sleep(wait_time)
+    new_wait_time = wait_time - (int(time.time()) - session.get('ssh_last_sent', 0))
+    if new_wait_time > 0:
+        time.sleep(new_wait_time)
 
 
-def default_cli_wait_time():
-    """Returns the default wait time used to sync FOS command execution with the API
+def default_cli_wait_time(wait_time=None):
+    """Returns and sets the default wait time used to sync FOS command execution with the API
 
+    :param wait_time: New default time in seconds. If None, no change. Float is converted to int.
+    :type wait_time: float, int, None
     :return: Default wait time in seconds
     :rtype: int
     """
     global _DEFAULT_WAIT
+
+    if isinstance(wait_time, (int, float)):
+        _DEFAULT_WAIT = int(wait_time)
 
     return(_DEFAULT_WAIT)
 

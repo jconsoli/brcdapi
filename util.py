@@ -52,18 +52,18 @@ module: brocade-traffic-class
 **Public Methods & Data**
 
 +-----------------------+---------------------------------------------------------------------------------------+
-| Method                | Description                                                                           |
+| Method / Data         | Description                                                                           |
 +=======================+=======================================================================================+
-| HTTP_xxx              | Several comon status codes and reasons for synthesizing API responses. Typically this |
-|                       | used for logic that determines an issue whereby the request can't be sent to the      |
-|                       | switch API based on problems found with the input to the method.                      |
-+-----------------------+---------------------------------------------------------------------------------------+
 | add_uri_map           | Builds out the URI map and adds it to the session. Intended to be called once         |
 |                       | immediately after login                                                               |
 +-----------------------+---------------------------------------------------------------------------------------+
 | format_uri            | Formats a full URI                                                                    |
 +-----------------------+---------------------------------------------------------------------------------------+
 | fos_to_dict           | Converts a FOS version into a dictionary to be used for comparing for version numbers |
++-----------------------+---------------------------------------------------------------------------------------+
+| HTTP_xxx              | Several comon status codes and reasons for synthesizing API responses. Typically this |
+|                       | used for logic that determines an issue whereby the request can't be sent to the      |
+|                       | switch API based on problems found with the input to the method.                      |
 +-----------------------+---------------------------------------------------------------------------------------+
 | mask_ip_addr          | Replaces IP address with xxx.xxx.xxx.123 or all x depending on keep_last              |
 +-----------------------+---------------------------------------------------------------------------------------+
@@ -74,6 +74,10 @@ module: brocade-traffic-class
 | uri_d                 | Returns the dictionary in the URI map for a specified URI                             |
 +-----------------------+---------------------------------------------------------------------------------------+
 | validate_fid          | Validates a FID or list of FIDs                                                       |
++-----------------------+---------------------------------------------------------------------------------------+
+| valid_chassis_name    | Converts a chassis or switch name to a valid name if nesesary.                        |
++-----------------------+---------------------------------------------------------------------------------------+
+| valid_port_name       | Converts a port name to a valid name if nesesary.                                     |
 +-----------------------+---------------------------------------------------------------------------------------+
 | vfid_to_str           | Converts a FID to a string, '?vf-id=xx' to be appended to a URI that requires a FID   |
 +-----------------------+---------------------------------------------------------------------------------------+
@@ -108,23 +112,36 @@ module: brocade-traffic-class
 | 4.1.0     | 10 Mar 2026   | Added brocade-ip-storage-*, brocade-isns-*, brocade-object-server, and                |
 |           |               | brocade-traffic-class. New in 9.2 or 10.0.                                            |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.1.1     | 01 Aug 2026   | Added bc_webtools and bfs_persistent. Added valid_chassis_name() and valid_port_name()|                                                                  |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2024, 2025, 2026 Jack Consoli'
-__date__ = '10 Mar 2026'
+__date__ = '01 Aug 2026'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack_consoli@yahoo.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.1.0'
+__version__ = '4.1.1'
 
 import sys
 import types
 import importlib
 import pprint
 import copy
+import re
 import brcdapi.log as brcdapi_log
 import brcdapi.gen_util as gen_util
+
+_MAX_CHASSIS_NAME_LENGTH = 30  # I've seen conflicting documentation, so this might not be accurate
+_MAX_PORT_NAME_LENGTH = 128
+_MAX_FICON_PORT_NAME_LENGTH = 24
+_MAX_BANNER_LENGTH = 1022
+
+_valid_port_name = re.compile(r'[^A-Za-x0-9 ._-]')  # Use: good_name = _valid_chassis_name.sub('_', bad_name)
+_valid_chassis_name = re.compile(r'[^a-zA-Z0-9._-]')  # Use: good_name = _valid_chassis_name.sub('_', bad_name)
+_valid_banner = re.compile(r'[^A-Za-z0-9 .,*\-\"\']')  # Use: good_banner = _valid_banner.sub('-', bad_banner)
+_valid_motd = re.compile(r'[^ a-zA-Z0-9.,*\"\n]')  # use: good_motd = _valid_motd.sub('_', invalid_motd)
 
 
 class Found(Exception):
@@ -152,14 +169,13 @@ HTTP_REASON_PENDING_UPDATES = 'Unsaved changes'
 HTTP_REASON_USER_ABORT = 'User terminated session, ctl-C'
 
 GOOD_STATUS_OBJ = dict(_raw_data=dict(status=HTTP_OK, reason='OK'))
-encoding_type = 'utf-8'  # Unless running these scripts on a mainframe, this will always be utf-8.
 
 # Commonly used URIs: brocade-name-server
 bns_uri = 'brocade-name-server/fibrechannel-name-server'
 bns_fc4_features = bns_uri + '/fc4-features'
 bns_node_symbol = bns_uri + '/node-symbolic-name'
 bns_port_symbol = bns_uri + '/port-symbolic-name'
-bns_share_area = bns_uri + '/share-area'
+bns_share_area = bns_uri + '/share-area'  # Became obsolete in 9.0
 bns_redirection = bns_uri + '/frame-redirection'
 bns_partial = bns_uri + '/partial'
 bns_lsan = bns_uri + '/lsan'
@@ -198,6 +214,7 @@ bfs_vf_id = bfs_uri + '/vf-id'
 bfs_ag_mode = bfs_uri + '/ag-mode'  # Deprecated
 bfs_ag_mode_str = bfs_uri + '/ag-mode-string'
 bfs_enabled_state = bfs_uri + '/is-enabled-state'
+bfs_persistent = bfs_uri + '/switch-persistent-enabled'
 bfc_up_time = bfs_uri + '/up-time'
 # Commonly used URIs: brocade-fibrechannel-configuration
 bfc_uri = 'brocade-fibrechannel-configuration/fabric'
@@ -214,8 +231,7 @@ bfc_max_flogi_rate = bfcfp_uri + '/max-flogi-rate-per-switch'
 bfc_stage_interval = bfcfp_uri + '/stage-interval'
 bfc_free_fdisc = bfcfp_uri + '/free-fdisc'
 bfc_max_flogi_rate_port = bfcfp_uri + '/max-flogi-rate-per-port'
-bfc_fport_enforce_login = bfcfp_uri + '/enforce-login'  # Deprecated
-bfc_fport_enforce_login_str = bfcfp_uri + '/enforce-login-string'
+bfc_fport_enforce_login = bfcfp_uri + '/enforce-login-string'
 # Commonly used URIs: brocade-fibrechannel-configuration/switch-configuration
 bfc_sw_uri = 'brocade-fibrechannel-configuration/switch-configuration'
 bfc_xisl_en = bfc_sw_uri + '/xisl-enabled'
@@ -280,6 +296,7 @@ bc_rest_enabled = bcmic_uri + '/rest-enabled'
 bc_https_enabled = bcmic_uri + '/https-protocol-enabled'
 bc_eff_protocol = bcmic_uri + '/effective-protocol'
 bc_max_rest = bcmic_uri + '/max-rest-sessions'
+bc_webtools = bcmic_uri + '/webtools-enabled'
 bc_https_ka = bcmic_uri + '/https-keep-alive-enabled'
 bc_https_ka_to = bcmic_uri + '/https-keep-alive-timeout'
 bc_https_sys_uptime = bcmic_uri + '/system-uptime'
@@ -297,18 +314,19 @@ bcv_uri = 'brocade-chassis/version'
 bc_version_kernal = bcv_uri + '/kernel'
 bc_version_fos = bcv_uri + '/fabric-os'
 # Commonly used URIs: brocade-fabric/fabric-switch
-bfsw_uri = 'brocade-fabric/fabric-switch'  # I think this entire branch is deprecated
-bf_sw_user_name = bfsw_uri + '/switch-user-friendly-name'  # Deprecated? Use bfs_sw_user_name
-bf_sw_wwn = bfsw_uri + '/name'
-bf_fw_version = bfsw_uri + '/firmware-version'  # Deprecated?
+bfsw_uri = 'brocade-fabric/fabric-switch'  # This entire branch is deprecated
+bf_sw_user_name = bfsw_uri + '/switch-user-friendly-name'  # Deprecated
+bf_sw_wwn = bfsw_uri + '/name'  # Deprecated
+bf_fw_version = bfsw_uri + '/firmware-version'  # Deprecated
 # Commonly used URIs: brocade-fibrechannel-logical-switch
 bfls_uri = 'brocade-fibrechannel-logical-switch/fibrechannel-logical-switch'
 bfls_sw_wwn = bfls_uri + '/switch-wwn'
 bfls_fid = bfls_uri + '/fabric-id'
-bfls_base_sw_en = bfls_uri + '/base-switch-enabled'
-bfls_def_sw_status = bfls_uri + '/default-switch-status'
-bfls_ficon_mode_en = bfls_uri + '/ficon-mode-enabled'
-bfls_isl_enabled = bfls_uri + '/logical-isl-enabled'
+# In FOS 9.2, new -v2 versions were created for ficon and base switch status, but not for the default switch
+bfls_base_sw_en = bfls_uri + '/base-switch-enabled-v2'  # See comment above
+bfls_def_sw_status = bfls_uri + '/default-switch-status'  # See comment above
+bfls_ficon_mode_en = bfls_uri + '/ficon-mode-enabled-v2'  # See comment above
+bfls_isl_enabled = bfls_uri + '/logical-isl-enabled-v2'  # New in 9.2
 bfls_mem_list = bfls_uri + '/port-member-list'
 bfls_ge_mem_list = bfls_uri + '/ge-port-member-list'
 # Commonly used URIs: brocade-maps
@@ -378,6 +396,49 @@ sfp_rxp_high_alarm = 'media-rdp/remote-media-rx-power-alert/high-alarm'
 sfp_rxp_high_warn = 'media-rdp/remote-media-rx-power-alert/high-warning'
 sfp_rxp_low_alarm = 'media-rdp/remote-media-rx-power-alert/low-alarm'
 sfp_rxp_low_warn = 'media-rdp/remote-media-rx-power-alert/low-warning'
+# Commonly used URIs: brocade-interface. 'brocade-interface/' is stripped off when storing data in the port object. See
+# "Commonly used URIs: fibrechannel" and "Commonly used URIs: fibrechannel-statistics"
+bifc_uri = 'brocade-interface/fibrechannel'
+bifc_stats = 'brocade-interface/fibrechannel-statistics'
+# Commonly used URIs: fibrechannel
+fc_auto_neg = 'fibrechannel/auto-negotiate'
+fc_bind_mode = 'fibrechannel/address-binding-mode'
+fc_pod = 'fibrechannel/pod-license-state'
+fc_bind_enabled = 'fibrechannel/user-bound-enabled'
+fc_name = 'fibrechannel/name'  # The port number in s/p notation
+fc_enabled = 'fibrechannel/is-enabled-state'
+fc_op_status = 'fibrechannel/operational-status'  # Deprecated
+fc_op_status_str = 'fibrechannel/operational-status-string'
+fc_state = 'fibrechannel/physical-state'
+fc_port_type = 'fibrechannel/port-type'  # Deprecated
+fc_port_type_str = 'fibrechannel/port-type-string'
+fc_fcid_hex = 'fibrechannel/fcid-hex'
+fc_neighbor_node_wwn = 'fibrechannel/neighbor-node-wwn'
+fc_neighbor = 'fibrechannel/neighbor'
+fc_neighbor_wwn = 'fibrechannel/neighbor/wwn'
+fc_index = 'fibrechannel/index'
+fc_speed = 'fibrechannel/speed'
+fc_max_speed = 'fibrechannel/max-speed'
+fc_user_name = 'fibrechannel/user-friendly-name'
+fc_los_tov = 'fibrechannel/los-tov-mode-enabled'
+fc_eport_credit = 'fibrechannel/e-port-credit'
+fc_fport_buffers = 'fibrechannel/f-port-buffers'
+fc_fcid = 'fibrechannel/fcid'
+fc_long_distance = 'fibrechannel/long-distance'
+fc_npiv_pp_limit = 'fibrechannel/npiv-pp-limit'
+fc_speed_combo = 'fibrechannel/octet-speed-combo'
+fc_rate_limited_en = 'fibrechannel/rate-limit-enabled'
+fc_wwn = 'fibrechannel/wwn'
+fc_chip_buf_avail = 'fibrechannel/chip-buffers-available'
+fc_chip_instance = 'fibrechannel/chip-instance'
+fc_encrypt = 'fibrechannel/encryption-enabled'
+fc_comp_act = 'fibrechannel/compression-active'
+fc_comp_en = 'fibrechannel/compression-configured'
+fc_credit_recov_act = 'fibrechannel/credit-recovery-active'
+fc_credit_recov_en = 'fibrechannel/credit-recovery-enabled'
+fc_d_port_en = 'fibrechannel/d-port-enable'
+fc_e_port_dis = 'fibrechannel/e-port-disable'
+fc_npiv_en = 'fibrechannel/npiv-enabled'
 # Commonly used URIs: fibrechannel-statistics
 stats_uri = 'fibrechannel-statistics'
 stats_addr = stats_uri + '/address-errors'
@@ -421,46 +482,6 @@ stats_trans = stats_uri + '/frames-transmitter-unavailable-errors'
 stats_nos_in = stats_uri + '/non-operational-sequences-in'
 stats_nos_out = stats_uri + '/non-operational-sequences-out'
 stats_time = stats_uri + '/time-generated'
-# Commonly used URIs: brocade-interface
-bifc_uri = 'brocade-interface/fibrechannel'
-bifc_pod = bifc_uri + '/pod-license-state'
-bifc_stats = 'brocade-interface/fibrechannel-statistics'
-# Commonly used URIs: fibrechannel
-fc_auto_neg = 'fibrechannel/auto-negotiate'
-fc_name = 'fibrechannel/name'  # The port number in s/p notation
-fc_enabled = 'fibrechannel/is-enabled-state'
-fc_op_status = 'fibrechannel/operational-status'  # Deprecated
-fc_op_status_str = 'fibrechannel/operational-status-string'
-fc_state = 'fibrechannel/physical-state'
-fc_port_type = 'fibrechannel/port-type'  # Deprecated
-fc_port_type_str = 'fibrechannel/port-type-string'
-fc_fcid_hex = 'fibrechannel/fcid-hex'
-fc_neighbor_node_wwn = 'fibrechannel/neighbor-node-wwn'
-fc_neighbor = 'fibrechannel/neighbor'
-fc_neighbor_wwn = 'fibrechannel/neighbor/wwn'
-fc_index = 'fibrechannel/index'
-fc_speed = 'fibrechannel/speed'
-fc_max_speed = 'fibrechannel/max-speed'
-fc_user_name = 'fibrechannel/user-friendly-name'
-fc_los_tov = 'fibrechannel/los-tov-mode-enabled'
-fc_eport_credit = 'fibrechannel/e-port-credit'
-fc_fport_buffers = 'fibrechannel/f-port-buffers'
-fc_fcid = 'fibrechannel/fcid'
-fc_long_distance = 'fibrechannel/long-distance'
-fc_npiv_pp_limit = 'fibrechannel/npiv-pp-limit'
-fc_speed_combo = 'fibrechannel/octet-speed-combo'
-fc_rate_limited_en = 'fibrechannel/rate-limit-enabled'
-fc_wwn = 'fibrechannel/wwn'
-fc_chip_buf_avail = 'fibrechannel/chip-buffers-available'
-fc_chip_instance = 'fibrechannel/chip-instance'
-fc_encrypt = 'fibrechannel/encryption-enabled'
-fc_comp_act = 'fibrechannel/compression-active'
-fc_comp_en = 'fibrechannel/compression-configured'
-fc_credit_recov_act = 'fibrechannel/credit-recovery-active'
-fc_credit_recov_en = 'fibrechannel/credit-recovery-enabled'
-fc_d_port_en = 'fibrechannel/d-port-enable'
-fc_e_port_dis = 'fibrechannel/e-port-disable'
-fc_npiv_en = 'fibrechannel/npiv-enabled'
 # Commonly used URIs: brocade-zone
 bz_def = 'brocade-zone/defined-configuration'
 bz_def_alias = bz_def + '/alias'
@@ -507,6 +528,10 @@ bfr_stats_max_nr = bfr_stats + '/maximum-nr-ports'
 bfr_pc = bfr_uri + '/proxy-config'
 bfr_tdc = bfr_uri + '/translate-domain-config'
 bfr_std = bfr_uri + '/stale-translate-domain'
+# Commonly used URIs: brocade-fibrechannel-routing
+brl_uri = 'brocade-license'
+brl_license = brl_uri + '/license'
+
 
 class VirtualFabricIdError(Exception):
     pass
@@ -541,8 +566,6 @@ FABRIC_ZONE_OBJ = FABRIC_SWITCH_OBJ + 1  # URI is associated with a fabric conta
 
 # op_no* is used in the op field in session to determine if OPTIONS has been requested for the associated URI
 op_no = 0  # OPTIONS has not been requested. Using defaults.
-op_not_supported = 1  # OPTIONS is not supported for the URI
-op_yes = 2  # OPTIONS has been requested. Defaults for the URI have been replaced with the actual methods supported.
 
 """Below is the default URI map. It was built against FOS 9.1. It is necessary because there is no way to retrieve the
 FID or area from the FOS API. An RFE was submitted to get this information. This information is used to build
@@ -1078,8 +1101,12 @@ def vfid_to_str(vfid):
         if vfid < 1 or vfid > 128:
             raise TypeError
     except TypeError:
-        buf = '. FIDs must be integers, type int, in the range 1-128.'
-        brcdapi_log.exception('Invalid FID. Type: ' + str(type(vfid)) + '. Value: ' + str(vfid) + buf, echo=True)
+        buf_l = [
+            'Invalid FID type. FIDs must be integers, type int, in the range 1-128.',
+            'Type: ' + str(type(vfid)),
+            'Value: ' + str(vfid)
+        ]
+        brcdapi_log.exception(buf_l, echo=True)
         raise VirtualFabricIdError
     return _VF_ID + str(vfid)
 
@@ -1446,3 +1473,133 @@ def get_import_modules(lib_folders=('brcdapi', 'brcddb',)):
         _get_paths(path, custom_lib, lib_d, mod_d)
 
     return mod_d
+
+
+def valid_chassis_name(chassis_name):
+    """Substitues invalid characters in a chassis name to "_". If first character isn't a letter, 'X' is prepended.
+    An excessive length is truncated.
+
+    :param chassis_name: Intended chassis name
+    :type chassis_name: str
+    :return: Valid name
+    :rtype: str
+    """
+    global _MAX_CHASSIS_NAME_LENGTH, _valid_chassis_name
+
+    # Is it a string?
+    if not isinstance(chassis_name, str):
+        brcdapi_log.exception(
+            'Invalid chassis or switch name type. Expected str. Recieved ' + str(type(chassis_name)),
+            echo=True
+        )
+        return 'XYZ'
+
+    valid_name = chassis_name
+
+    # Make sure the first character is a letter
+    if not gen_util.valid_zone_first_char.match(chassis_name):
+        valid_name = 'X' + valid_name
+
+    # Check the length
+    if len(chassis_name) < 2:
+        valid_name = 'XX' + valid_name
+
+    # Replace any invalid characters with an "_"
+    return _valid_chassis_name.sub('_', valid_name)[0: _MAX_CHASSIS_NAME_LENGTH]
+
+
+def valid_switch_name(switch_name):
+    """Substitues invalid a switch name to "_". If first character isn't a letter, 'X' is prepended. An excessive length
+    is truncated.
+
+    :param switch_name: Intended chassis name
+    :type switch_name: str
+    :return: Valid name
+    :rtype: str
+    """
+    return valid_chassis_name(switch_name)  # As of FOS 10.0, the same naming rules applied to the switch and chassis
+
+
+def valid_port_name(port_name, ficon=False):
+    """Substitues invalid characters in a port name to "_". If first character isn't a letter, 'X' is prepended. An
+    excessive length is truncated.
+
+    :param port_name: Intended port name
+    :type port_name: str
+    :param ficon: If True, the maximum port name length is 24. Otherwise, the maximum port name length is 128.
+    :type ficon: bool
+    :return: Valid name
+    :rtype: str
+    """
+    global _MAX_PORT_NAME_LENGTH, _MAX_FICON_PORT_NAME_LENGTH, _valid_port_name
+
+    # Is it a string?
+    if not isinstance(port_name, str):
+        brcdapi_log.exception(
+            'Invalid port name type. Expected str. Received ' + str(type(port_name)),
+            echo=True
+        )
+        return 'XYZ'
+
+    valid_name = port_name
+
+    # Make sure the first character is a letter
+    if not gen_util.valid_zone_first_char.match(port_name):
+        valid_name = 'X' + valid_name
+
+    # Check the length
+    max_name_length = _MAX_FICON_PORT_NAME_LENGTH if ficon else _MAX_PORT_NAME_LENGTH
+    if len(port_name) < 2:
+        valid_name = 'XX' + valid_name
+
+    # Replace any invalid characters with an "_"
+    return _valid_port_name.sub('_', valid_name)[0: max_name_length]
+
+
+def valid_switch_banner(banner):
+    """Substitues invalid characters in a switch banner with "_". An excessive length is truncated.
+
+    :param banner: Intended banner
+    :type banner: str
+    :return: Valid name
+    :rtype: str
+    """
+    global _MAX_BANNER_LENGTH, _valid_banner
+
+    # Is it a string?
+    if not isinstance(banner, str):
+        brcdapi_log.exception(
+            'Invalid switch banner type. Expected str. Recieved ' + str(type(banner)),
+            echo=True
+        )
+        return 'Invalid switch banner'
+
+    valid_banner = banner
+
+    # Check the length
+    if len(banner) < 2:
+        valid_banner = 'XX' + valid_banner
+
+    # Replace any invalid characters with an hypen, "-"
+    return _valid_banner.sub('-', valid_banner)[0: _MAX_BANNER_LENGTH]
+
+
+def valid_chassis_motd(motd):
+    """Substitues invalid characters in a switch motd with "_". An excessive length is truncated.
+
+    :param motd: Intended motd
+    :type motd: str
+    :return: Valid name
+    :rtype: str
+    """
+    global _MAX_BANNER_LENGTH, _valid_motd
+
+    # Is it a string?
+    if not isinstance(motd, str):
+        brcdapi_log.exception('Invalid motd type. Expected str. Recieved ' + str(type(motd)), echo=True)
+        return 'Invalid switch motd'
+
+    # Replace any invalid characters with an "_"
+    return _valid_motd.sub('_', motd.replace('\r\n', '\n'))[0: _MAX_BANNER_LENGTH]
+
+

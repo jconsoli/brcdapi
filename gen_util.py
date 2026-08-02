@@ -48,9 +48,10 @@ Contains miscellaneous utility methods not specific to FOS
 | int_list_to_range         | Converts a list of integers to ranges as text.                                        |
 +---------------------------+---------------------------------------------------------------------------------------+
 | is_valid_zone_name        | Checks to ensure that a zone object meets the FOS zone object naming convention       |
-|                           | rules                                                                                 |
+|                           | rules. This is specific to FOS and should have been put in brcdapi.util.              |
 +---------------------------+---------------------------------------------------------------------------------------+
-| is_wwn                    | Validates that the wwn is a properly formed WWN                                       |
+| is_wwn                    | Validates that the wwn is a properly formed WWN. This is specific to fibre channel    |
+|                           | and should have been put in brcdapi.util.                                             |
 +---------------------------+---------------------------------------------------------------------------------------+
 | match_str                 | Returns a list of strings using exact, wild card, ReGex match, or ReGex search.       |
 +---------------------------+---------------------------------------------------------------------------------------+
@@ -70,7 +71,8 @@ Contains miscellaneous utility methods not specific to FOS
 | range_to_list             | Converts a CSV list of integer or hex numbers as ranges to a list                     |
 +---------------------------+---------------------------------------------------------------------------------------+
 | ReGex & miscellaneous     | Compiled ReGex for filtered or converting common. Common multipliers and date         |
-|                           | conversion tables. Search for "ReGex matching" for details.                           |
+|                           | conversion tables. Search for "ReGex matching" for details. Some of these are         |
+|                           | specific to FOS and should have been put in brcdapi.util.                             |
 +---------------------------+---------------------------------------------------------------------------------------+
 | remove_duplicate_char     | Removes duplicate characters                                                          |
 +---------------------------+---------------------------------------------------------------------------------------+
@@ -86,9 +88,11 @@ Contains miscellaneous utility methods not specific to FOS
 |                           | are K, k, M, m, G, g, T, and t.                                                       |
 +---------------------------+---------------------------------------------------------------------------------------+
 | slot_port                 | Separate the slot and port number from s/p port reference. Can also be used to        |
-|                           | validate s/p notation.                                                                |
+|                           | validate s/p notation. This is specific to FOS and should have been put in            |
+|                           | brcdapi.util.                                                                         |
 +---------------------------+---------------------------------------------------------------------------------------+
-| slot_port_dict            | Returns a dictionary for the port number as type, slot, and port.                     |
+| slot_port_dict            | Returns a dictionary for the port number as type, slot, and port. This is specific to |
+|                           | 'FOS and should have been put in brcdapi.util.                                        |
 +---------------------------+---------------------------------------------------------------------------------------+
 | sort_obj_num              | Sorts a list of dictionaries based on the value for a key. Value must be a number.    |
 |                           | Key may be in '/' format.                                                             |
@@ -96,7 +100,8 @@ Contains miscellaneous utility methods not specific to FOS
 | sort_obj_str              | Sorts a list of dictionaries based on the value for a key or list of keys. Value      |
 |                           | must be a string.                                                                     |
 +---------------------------+---------------------------------------------------------------------------------------+
-| sp_range_to_list          | Returns a list of ports based on a range of ports using s/p notation.                 |
+| sp_range_to_list          | Returns a list of ports based on a range of ports using s/p notation. This is         |
+|                           | specific to FOS and should have been put in brcdapi.util.                             |
 +---------------------------+---------------------------------------------------------------------------------------+
 | str_to_num                | Converts str to an int if it can be represented as an int, otherwise float.           |
 |                           | 12.0 is returned as a float.                                                          |
@@ -137,15 +142,17 @@ Contains miscellaneous utility methods not specific to FOS
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.1.1     | 20 Feb 2026   | Updated copyright notice.                                                             |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.1.2     | 01 Aug 2026   | Updated comments only.                                                                |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2024, 2025, 2026 Jack Consoli'
-__date__ = '20 Feb 2026'
+__date__ = '01 Aug 2026'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack_consoli@yahoo.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.1.1'
+__version__ = '4.1.2'
 
 import re
 import fnmatch
@@ -159,24 +166,20 @@ _MAX_ZONE_NAME_LEN = 64
 
 # Common input parameters - For use with get_input()
 _login_false_help = 'Required unless using -i, -scan, -cli, -t, or -eh options. '
-_http_help = 'Optional. "none" for HTTP. The default is "self" for HTTPS mode.'
 parseargs_login_d = collections.OrderedDict()
 parseargs_login_d['ip'] = dict(h='Required. IP address.')
 parseargs_login_d['id'] = dict(h='Required. User ID.')
 parseargs_login_d['pw'] = dict(h='Required. Password.')
-parseargs_login_d['s'] = dict(r=False, d='self', v=('self', 'none'), h=_http_help)
 
 parseargs_login_nr_d = collections.OrderedDict()
 parseargs_login_nr_d['ip'] = dict(r=False, d=None, h='Optional. IP address.')
 parseargs_login_nr_d['id'] = dict(r=False, d=None, h='Optional. User ID.')
 parseargs_login_nr_d['pw'] = dict(r=False, d=None, h='Optional. Password.')
-parseargs_login_nr_d['s'] = dict(r=False, d='self', v=('self', 'none'), h=_http_help)
 
 parseargs_login_false_d = collections.OrderedDict()
 parseargs_login_false_d['ip'] = dict(r=False, d=None, h=_login_false_help + 'IP address.')
 parseargs_login_false_d['id'] = dict(r=False, d=None, h=_login_false_help + 'User ID.')
 parseargs_login_false_d['pw'] = dict(r=False, d=None, h=_login_false_help + 'Password.')
-parseargs_login_false_d['s'] = dict(r=False, d='self', h=_http_help)
 
 parseargs_log_d = dict(
     sup=dict(
@@ -211,10 +214,7 @@ zone_notes = re.compile(r'[~*#+^]')
 ishex = re.compile(r'^[A-Fa-f0-9]*$')  # use: if ishex.match(hex_str) returns True if hex_str represents a hex number
 valid_file_name = re.compile(r'\w[ -]')  # use: good_file_name = valid_file_name.sub('_', bad_file_name)
 date_to_space = re.compile(r'[-/,+]')  # Used to convert special characters in data formats to a space
-valid_banner = re.compile(r'[^A-Za-z0-9 .,*\-\"\']')  # Use: good_banner = gen_util.valid_banner.sub('-', buf)
-
-# Left these public for legacy support. Use is_valid_zone_name().
-valid_zone_first_char = re.compile(r'[A-Za-z0-9]')  # use: if valid_zone_first_char.match(zone_str[0])
+valid_zone_first_char = re.compile(r'[A-Za-z0-9]')  # use: if valid_zone_first_char.match(zone_name)
 valid_zone_char = re.compile(r'[\w\-_$^]*$')  # use: if valid_zone_char.match(zone_str)
 
 multiplier = dict(k=1000, K=1000, m=1000000, M=1000000, g=1000000000, G=1000000000, t=1000000000000, T=1000000000000)
