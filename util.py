@@ -114,15 +114,17 @@ module: brocade-traffic-class
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.1.1     | 01 Aug 2026   | Added bc_webtools and bfs_persistent. Added valid_chassis_name() and valid_port_name()|                                                                  |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.1.2     | 26 Oct 2026   | Added hyphen, "-", to _valid_motd and made it the replacement character.              |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2024, 2025, 2026 Jack Consoli'
-__date__ = '01 Aug 2026'
+__date__ = '26 Oct 2026'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack_consoli@yahoo.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.1.1'
+__version__ = '4.1.2'
 
 import sys
 import types
@@ -141,7 +143,7 @@ _MAX_BANNER_LENGTH = 1022
 _valid_port_name = re.compile(r'[^A-Za-x0-9 ._-]')  # Use: good_name = _valid_chassis_name.sub('_', bad_name)
 _valid_chassis_name = re.compile(r'[^a-zA-Z0-9._-]')  # Use: good_name = _valid_chassis_name.sub('_', bad_name)
 _valid_banner = re.compile(r'[^A-Za-z0-9 .,*\-\"\']')  # Use: good_banner = _valid_banner.sub('-', bad_banner)
-_valid_motd = re.compile(r'[^ a-zA-Z0-9.,*\"\n]')  # use: good_motd = _valid_motd.sub('_', invalid_motd)
+_valid_motd = re.compile(r'[^ a-zA-Z0-9.,\-*\"\n\']')  # use: good_motd = _valid_motd.sub('_', invalid_motd)
 
 
 class Found(Exception):
@@ -365,6 +367,7 @@ sfp_speed = 'media-rdp/media-speed-capability/speed'
 sfp_wave = 'media-rdp/wavelength'
 sfp_vendor = 'media-rdp/vendor-name'
 sfp_sn = 'media-rdp/serial-number'
+sfp_remote_sn = 'media-rdp/remote-optical-product-data/serial-number'
 sfp_oui = 'media-rdp/vendor-oui'
 sfp_pn = 'media-rdp/part-number'
 sfp_volt = 'media-rdp/voltage'
@@ -375,6 +378,7 @@ sfp_tx_pwr = 'media-rdp/tx-power'
 sfp_state = 'media-rdp/physical-state'
 sfp_distance = 'media-rdp/media-distance/distance'
 sfp_power_on = 'media-rdp/power-on-time'
+sfp_remote_sn = 'media-rdp/remote-optical-product-data/serial-number'
 sfp_remote_speed = 'media-rdp/remote-media-speed-capability/speed'
 sfp_cur_high_alarm = 'media-rdp/remote-media-tx-bias-alert/high-alarm'
 sfp_cur_high_warn = 'media-rdp/remote-media-tx-bias-alert/high-warning'
@@ -1597,9 +1601,9 @@ def valid_chassis_motd(motd):
     # Is it a string?
     if not isinstance(motd, str):
         brcdapi_log.exception('Invalid motd type. Expected str. Recieved ' + str(type(motd)), echo=True)
-        return 'Invalid switch motd'
+        return 'Invalid chassis motd'
 
     # Replace any invalid characters with an "_"
-    return _valid_motd.sub('_', motd.replace('\r\n', '\n'))[0: _MAX_BANNER_LENGTH]
+    return _valid_motd.sub('-', motd.replace('\r\n', '\n'))[0: _MAX_BANNER_LENGTH]
 
 

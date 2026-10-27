@@ -1,5 +1,5 @@
 """
-Copyright 2023, 2024, 2025 Consoli Solutions, LLC.  All rights reserved.
+Copyright 2023, 2024, 2025, 2026 Jack Consoli.  All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
 the License. You may also obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0
@@ -87,15 +87,19 @@ details.
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.0.3     | 19 Oct 2025   | Updated comments only.                                                                |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.4     | 20 Feb 2026   | Updated copyright notice.                                                             |
++-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.5     | 26 Oct 2026   | Replaced deprecated zone-type with zone-type-string                                   |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
-__copyright__ = 'Copyright 2024, 2025 Consoli Solutions, LLC'
-__date__ = '19 Oct 2025'
+__copyright__ = 'Copyright 2024, 2025, 2026 Jack Consoli'
+__date__ = '26 Oct 2026'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack_consoli@yahoo.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.3'
+__version__ = '4.0.5'
 
 import pprint
 import brcdapi.brcdapi_rest as brcdapi_rest
@@ -212,8 +216,8 @@ def create_zones(session, fid, zone_list, echo=False):
     """Add zones to a fabric.
 
     _sample_zone_list = [
-        {'name': 'T0_S0', 'type': 0, 'members': ['Target_0', 'Server_0']},
-        {'name': 'T0_S1', 'type': 1, 'pmembers': ['Target_0'], 'members': ['Server_1', 'Server_2]},
+        {'name': 'T0_S0', 'type': 'zone', 'members': ['Target_0', 'Server_0']},
+        {'name': 'T0_S1', 'type': 'user-created-peer-zone, 'pmembers': ['Target_0'], 'members': ['Server_1', 'Server_2]}
     ]
     :param session: Session object returned from brcdapi.brcdapi_auth.login()
     :type session: dict
@@ -238,8 +242,13 @@ def create_zones(session, fid, zone_list, echo=False):
         members = zone_obj.get('pmembers')
         if isinstance(members, list):
             d.update({'principal-entry-name': members})
-        build_zone_list.append({'zone-name': zone_obj.get('name'), 'zone-type': zone_obj.get('type'),
-                                'member-entry': d})
+        build_zone_list.append(
+            {
+                'zone-name': zone_obj.get('name'),
+                'zone-type-string': zone_obj.get('type'),
+                'member-entry': d
+            }
+        )
     content = {'defined-configuration': {'zone': build_zone_list}}
     obj = brcdapi_rest.send_request(session, 'running/brocade-zone/defined-configuration', 'POST', content, fid)
     _is_error(obj, 'Failed to create zones', echo)

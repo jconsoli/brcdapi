@@ -61,15 +61,18 @@ do anything with prompts and doesn't perform any error checking.
 | 4.0.7     | 01 Aug 2026   | Added 'ssh_last_sent' to session. Used to alleviate calling modules from having to    |
 |           |               | keep track of when the last CLI command was sent.                                     |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.8     | 26 Oct 2026   | Lowered _DEFAULT_WAIT (time to allow CLI to sync up with the API) from 15 to 12       |
+|           |               | seconds.                                                                              |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2024, 2025, 2026 Jack Consoli'
-__date__ = '01 Aug 2026'
+__date__ = '26 Oct 2026'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack_consoli@yahoo.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.7'
+__version__ = '4.0.8'
 
 import time
 import paramiko
@@ -78,10 +81,9 @@ import brcdapi.log as brcdapi_log
 _FOS_CLI = 'fos_cli/'
 _FOS_CLI_LEN = len(_FOS_CLI)
 _DEFAULT_TIMEOUT = 15  # Default timeout in seconds when setting up SSH session in login()
-_DEFAULT_WAIT = 20  # Default number of seconds to sleep waiting for the CLI and API to sync up. IDK what this time
-                    # should be. I discovered the need to do this while setting port configurations via the CLI.
-                    # Measuring the required time would have taken additional time and expirimentation, so I just picked
-                    # a number much greater than I ever had to wait.
+_DEFAULT_WAIT = 12  # Default number of seconds to sleep waiting for the CLI and API to sync up. IDK what this time
+                    # should be. I discovered the need to do this while setting port configurations via the CLI. I just
+                    # picked a number much greater than I ever had to wait and less than the HTTP time out (15 sec).
 
 _verbose_debug = False  # When True, prints data structures. Only useful for debugging.
 

@@ -93,15 +93,17 @@ Not all parameters filled in by fos_auth.login
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.0.5     | 01 Aug 2026   | Removed obsolete HTTP access. Only HTTPS is supported.                                |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.6     | 26 Oct 2026   | Added detailed error message to formatted_error_msg() when input is invalid.          |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2024, 2025, 2026 Jack Consoli'
-__date__ = '01 Aug 2026'
+__date__ = '26 Oct 2026'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack_consoli@yahoo.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.5'
+__version__ = '4.0.6'
 
 import http.client as httplib
 import base64
@@ -207,7 +209,7 @@ def is_error(obj):
     :return: True - there is an error in the object (obj). False - no errors
     :rtype: bool
     """
-    if obj is None:
+    if obj is None or 'brcddb.classes' in str(type(obj)):
         return False
     if not isinstance(obj, dict):
         brcdapi_log.exception('Expected type dict. Received type: ' + str(type(obj)), echo=True)
@@ -283,8 +285,11 @@ def formatted_error_msg(obj):
     if isinstance(obj, dict):
         buf = 'Status: ' + str(obj_status(obj)) + '\nReason: ' + obj_reason(obj) + '\n' + obj_error_detail(obj)
     else:
-        buf = 'Expected type dict. Received type: ', str(type(obj))
+        buf = 'Status: ' + brcdapi_util.HTTP_REASON_MAL_FORMED_OBJ
+        buf += '\nReason: Invalid input object type.'
+        buf += '\nExpected type dict. Received type: ', str(type(obj))
         brcdapi_log.exception(buf, echo=True)
+
     return buf
 
 

@@ -23,6 +23,8 @@ General purpose file operations.
 +=======================+===========================================================================================+
 | file_properties       | Reads the file properties into a dictionary                                               |
 +-----------------------+-------------------------------------------------------------------------------------------+
+| filter_extentions     | Filters a list of files by extension(s)                                                   |
++-----------------------+-------------------------------------------------------------------------------------------+
 | full_file_name        | Checks to see if an extension is already in the file name and adds it if necessary        |
 +-----------------------+-------------------------------------------------------------------------------------------+
 | read_directory        | Reads in the contents of a folder (directory) and return the list of files only (no       |
@@ -68,20 +70,25 @@ General purpose file operations.
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.1.0     | 10 Mar 2026   | Consolidated file operations error messaging                                          |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.1.1     | 26 Oct 2026   | Added filter_extentions(). Modified read_dump() to return a standard FOS error msg.   |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2024, 2025, 2026 Jack Consoli'
-__date__ = '10 Mar 2026'
+__date__ = '26 Oct 2026'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack_consoli@yahoo.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.1.0'
+__version__ = '4.1.1'
 
 import json
 import os
 import chardet
 import brcdapi.log as brcdapi_log
+import brcdapi.util as brcdapi_util
+import brcdapi.fos_auth as fos_auth
+import brcdapi.gen_util as gen_util
 
 
 def write_dump(obj, file):
@@ -116,36 +123,43 @@ def write_dump(obj, file):
 
     return rl
 
+
 def read_dump(file):
     """Reads in a file with JSON formatted data and loads into a Python object.
 
     :param file: Name of JSON file to read
     :type file: str
-    :return: The JSON file converted to standard Python data types. None if an error was encountered
+    :return: The JSON file converted to standard Python data types. Standard FOS error format if an error occured.
     :rtype: dict, list, None
     """
-    obj = None
+    # A somewhat arbitrary initialization of the return object. This gets over written if the file name is a string
+    error_buf = 'Invalid file name. File name must be a string, not ' + str(type(file))
+    obj = fos_auth.create_error(
+        brcdapi_util.HTTP_BAD_REQUEST,
+        'Programming Error.',
+        [error_buf, 'For details, search the log for "EXCEPTION:"']  # Exception printed to log if file is not str
+    )
 
-    if not isinstance(file, str):
-        brcdapi_log.exception('Invalid file name. File name must be a string, not ' + str(type(file)), echo=True)
-        return obj
+    if isinstance(file, str):
+        try:
+            f = open(file, 'r')
+            obj = json.load(f)
+            f.close()
+        except FileNotFoundError:
+            obj = fos_auth.create_error(brcdapi_util.HTTP_NOT_FOUND, file + ' does not exist.', None)
+        except FileExistsError:
+            obj = fos_auth.create_error(brcdapi_util.HTTP_NOT_FOUND, 'A folder in ' + file + ' does not exist.', None)
+        except PermissionError:
+            obj = fos_auth.create_error(brcdapi_util.HTTP_FORBIDDEN, 'Permission error reading: ' + file + '.', None)
+        except BaseException as e:
+            obj = fos_auth.create_error(
+                brcdapi_util.HTTP_INT_SERVER_ERROR,
+                'Unknown error reading: ' + file + '.',
+                ['This is typically due an invalid JSON file format.', 'Python error message:', str(e)]
+            )
 
-    try:
-        f = open(file, 'r')
-        obj = json.load(f)
-        f.close()
-    except FileNotFoundError:
-        brcdapi_log.log(file + ' does not exist.', echo=True)
-        return None
-    except FileExistsError:
-        brcdapi_log.log('A folder in ' + file + ' does not exist.', echo=True)
-        return None
-    except PermissionError:
-        brcdapi_log.log('Permission error reading: ' + file + '.', echo=True)
-        return None
-    except BaseException as e:
-        brcdapi_log.log(['Unknown error reading: ' + file + '. Error is:', str(e)], echo=True)
-        return None
+    else:
+        brcdapi_log.exception(error_buf)
 
     return obj
 
@@ -327,6 +341,26 @@ def file_properties(folder, file):
         permission_x=os.access(file, os.X_OK),
         permission_f=os.access(file, os.F_OK)
     )
+
+
+def filter_extentions(in_file_l, in_filter_l):
+    """Returns a list of in_file_l with just the extensions in in_filter_l
+
+    :param in_file_l: File or files to filter
+    :type in_file_l: str, list, tuple
+    :param in_filter_l: Filter or list of filters. DO NOT INCLUDE "."
+    :type in_filter_l: str, list, tuple
+    :return: Filtered list of files.
+    :rtype: list
+    """
+    return_l = list()
+    filter_l = gen_util.convert_to_list(in_filter_l)
+    for in_file in gen_util.convert_to_list(in_file_l):
+        temp_l = in_file.split('.')
+        if len(temp_l) > 1 and temp_l[len(temp_l) - 1] in filter_l:
+            return_l.append(in_file)
+
+    return return_l
 
 
 def read_full_directory(folder, skip_sys=False):

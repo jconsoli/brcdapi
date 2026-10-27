@@ -80,15 +80,17 @@ details.
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.0.8     | 01 Aug 2026   | Remove CLI wait. This is now done automatically in brcdapi.brcdapi_rest               |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.0.9     | 26 Oct 2026   | Fixed bug, PODs not getting released, in release_pod()                                |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2024, 2025, 2026 Jack Consoli'
-__date__ = '01 Aug 2026'
+__date__ = '26 Oct 2026'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack_consoli@yahoo.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.0.8'
+__version__ = '4.0.9'
 
 import collections
 import brcdapi.util as brcdapi_util
@@ -602,7 +604,7 @@ def release_pod(session, fid, i_ports_l, echo=False, best=False):
     r_obj = None
 
     port_l = ports_to_list(i_ports_l)
-    if len(port_l) > 0:
+    if len(port_l) == 0:
         return brcdapi_util.GOOD_STATUS_OBJ
 
     content_l = [{'name': p, 'pod-license-state': 'released'} for p in port_l]
@@ -833,7 +835,7 @@ def bind_addresses(session, fid, port_d, echo=False, best=False):
     if fos_auth.is_error(obj)and best and len(port_l) > 1:
         brcdapi_log.log('Attempting to bind addresses one port at a time.', echo=echo)
         for port in port_l:
-            p_obj = bind_addresses(session, fid, {port: port_d[port]}, echo=echo, best=best)
+            p_obj = bind_addresses(session, fid, {port: port['name']}, echo=echo, best=best)
             if fos_auth.is_error(p_obj):
                 buf_l = [
                     'ERROR: binding address for port: ' + port + '. FOS error message:',
