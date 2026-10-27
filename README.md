@@ -3,6 +3,11 @@
 Jack Consoli
 jack_consoli@yahoo.com
 
+**26 Oct 2026**
+* Added more error checking
+* Added more verbose error messages
+* Added filtering to file names
+
 **02 Aug 2026**
 * Updates for FOS 10, Gen 8
 
