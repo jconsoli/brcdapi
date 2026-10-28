@@ -3,7 +3,7 @@
 Jack Consoli
 jack_consoli@yahoo.com
 
-**26 Oct 2026**
+**28 Oct 2026**
 * Added more error checking
 * Added more verbose error messages
 * Added filtering to file names
