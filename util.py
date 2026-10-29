@@ -116,15 +116,17 @@ module: brocade-traffic-class
 +-----------+---------------+---------------------------------------------------------------------------------------+
 | 4.1.2     | 26 Oct 2026   | Added hyphen, "-", to _valid_motd and made it the replacement character.              |
 +-----------+---------------+---------------------------------------------------------------------------------------+
+| 4.1.3     | 29 Oct 2026   | Added fdmi_node_sn.                                                                   |
++-----------+---------------+---------------------------------------------------------------------------------------+
 """
 __author__ = 'Jack Consoli'
 __copyright__ = 'Copyright 2024, 2025, 2026 Jack Consoli'
-__date__ = '26 Oct 2026'
+__date__ = '29 Oct 2026'
 __license__ = 'Apache License, Version 2.0'
 __email__ = 'jack_consoli@yahoo.com'
 __maintainer__ = 'Jack Consoli'
 __status__ = 'Released'
-__version__ = '4.1.2'
+__version__ = '4.1.3'
 
 import sys
 import types
@@ -363,11 +365,11 @@ ficon_sw_rnid_seq = ficon_sw_rnid + '/sequence-number'
 ficon_sw_rnid_tag = ficon_sw_rnid + '/tag'
 
 # Commonly used URIs: media-rdp
+# Local (switch port)
 sfp_speed = 'media-rdp/media-speed-capability/speed'
 sfp_wave = 'media-rdp/wavelength'
 sfp_vendor = 'media-rdp/vendor-name'
 sfp_sn = 'media-rdp/serial-number'
-sfp_remote_sn = 'media-rdp/remote-optical-product-data/serial-number'
 sfp_oui = 'media-rdp/vendor-oui'
 sfp_pn = 'media-rdp/part-number'
 sfp_volt = 'media-rdp/voltage'
@@ -378,6 +380,7 @@ sfp_tx_pwr = 'media-rdp/tx-power'
 sfp_state = 'media-rdp/physical-state'
 sfp_distance = 'media-rdp/media-distance/distance'
 sfp_power_on = 'media-rdp/power-on-time'
+# Remote (attached device optics)
 sfp_remote_sn = 'media-rdp/remote-optical-product-data/serial-number'
 sfp_remote_speed = 'media-rdp/remote-media-speed-capability/speed'
 sfp_cur_high_alarm = 'media-rdp/remote-media-tx-bias-alert/high-alarm'
@@ -504,9 +507,10 @@ bz_eff_trans_token = bz_eff + '/transaction-token'
 bz_eff_db_chassis_committed = bz_eff + '/db-chassis-wide-committed'
 # Commonly used URIs: brocade-fdmi
 fdmi_port = 'brocade-fdmi/port'
+fdmi_port_sym = fdmi_port + '/port-symbolic-name'
 fdmi_hba = 'brocade-fdmi/hba'
-fdmi_port_sym = 'brocade-fdmi/port-symbolic-name'
-fdmi_node_sym = 'brocade-fdmi/node-symbolic-name'
+fdmi_node_sn = fdmi_hba + '/serial-number'
+fdmi_node_sym = fdmi_hba + '/node-symbolic-name'
 # Commonly used URIs: brocade-fibrechannel-routing
 bfr_uri = 'brocade-fibrechannel-routing'
 bfr_rc = bfr_uri + '/routing-configuration'
